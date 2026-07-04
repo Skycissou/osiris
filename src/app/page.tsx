@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
-import { Globe, MapPinned, Satellite, Moon } from 'lucide-react';
+import { Globe, MapPinned } from 'lucide-react';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { search, buildMapData, type SearchResponse, type PlotPoint } from '@/lib/api';
 
@@ -67,7 +67,11 @@ export default function Dashboard() {
   const [flyToLocation, setFlyToLocation] = useState<{ lat: number; lng: number; ts: number } | null>(null);
   const [locationLabel, setLocationLabel] = useState('');
   const [mapProjection, setMapProjection] = useState<'globe' | 'mercator'>('mercator');
-  const [mapStyle, setMapStyle] = useState<'dark' | 'satellite'>('dark');
+  // Fonds : Sombre (CARTO) → Plan IGN → Ortho IGN → Satellite (cycle).
+  const BASEMAPS = ['dark', 'ign', 'ortho', 'satellite'] as const;
+  const BASEMAP_LABEL: Record<string, string> = { dark: 'SOMBRE', ign: 'PLAN IGN', ortho: 'ORTHO', satellite: 'SAT' };
+  const [mapStyle, setMapStyle] = useState<'dark' | 'satellite' | 'ign' | 'ortho'>('dark');
+  const [cadastre, setCadastre] = useState(false);
   const [activeLayers, setActiveLayers] = useState<Record<string, boolean>>(DEFAULT_LAYERS);
 
   // ── Recherche cible (search-first) : appelle le backend puis plotte ──
@@ -194,6 +198,7 @@ export default function Dashboard() {
           activeLayers={activeLayers}
           projection={mapProjection}
           mapStyle={mapStyle}
+          cadastre={cadastre}
           onMouseCoords={handleMouseCoords}
           onRightClick={handleRightClick}
           flyToLocation={flyToLocation}
@@ -267,13 +272,18 @@ export default function Dashboard() {
             : <Globe className="w-5 h-5 text-[var(--cyan-primary)] group-hover:scale-110 transition-transform" />}
         </button>
         <button
-          onClick={() => setMapStyle((s) => (s === 'dark' ? 'satellite' : 'dark'))}
-          className="glass-panel p-3.5 pointer-events-auto hover:border-[var(--gold-primary)]/40 transition-colors group"
-          title={mapStyle === 'dark' ? 'Vue satellite' : 'Vue nuit'}
+          onClick={() => setMapStyle((s) => BASEMAPS[(BASEMAPS.indexOf(s) + 1) % BASEMAPS.length])}
+          className="glass-panel px-3 py-2 pointer-events-auto hover:border-[var(--gold-primary)]/40 transition-colors text-[9px] font-mono tracking-widest text-[var(--cyan-primary)] min-w-[72px]"
+          title="Changer de fond de carte (Sombre / Plan IGN / Ortho / Satellite)"
         >
-          {mapStyle === 'dark'
-            ? <Satellite className="w-5 h-5 text-[var(--alert-green)] group-hover:scale-110 transition-transform" />
-            : <Moon className="w-5 h-5 text-[var(--cyan-primary)] group-hover:scale-110 transition-transform" />}
+          {BASEMAP_LABEL[mapStyle]}
+        </button>
+        <button
+          onClick={() => setCadastre((c) => !c)}
+          className={`glass-panel px-3 py-2 pointer-events-auto hover:border-[var(--gold-primary)]/40 transition-colors text-[9px] font-mono tracking-widest ${cadastre ? 'text-[var(--gold-primary)] border-[var(--gold-primary)]/50' : 'text-[var(--text-muted)]'}`}
+          title="Surcouche cadastre IGN (parcelles)"
+        >
+          CAD
         </button>
         <button
           onClick={() => setFlyToLocation({ lat: 46.6, lng: 2.35, ts: Date.now() })}

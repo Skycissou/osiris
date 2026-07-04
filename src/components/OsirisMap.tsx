@@ -23,8 +23,10 @@ interface OsirisMapProps {
   onViewStateChange?: (vs: { zoom: number; latitude: number }) => void;
   flyToLocation?: { lat: number; lng: number; ts: number } | null;
   projection?: 'mercator' | 'globe';
-  /** 'dark' = basemap CARTO dark · autre = calque raster satellite. */
+  /** Fond : 'dark' (CARTO) · 'satellite' (ArcGIS) · 'ign' (Plan IGN) · 'ortho' (ortho IGN). */
   mapStyle?: string;
+  /** Surcouche cadastre IGN (parcelles), indépendante du fond. */
+  cadastre?: boolean;
 }
 
 // Terminateur solaire jour/nuit (couche optionnelle) — géométrie polygonale.
@@ -99,6 +101,7 @@ function OsirisMap({
   flyToLocation,
   projection = 'mercator',
   mapStyle = 'dark',
+  cadastre = false,
 }: OsirisMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -350,33 +353,71 @@ function OsirisMap({
     }
   }, [mapReady, projection]);
 
-  // ── Bascule style dark / satellite (calque raster ArcGIS) ──
+  // ── Fonds raster empilables (satellite ArcGIS + Plan IGN + Ortho IGN) ──
+  // Chaque fond = un calque raster inséré SOUS les points (avant day-night-fill).
+  // Un seul visible à la fois selon `mapStyle` ; 'dark' = aucun (CARTO seul).
+  const RASTER_BASES: Record<string, { tiles: string; tileSize: number; maxzoom: number; opacity: number }> = {
+    satellite: {
+      tiles: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      tileSize: 256, maxzoom: 18, opacity: 0.85,
+    },
+    // IGN Géoplateforme — WMTS gratuit sans clé (TileMatrixSet PM = z/x/y standard).
+    ign: {
+      tiles: 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+      tileSize: 256, maxzoom: 19, opacity: 1,
+    },
+    ortho: {
+      tiles: 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+      tileSize: 256, maxzoom: 19, opacity: 1,
+    },
+  };
+
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     if (mapStyle === prevStyleRef.current) return;
     prevStyleRef.current = mapStyle;
     const map = mapRef.current;
     try {
-      if (mapStyle !== 'dark') {
-        if (!map.getSource('satellite-tiles')) {
-          map.addSource('satellite-tiles', {
-            type: 'raster',
-            tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-            tileSize: 256,
-            maxzoom: 18,
-          });
-          const firstLayer = map.getLayer('day-night-fill') ? 'day-night-fill' : undefined;
-          map.addLayer({ id: 'satellite-layer', type: 'raster', source: 'satellite-tiles', paint: { 'raster-opacity': 0.85 } }, firstLayer);
-        } else {
-          map.setLayoutProperty('satellite-layer', 'visibility', 'visible');
+      const anchor = map.getLayer('day-night-fill') ? 'day-night-fill' : undefined;
+      for (const [key, cfg] of Object.entries(RASTER_BASES)) {
+        const layerId = `base-${key}`;
+        const active = mapStyle === key;
+        if (active && !map.getSource(`src-${key}`)) {
+          map.addSource(`src-${key}`, { type: 'raster', tiles: [cfg.tiles], tileSize: cfg.tileSize, maxzoom: cfg.maxzoom });
+          map.addLayer({ id: layerId, type: 'raster', source: `src-${key}`, paint: { 'raster-opacity': cfg.opacity } }, anchor);
+        } else if (map.getLayer(layerId)) {
+          map.setLayoutProperty(layerId, 'visibility', active ? 'visible' : 'none');
         }
-      } else if (map.getLayer('satellite-layer')) {
-        map.setLayoutProperty('satellite-layer', 'visibility', 'none');
       }
     } catch (e) {
       console.warn('[OSIRIS] Style switch failed:', e);
     }
   }, [mapReady, mapStyle]);
+
+  // ── Surcouche CADASTRE IGN (parcelles) — indépendante, au-dessus du fond ──
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const map = mapRef.current;
+    try {
+      const anchor = map.getLayer('day-night-fill') ? 'day-night-fill' : undefined;
+      if (cadastre) {
+        if (!map.getSource('src-cadastre')) {
+          map.addSource('src-cadastre', {
+            type: 'raster',
+            tiles: ['https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=CADASTRALPARCELS.PARCELLAIRE_EXPRESS&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}'],
+            tileSize: 256, maxzoom: 19,
+          });
+          map.addLayer({ id: 'cadastre-layer', type: 'raster', source: 'src-cadastre', paint: { 'raster-opacity': 0.7 } }, anchor);
+        } else {
+          map.setLayoutProperty('cadastre-layer', 'visibility', 'visible');
+        }
+      } else if (map.getLayer('cadastre-layer')) {
+        map.setLayoutProperty('cadastre-layer', 'visibility', 'none');
+      }
+    } catch (e) {
+      console.warn('[OSIRIS] Cadastre toggle failed:', e);
+    }
+  }, [mapReady, cadastre]);
 
   return <div ref={containerRef} className="absolute inset-0 w-full h-full" />;
 }
