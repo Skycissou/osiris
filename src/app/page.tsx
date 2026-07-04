@@ -11,6 +11,7 @@ const OsirisMap = dynamic(() => import('@/components/OsirisMap'), { ssr: false }
 const LayerPanel = dynamic(() => import('@/components/LayerPanel'));
 const SearchBar = dynamic(() => import('@/components/SearchBar'), { ssr: false });
 const ResultsPanel = dynamic(() => import('@/components/ResultsPanel'), { ssr: false });
+const LoginGate = dynamic(() => import('@/components/LoginGate'), { ssr: false });
 
 // Couches FR (stub) — clés canoniques partagées avec LayerPanel + OsirisMap.
 const DEFAULT_LAYERS: Record<string, boolean> = {
@@ -42,6 +43,18 @@ function useIsMobile() {
 }
 
 export default function Dashboard() {
+  // Auth : null = en cours de check, false = login requis, true = cockpit.
+  // Le cookie de session est httponly (illisible en JS) → on garde un flag
+  // souple en localStorage ; un 401 sur /search y ramène (session expirée).
+  const [authed, setAuthed] = useState<boolean | null>(null);
+  useEffect(() => {
+    setAuthed(typeof window !== 'undefined' && localStorage.getItem('osiris_authed') === '1');
+  }, []);
+  const handleAuthed = useCallback(() => {
+    if (typeof window !== 'undefined') localStorage.setItem('osiris_authed', '1');
+    setAuthed(true);
+  }, []);
+
   // Points plottés par couche fr_* (issus de la recherche backend → api.buildMapData).
   const [data, setData] = useState<Record<string, PlotPoint[]>>({});
   // Réponse brute de la dernière recherche (alimente le panneau résultats).
@@ -82,7 +95,14 @@ export default function Dashboard() {
         setFlyToLocation({ lat: p.lat, lng: p.lng, ts: Date.now() });
       }
     } catch (e) {
-      setSearchError(e instanceof Error ? e.message : 'Erreur inconnue');
+      const msg = e instanceof Error ? e.message : 'Erreur inconnue';
+      // Session expirée / non authentifié → retour à l'écran de login.
+      if (msg.includes('401')) {
+        if (typeof window !== 'undefined') localStorage.removeItem('osiris_authed');
+        setAuthed(false);
+        return;
+      }
+      setSearchError(msg);
       setResponse(null);
       setPlottedCount(null);
     } finally {
@@ -160,6 +180,10 @@ export default function Dashboard() {
   const handleRightClick = useCallback((_coords: { lat: number; lng: number }) => {
     // TODO: appeler le backend FR (dossier de zone) via src/lib/api.ts.
   }, []);
+
+  // Écran d'accès tant que non authentifié (null = check en cours → rien).
+  if (authed === null) return <main className="fixed inset-0 bg-[var(--bg-void)]" />;
+  if (!authed) return <LoginGate onAuthed={handleAuthed} />;
 
   return (
     <main className="fixed inset-0 w-full h-full bg-[var(--bg-void)] overflow-hidden">
