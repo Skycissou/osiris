@@ -160,10 +160,12 @@ function OsirisMap({
       attributionControl: false,
       maxPitch: 85,
       transformRequest: (url: string) => {
-        // Toutes les requêtes CARTO CDN passent par le proxy interne Next.js.
+        // Requêtes CARTO CDN → proxy interne Next.js `/proxy-tiles`.
+        // NB: PAS sous `/api` — en prod, Traefik route `/api/*` vers le FastAPI ;
+        // le proxy de tuiles doit rester servi par le front Next.
         if (url.includes('cartocdn.com')) {
           const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-          return { url: `${baseUrl}/api/proxy-tiles?url=${encodeURIComponent(url)}` };
+          return { url: `${baseUrl}/proxy-tiles?url=${encodeURIComponent(url)}` };
         }
         return { url };
       },
