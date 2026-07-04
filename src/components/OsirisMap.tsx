@@ -23,8 +23,10 @@ interface OsirisMapProps {
   onViewStateChange?: (vs: { zoom: number; latitude: number }) => void;
   flyToLocation?: { lat: number; lng: number; ts: number } | null;
   projection?: 'mercator' | 'globe';
-  /** Fond : 'dark' (CARTO) · 'satellite' (ArcGIS) · 'ign' (Plan IGN) · 'ortho' (ortho IGN). */
+  /** Fond : 'dark' (CARTO) · 'satellite' (ArcGIS) · 'ign' (Plan IGN) · 'scan25' · 'ortho' (ortho IGN). */
   mapStyle?: string;
+  /** Couche historique IGN empilée AU-DESSUS du fond moderne (un seul visible, 'none' = aucune). */
+  histLayer?: string;
   /** Surcouche cadastre IGN (parcelles), indépendante du fond. */
   cadastre?: boolean;
 }
@@ -51,6 +53,55 @@ function computeSolarTerminator(): [number, number][] {
 }
 
 const EMPTY_FC = { type: 'FeatureCollection' as const, features: [] };
+
+// ── Fabrique d'URL de tuiles WMTS Géoplateforme IGN (data.geopf.fr) ──
+// Gratuit sans clé · TileMatrixSet PM = z/x/y standard (compatible MapLibre).
+const wmts = (layer: string, format: string) =>
+  `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layer}` +
+  `&STYLE=normal&FORMAT=${format}&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}`;
+
+// ── Fonds raster empilables (satellite ArcGIS + fonds IGN modernes) ──
+// Chaque fond = un calque raster inséré SOUS les points/historique. Un seul
+// visible selon `mapStyle` ; 'dark' = aucun (CARTO seul).
+const RASTER_BASES: Record<string, { tiles: string; tileSize: number; maxzoom: number; opacity: number }> = {
+  satellite: {
+    tiles: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    tileSize: 256, maxzoom: 18, opacity: 0.85,
+  },
+  ign: { tiles: wmts('GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2', 'image/png'), tileSize: 256, maxzoom: 19, opacity: 1 },
+  scan25: { tiles: wmts('GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR', 'image/jpeg'), tileSize: 256, maxzoom: 16, opacity: 1 },
+  ortho: { tiles: wmts('ORTHOIMAGERY.ORTHOPHOTOS', 'image/jpeg'), tileSize: 256, maxzoom: 19, opacity: 1 },
+};
+
+// ── Couches HISTORIQUES IGN (remonter le temps) — empilées AU-DESSUS du fond ──
+// Un seul visible selon `histLayer` ; 'none' = aucune. Opacity 1 (masque le fond).
+const HIST_LAYERS: Record<string, { tiles: string; tileSize: number; maxzoom: number }> = {
+  ortho1950: { tiles: wmts('ORTHOIMAGERY.ORTHOPHOTOS.1950-1965', 'image/png'), tileSize: 256, maxzoom: 18 },
+  scan50: { tiles: wmts('GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN50.1950', 'image/jpeg'), tileSize: 256, maxzoom: 15 },
+  etatmajor: { tiles: wmts('GEOGRAPHICALGRIDSYSTEMS.ETATMAJOR40', 'image/jpeg'), tileSize: 256, maxzoom: 15 },
+  cassini: { tiles: wmts('GEOGRAPHICALGRIDSYSTEMS.CASSINI', 'image/jpeg'), tileSize: 256, maxzoom: 14 },
+};
+
+// Ids MapLibre des rasters, du plus bas au plus haut (fond < historique < cadastre).
+const MODERN_BASE_IDS = Object.keys(RASTER_BASES).map((k) => `base-${k}`);
+const HIST_IDS = Object.keys(HIST_LAYERS).map((k) => `hist-${k}`);
+
+// ── Garant de l'ORDRE DE PEINTURE des rasters (bas → haut) ──
+// fond moderne < historique < cadastre < [day-night-fill] < points de données.
+// On déplace chaque raster juste SOUS la 1ʳᵉ couche de données (day-night-fill),
+// dans l'ordre voulu : le dernier déplacé finit le plus haut (juste sous l'ancre).
+function restackRasters(map: maplibregl.Map) {
+  const anchor = map.getLayer('day-night-fill')
+    ? 'day-night-fill'
+    : FR_LAYERS.map((l) => l.layer).find((id) => map.getLayer(id));
+  if (!anchor) return;
+  const order = [...MODERN_BASE_IDS, ...HIST_IDS, 'cadastre-layer'];
+  for (const id of order) {
+    if (map.getLayer(id)) {
+      try { map.moveLayer(id, anchor); } catch { /* couche absente/ordre déjà bon */ }
+    }
+  }
+}
 
 // Centre par défaut : France métropolitaine.
 const DEFAULT_CENTER: [number, number] = [2.35, 46.6];
@@ -101,6 +152,7 @@ function OsirisMap({
   flyToLocation,
   projection = 'mercator',
   mapStyle = 'dark',
+  histLayer = 'none',
   cadastre = false,
 }: OsirisMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -353,25 +405,9 @@ function OsirisMap({
     }
   }, [mapReady, projection]);
 
-  // ── Fonds raster empilables (satellite ArcGIS + Plan IGN + Ortho IGN) ──
-  // Chaque fond = un calque raster inséré SOUS les points (avant day-night-fill).
-  // Un seul visible à la fois selon `mapStyle` ; 'dark' = aucun (CARTO seul).
-  const RASTER_BASES: Record<string, { tiles: string; tileSize: number; maxzoom: number; opacity: number }> = {
-    satellite: {
-      tiles: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      tileSize: 256, maxzoom: 18, opacity: 0.85,
-    },
-    // IGN Géoplateforme — WMTS gratuit sans clé (TileMatrixSet PM = z/x/y standard).
-    ign: {
-      tiles: 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
-      tileSize: 256, maxzoom: 19, opacity: 1,
-    },
-    ortho: {
-      tiles: 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
-      tileSize: 256, maxzoom: 19, opacity: 1,
-    },
-  };
-
+  // ── Fonds raster modernes (satellite ArcGIS + Plan IGN + SCAN25 + Ortho IGN) ──
+  // Config déplacée en module scope (RASTER_BASES). Chaque fond = un calque raster
+  // sous l'historique/les points ; un seul visible selon `mapStyle` ('dark' = aucun).
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     if (mapStyle === prevStyleRef.current) return;
@@ -389,10 +425,34 @@ function OsirisMap({
           map.setLayoutProperty(layerId, 'visibility', active ? 'visible' : 'none');
         }
       }
+      restackRasters(map); // fond < historique < cadastre < points
     } catch (e) {
       console.warn('[OSIRIS] Style switch failed:', e);
     }
   }, [mapReady, mapStyle]);
+
+  // ── Couche HISTORIQUE IGN (remonter le temps) — au-dessus du fond, sous le cadastre ──
+  // Un seul calque visible selon `histLayer` ; 'none' = aucune (fond moderne seul).
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const map = mapRef.current;
+    try {
+      const anchor = map.getLayer('day-night-fill') ? 'day-night-fill' : undefined;
+      for (const [key, cfg] of Object.entries(HIST_LAYERS)) {
+        const layerId = `hist-${key}`;
+        const active = histLayer === key;
+        if (active && !map.getSource(`histsrc-${key}`)) {
+          map.addSource(`histsrc-${key}`, { type: 'raster', tiles: [cfg.tiles], tileSize: cfg.tileSize, maxzoom: cfg.maxzoom });
+          map.addLayer({ id: layerId, type: 'raster', source: `histsrc-${key}`, paint: { 'raster-opacity': 1 } }, anchor);
+        } else if (map.getLayer(layerId)) {
+          map.setLayoutProperty(layerId, 'visibility', active ? 'visible' : 'none');
+        }
+      }
+      restackRasters(map); // fond < historique < cadastre < points
+    } catch (e) {
+      console.warn('[OSIRIS] Hist toggle failed:', e);
+    }
+  }, [mapReady, histLayer]);
 
   // ── Surcouche CADASTRE IGN (parcelles) — indépendante, au-dessus du fond ──
   useEffect(() => {
@@ -414,6 +474,7 @@ function OsirisMap({
       } else if (map.getLayer('cadastre-layer')) {
         map.setLayoutProperty('cadastre-layer', 'visibility', 'none');
       }
+      restackRasters(map); // garantit cadastre au-dessus du fond ET de l'historique
     } catch (e) {
       console.warn('[OSIRIS] Cadastre toggle failed:', e);
     }

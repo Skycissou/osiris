@@ -67,10 +67,14 @@ export default function Dashboard() {
   const [flyToLocation, setFlyToLocation] = useState<{ lat: number; lng: number; ts: number } | null>(null);
   const [locationLabel, setLocationLabel] = useState('');
   const [mapProjection, setMapProjection] = useState<'globe' | 'mercator'>('mercator');
-  // Fonds : Sombre (CARTO) → Plan IGN → Ortho IGN → Satellite (cycle).
-  const BASEMAPS = ['dark', 'ign', 'ortho', 'satellite'] as const;
-  const BASEMAP_LABEL: Record<string, string> = { dark: 'SOMBRE', ign: 'PLAN IGN', ortho: 'ORTHO', satellite: 'SAT' };
-  const [mapStyle, setMapStyle] = useState<'dark' | 'satellite' | 'ign' | 'ortho'>('dark');
+  // Fonds : Sombre (CARTO) → Plan IGN → SCAN25 → Ortho IGN → Satellite (cycle).
+  const BASEMAPS = ['dark', 'ign', 'scan25', 'ortho', 'satellite'] as const;
+  const BASEMAP_LABEL: Record<string, string> = { dark: 'SOMBRE', ign: 'PLAN IGN', scan25: 'SCAN25', ortho: 'ORTHO', satellite: 'SAT' };
+  const [mapStyle, setMapStyle] = useState<'dark' | 'satellite' | 'ign' | 'scan25' | 'ortho'>('dark');
+  // Couche historique (remonter le temps) : ACTUEL → 1950 photo → CARTE 1950 → État-major → Cassini.
+  const HISTMAPS = ['none', 'ortho1950', 'scan50', 'etatmajor', 'cassini'] as const;
+  const HISTMAP_LABEL: Record<string, string> = { none: 'ACTUEL', ortho1950: '1950 (photo)', scan50: 'CARTE 1950', etatmajor: 'ÉTAT-MAJOR', cassini: 'CASSINI' };
+  const [histLayer, setHistLayer] = useState<'none' | 'ortho1950' | 'scan50' | 'etatmajor' | 'cassini'>('none');
   const [cadastre, setCadastre] = useState(false);
   const [activeLayers, setActiveLayers] = useState<Record<string, boolean>>(DEFAULT_LAYERS);
 
@@ -198,6 +202,7 @@ export default function Dashboard() {
           activeLayers={activeLayers}
           projection={mapProjection}
           mapStyle={mapStyle}
+          histLayer={histLayer}
           cadastre={cadastre}
           onMouseCoords={handleMouseCoords}
           onRightClick={handleRightClick}
@@ -277,6 +282,13 @@ export default function Dashboard() {
           title="Changer de fond de carte (Sombre / Plan IGN / Ortho / Satellite)"
         >
           {BASEMAP_LABEL[mapStyle]}
+        </button>
+        <button
+          onClick={() => setHistLayer((h) => HISTMAPS[(HISTMAPS.indexOf(h) + 1) % HISTMAPS.length])}
+          className={`glass-panel px-3 py-2 pointer-events-auto hover:border-[var(--gold-primary)]/40 transition-colors text-[9px] font-mono tracking-widest min-w-[72px] ${histLayer !== 'none' ? 'text-[var(--gold-primary)] border-[var(--gold-primary)]/50' : 'text-[var(--text-muted)]'}`}
+          title="Remonter le temps (Actuel / 1950 photo / Carte 1950 / État-major / Cassini)"
+        >
+          {HISTMAP_LABEL[histLayer]}
         </button>
         <button
           onClick={() => setCadastre((c) => !c)}
