@@ -54,6 +54,41 @@ const EMPTY_FC = { type: 'FeatureCollection' as const, features: [] };
 const DEFAULT_CENTER: [number, number] = [2.35, 46.6];
 const DEFAULT_ZOOM = 5.2;
 
+// ── Couches de résultats FR (search-first) ──
+// clé = toggle sidebar (activeLayers) ; src/layer = ids MapLibre ; color = pastille.
+// data[key] doit être un tableau de points { lat, lng, card } (cf. api.buildMapData).
+const FR_LAYERS: { key: string; src: string; layer: string; color: string; label: string }[] = [
+  { key: 'fr_entreprises', src: 'fr-entreprises', layer: 'fr-entreprises-dots', color: '#D4AF37', label: 'Entreprise' },
+  { key: 'fr_bodacc', src: 'fr-bodacc', layer: 'fr-bodacc-dots', color: '#EC407A', label: 'BODACC' },
+  { key: 'fr_dvf', src: 'fr-dvf', layer: 'fr-dvf-dots', color: '#26C6DA', label: 'Valeur foncière' },
+  { key: 'fr_ban', src: 'fr-ban', layer: 'fr-ban-dots', color: '#7E57C2', label: 'Adresse (BAN)' },
+  { key: 'fr_rna', src: 'fr-rna', layer: 'fr-rna-dots', color: '#66BB6A', label: 'Association' },
+];
+
+// Style inline des popups FR (aligné sur le popup helper du châssis).
+const POPUP_STYLE =
+  "background:rgba(12,14,26,0.95);backdrop-filter:blur(16px);border-radius:10px;padding:16px;font-family:'JetBrains Mono',monospace;";
+
+// Point plotté minimal attendu dans data[fr_*] (cf. api.PlotPoint).
+interface FrPlotRow {
+  lat: number;
+  lng: number;
+  card?: {
+    title?: string;
+    subtitle?: string;
+    summary?: string;
+    source_label?: string;
+  };
+}
+
+function escapeHtml(v: unknown): string {
+  return String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function OsirisMap({
   data = {},
   activeLayers,
@@ -70,6 +105,10 @@ function OsirisMap({
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const prevStyleRef = useRef(mapStyle);
+  // Ref sur onEntityClick : les handlers de clic sont posés une seule fois au
+  // chargement, la ref évite de capturer une prop périmée (MAJ hors render).
+  const onEntityClickRef = useRef(onEntityClick);
+  useEffect(() => { onEntityClickRef.current = onEntityClick; }, [onEntityClick]);
 
   // ── Générateur d'icône "avion" sur canvas (gabarit symbole WebGL) ──
   const createIcon = useCallback((map: maplibregl.Map, id: string, color: string, size: number) => {
@@ -141,17 +180,51 @@ function OsirisMap({
       map.addSource('day-night', { type: 'geojson', data: EMPTY_FC });
       map.addLayer({ id: 'day-night-fill', type: 'fill', source: 'day-night', paint: { 'fill-color': '#000022', 'fill-opacity': 0.35 } });
 
-      // ─── GABARIT VIDE — À DÉCOMMENTER PAR COUCHE FR ───────────────────
-      // Chaque couche FR suit ce patron : 1 source geojson + 1..n addLayer.
-      // Ex. couche "Entreprises" (points) :
-      //
-      // map.addSource('fr-entreprises', { type: 'geojson', data: EMPTY_FC });
-      // map.addLayer({ id: 'fr-entreprises-dots', type: 'circle', source: 'fr-entreprises', paint: {
-      //   'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 3, 12, 8],
-      //   'circle-color': '#D4AF37', 'circle-opacity': 0.85,
-      //   'circle-stroke-width': 1, 'circle-stroke-color': '#000',
-      // }});
-      // → alimentée plus bas par un useEffect(setGeo('fr-entreprises', ...)).
+      // ─── COUCHES DE RÉSULTATS FR (search-first) ───────────────────────
+      // 1 source geojson + 1 couche circle par type de résultat. Alimentées
+      // plus bas par useEffect(setGeo(...)) à partir de `data` (points plottés).
+      FR_LAYERS.forEach(({ src, layer, color }) => {
+        map.addSource(src, { type: 'geojson', data: EMPTY_FC });
+        map.addLayer({
+          id: layer,
+          type: 'circle',
+          source: src,
+          paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 4, 12, 9],
+            'circle-color': color,
+            'circle-opacity': 0.85,
+            'circle-stroke-width': 1.5,
+            'circle-stroke-color': '#04040A',
+          },
+          layout: { visibility: 'none' },
+        });
+
+        // Popup au clic : label + type + infos clés de la carte.
+        map.on('click', layer, (e) => {
+          const f = e.features?.[0];
+          if (!f) return;
+          const p = f.properties || {};
+          const geom = f.geometry;
+          const coords = geom && geom.type === 'Point'
+            ? (geom.coordinates as [number, number])
+            : [e.lngLat.lng, e.lngLat.lat];
+          const summary = String(p.summary || '').split('\n').map(escapeHtml).join('<br>');
+          const html =
+            `<div style="${POPUP_STYLE}">` +
+            `<div style="color:${color};font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">${escapeHtml(p.typeLabel)}</div>` +
+            `<div style="color:#fff;font-size:14px;font-weight:600;margin-bottom:4px;">${escapeHtml(p.title)}</div>` +
+            (p.subtitle ? `<div style="color:#8aa;font-size:11px;margin-bottom:6px;">${escapeHtml(p.subtitle)}</div>` : '') +
+            (summary ? `<div style="color:#cdd;font-size:12px;line-height:1.5;">${summary}</div>` : '') +
+            `<div style="color:#667;font-size:10px;margin-top:8px;">${escapeHtml(p.source)}</div>` +
+            `</div>`;
+          popupRef.current?.remove();
+          popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '420px', offset: 14 })
+            .setLngLat(coords as maplibregl.LngLatLike).setHTML(html).addTo(map);
+          onEntityClickRef.current?.(p);
+        });
+        map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
+      });
       // ──────────────────────────────────────────────────────────────────
 
       setMapReady(true);
@@ -198,19 +271,33 @@ function OsirisMap({
   }, []);
   void setVis;
 
-  // ─── GABARIT VIDE — RENDU D'UNE COUCHE FR ────────────────────────────
-  // Reproduire ce bloc par couche quand le backend FastAPI expose la donnée :
-  //
-  // useEffect(() => {
-  //   if (!mapReady) return;
-  //   const rows = activeLayers.fr_entreprises && data.fr_entreprises ? data.fr_entreprises : [];
-  //   setGeo('fr-entreprises', rows.map((r: any) => ({
-  //     type: 'Feature',
-  //     geometry: { type: 'Point', coordinates: [r.lng, r.lat] },
-  //     properties: { siren: r.siren, nom: r.nom },
-  //   })));
-  //   setVis(['fr-entreprises-dots'], !!activeLayers.fr_entreprises);
-  // }, [mapReady, data.fr_entreprises, activeLayers.fr_entreprises, setGeo, setVis]);
+  // ─── RENDU DES COUCHES DE RÉSULTATS FR (search-first) ────────────────
+  // `data[key]` = points plottés (api.buildMapData) : { lat, lng, card }.
+  // Chaque couche est alimentée + affichée/masquée selon le toggle sidebar.
+  useEffect(() => {
+    if (!mapReady) return;
+    FR_LAYERS.forEach(({ key, src, layer, label }) => {
+      const rows: FrPlotRow[] = Array.isArray(data?.[key]) ? data[key] : [];
+      const features = rows
+        .filter((r) => typeof r?.lat === 'number' && typeof r?.lng === 'number')
+        .map((r) => {
+          const card = r.card || {};
+          return {
+            type: 'Feature' as const,
+            geometry: { type: 'Point' as const, coordinates: [r.lng, r.lat] },
+            properties: {
+              typeLabel: label,
+              title: card.title ?? '',
+              subtitle: card.subtitle ?? '',
+              summary: card.summary ?? '',
+              source: card.source_label ?? '',
+            },
+          };
+        });
+      setGeo(src, features);
+      setVis([layer], !!activeLayers?.[key]);
+    });
+  }, [mapReady, data, activeLayers, setGeo, setVis]);
   // ─────────────────────────────────────────────────────────────────────
 
   // ── Couche jour/nuit (affichage, conservée du châssis d'origine) ──

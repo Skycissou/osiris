@@ -25,7 +25,10 @@ const nextConfig: NextConfig = {
       "font-src 'self' https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https:",
       "worker-src 'self' blob:",
-      "connect-src 'self' https: wss:",
+      // connect-src : backend FastAPI FR (même domaine 'self' en prod via Traefik,
+      // ou NEXT_PUBLIC_API_BASE en https), tuiles + reverse-geocode (https),
+      // et localhost/127.0.0.1 pour le dev avec backend séparé en http.
+      "connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*",
       "frame-ancestors 'self'",
     ].join('; ');
 

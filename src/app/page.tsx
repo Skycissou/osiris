@@ -5,9 +5,12 @@ import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import { Globe, MapPinned, Satellite, Moon } from 'lucide-react';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { search, buildMapData, type SearchResponse, type PlotPoint } from '@/lib/api';
 
 const OsirisMap = dynamic(() => import('@/components/OsirisMap'), { ssr: false });
 const LayerPanel = dynamic(() => import('@/components/LayerPanel'));
+const SearchBar = dynamic(() => import('@/components/SearchBar'), { ssr: false });
+const ResultsPanel = dynamic(() => import('@/components/ResultsPanel'), { ssr: false });
 
 // Couches FR (stub) — clés canoniques partagées avec LayerPanel + OsirisMap.
 const DEFAULT_LAYERS: Record<string, boolean> = {
@@ -39,14 +42,53 @@ function useIsMobile() {
 }
 
 export default function Dashboard() {
-  // Données brutes du backend FR (à alimenter via src/lib/api.ts, couche par couche).
-  const [data] = useState<Record<string, any>>({});
+  // Points plottés par couche fr_* (issus de la recherche backend → api.buildMapData).
+  const [data, setData] = useState<Record<string, PlotPoint[]>>({});
+  // Réponse brute de la dernière recherche (alimente le panneau résultats).
+  const [response, setResponse] = useState<SearchResponse | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [plottedCount, setPlottedCount] = useState<number | null>(null);
+  const [showResults, setShowResults] = useState(false);
 
   const [flyToLocation, setFlyToLocation] = useState<{ lat: number; lng: number; ts: number } | null>(null);
   const [locationLabel, setLocationLabel] = useState('');
   const [mapProjection, setMapProjection] = useState<'globe' | 'mercator'>('mercator');
   const [mapStyle, setMapStyle] = useState<'dark' | 'satellite'>('dark');
   const [activeLayers, setActiveLayers] = useState<Record<string, boolean>>(DEFAULT_LAYERS);
+
+  // ── Recherche cible (search-first) : appelle le backend puis plotte ──
+  const runSearch = useCallback(async (q: string) => {
+    setSearchLoading(true);
+    setSearchError(null);
+    try {
+      const resp = await search(q);
+      setResponse(resp);
+      const md = buildMapData(resp);
+      setData(md);
+      const count = Object.values(md).reduce((n, arr) => n + arr.length, 0);
+      setPlottedCount(count);
+      setShowResults(true);
+      // Auto-active les couches qui ont des points, laisse les autres telles quelles.
+      setActiveLayers((prev) => {
+        const next = { ...prev };
+        for (const k of Object.keys(md)) if (md[k].length) next[k] = true;
+        return next;
+      });
+      // Recentre sur le premier point géolocalisé s'il y en a un.
+      const firstKey = Object.keys(md).find((k) => md[k].length > 0);
+      if (firstKey) {
+        const p = md[firstKey][0];
+        setFlyToLocation({ lat: p.lat, lng: p.lng, ts: Date.now() });
+      }
+    } catch (e) {
+      setSearchError(e instanceof Error ? e.message : 'Erreur inconnue');
+      setResponse(null);
+      setPlottedCount(null);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, []);
 
   const isMobile = useIsMobile();
   const coordsDisplayRef = useRef<HTMLDivElement>(null);
@@ -138,6 +180,32 @@ export default function Dashboard() {
       {!isMobile && (
         <ErrorBoundary name="Couches">
           <LayerPanel data={data} activeLayers={activeLayers} setActiveLayers={setActiveLayers} />
+        </ErrorBoundary>
+      )}
+
+      {/* ── BARRE DE RECHERCHE (search-first) ── */}
+      <ErrorBoundary name="Recherche">
+        <SearchBar
+          onSubmit={runSearch}
+          loading={searchLoading}
+          error={searchError}
+          resultCount={plottedCount}
+          isMobile={isMobile}
+        />
+      </ErrorBoundary>
+
+      {/* ── PANNEAU RÉSULTATS ── */}
+      {showResults && response && (
+        <ErrorBoundary name="Résultats">
+          <ResultsPanel
+            response={response}
+            onClose={() => setShowResults(false)}
+            onFlyTo={({ lat, lng, label }) => {
+              setFlyToLocation({ lat, lng, ts: Date.now() });
+              setLocationLabel(label);
+            }}
+            isMobile={isMobile}
+          />
         </ErrorBoundary>
       )}
 

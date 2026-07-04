@@ -62,3 +62,237 @@ export async function apiHealth(): Promise<boolean> {
   const r = await apiGet<{ status?: string }>('/health');
   return !!r;
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+//  TYPES — miroir EXACT du schéma backend (open_radar/models.py + schema.py).
+//  Une "carte" = dataclass RadarResult.to_dict(). Le /search renvoie
+//  build_standard_response(...) + un champ `graph` ajouté par l'orchestrateur.
+// ─────────────────────────────────────────────────────────────────────────
+
+export type ResultStatus = 'found' | 'not_found' | 'error' | 'partial' | 'blocked';
+
+/** Entité extraite d'une carte. Les coords vivent ici : {type:'coordinates', value:'lat,lon'}. */
+export interface RadarEntity {
+  type: string;
+  value: string;
+  label?: string;
+}
+
+/** Carte de résultat — 1:1 avec RadarResult (backend). */
+export interface RadarCard {
+  source_id: string;
+  source_label: string;
+  access_level: string;
+  confidence: string;
+  status: ResultStatus;
+  title: string;
+  subtitle: string;
+  summary: string;
+  entities: RadarEntity[];
+  raw_ref: Record<string, string>;
+  limits: string[];
+  actions: string[];
+  raw_preview: Record<string, unknown>;
+  provenance: string;
+}
+
+export interface BodaccGroup {
+  annonces: RadarCard[];
+  alerte_procedure_collective: boolean;
+  source: string;
+}
+
+export interface Pagination {
+  total_results: number;
+  page: number;
+  per_page: number;
+  shown: number;
+}
+
+/** Résultats groupés — cf. schema.group_results(). Associations (rna) et DVF (dvf)
+ *  ne sont PAS dans une clé dédiée : on les récupère depuis `raw_cards`. */
+export interface SearchResultsGroup {
+  entreprise: RadarCard[];
+  adresse_geocodee: RadarCard[];
+  commune: RadarCard[];
+  bodacc: BodaccGroup;
+  datasets: RadarCard[];
+  raw_cards: RadarCard[];
+  pagination?: Pagination;
+}
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  type: string;
+  [k: string]: unknown;
+}
+
+export interface GraphEdge {
+  from: string;
+  to: string;
+  relation: string;
+}
+
+export interface Graph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  stats: Record<string, number>;
+}
+
+export interface SourceConsulted {
+  name: string;
+  source_id: string;
+  url: string;
+  status: string;
+  response_time_ms: number | null;
+}
+
+/** Réponse complète de /search, /person, /company, /investigate. */
+export interface SearchResponse {
+  query: string;
+  query_type: string;
+  timestamp: string;
+  sources_consulted: SourceConsulted[];
+  results: SearchResultsGroup;
+  cannot_conclude: string[];
+  graph?: Graph;
+  investigation?: Record<string, unknown>;
+}
+
+/** Filtres de /search (tous optionnels). */
+export interface SearchFilters {
+  page?: number;
+  naf?: string;
+  departement?: string;
+  code_postal?: string;
+  effectif?: string;
+  categorie?: string;
+  etat?: string;
+  rge?: boolean;
+  ess?: boolean;
+  qualiopi?: boolean;
+  association?: boolean;
+  bio?: boolean;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  APPELS TYPÉS
+// ─────────────────────────────────────────────────────────────────────────
+
+/** GET /search?q=&page=&naf=... — recherche cible principale du cockpit. */
+export async function search(q: string, filters: SearchFilters = {}): Promise<SearchResponse> {
+  return apiFetch<SearchResponse>('/search', {
+    method: 'GET',
+    params: { q, ...filters },
+  });
+}
+
+/** GET /person?nom=&prenoms= — recherche par personne (dirigeants diffusés). */
+export async function personSearch(nom: string, prenoms = ''): Promise<SearchResponse> {
+  return apiFetch<SearchResponse>('/person', { method: 'GET', params: { nom, prenoms } });
+}
+
+/** GET /investigate?q=|nom=|prenoms= — pivot OSINT en cascade (bornée). */
+export async function investigate(args: { q?: string; nom?: string; prenoms?: string }): Promise<SearchResponse> {
+  return apiFetch<SearchResponse>('/investigate', { method: 'GET', params: { ...args } });
+}
+
+/** GET /company/{siren} — fiche entreprise par SIREN. */
+export async function company(siren: string): Promise<SearchResponse> {
+  return apiFetch<SearchResponse>(`/company/${encodeURIComponent(siren)}`, { method: 'GET' });
+}
+
+/** POST /login — pose le COOKIE de session (httponly). credentials:'include' requis. */
+export async function login(username: string, password: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    return await apiFetch<{ ok: boolean; error?: string }>('/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Échec de connexion' };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  PLOT — extraction des coordonnées + construction des données carte.
+//  RÉALITÉ BACKEND : seules les cartes BAN (source_id 'adresse') portent une
+//  entité {type:'coordinates', value:'lat,lon'}. L'extracteur est générique :
+//  si une autre source ajoute des coords un jour, elle est plottée d'office.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface PlotPoint {
+  lat: number;
+  lng: number;
+  card: RadarCard;
+  /** Clé de couche fr_* (sert au toggle sidebar + à la couleur). */
+  typeKey: string;
+}
+
+/** Mappe un source_id backend vers la clé de couche fr_* de la sidebar. */
+export const SOURCE_TO_LAYER: Record<string, string> = {
+  recherche_entreprises: 'fr_entreprises',
+  bodacc: 'fr_bodacc',
+  dvf: 'fr_dvf',
+  adresse: 'fr_ban',
+  rna: 'fr_rna',
+};
+
+/** Extrait [lat, lon] d'une carte via l'entité coordinates. null si absent/invalide. */
+export function extractLatLon(card: RadarCard): [number, number] | null {
+  const e = (card.entities || []).find((x) => x.type === 'coordinates' && x.value);
+  if (!e) return null;
+  const parts = e.value.split(',').map((s) => parseFloat(s.trim()));
+  if (parts.length !== 2 || parts.some((n) => Number.isNaN(n))) return null;
+  const [lat, lon] = parts;
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  return [lat, lon];
+}
+
+/** Construit les points à plotter, groupés par clé de couche fr_*. */
+export function buildMapData(resp: SearchResponse | null): Record<string, PlotPoint[]> {
+  const out: Record<string, PlotPoint[]> = {
+    fr_entreprises: [], fr_bodacc: [], fr_dvf: [], fr_ban: [], fr_rna: [],
+  };
+  const cards = resp?.results?.raw_cards ?? [];
+  for (const card of cards) {
+    if (card.status !== 'found') continue;
+    const key = SOURCE_TO_LAYER[card.source_id];
+    if (!key) continue;
+    const ll = extractLatLon(card);
+    if (!ll) continue;
+    out[key].push({ lat: ll[0], lng: ll[1], card, typeKey: key });
+  }
+  return out;
+}
+
+export interface CardGroup {
+  key: string;
+  label: string;
+  color: string;
+  cards: RadarCard[];
+}
+
+/** Définit l'ordre + libellés du panneau résultats (aligné sur les couleurs LayerPanel). */
+const GROUP_DEFS: { source: string; key: string; label: string; color: string }[] = [
+  { source: 'recherche_entreprises', key: 'entreprise', label: 'Entreprises', color: '#D4AF37' },
+  { source: 'rna', key: 'association', label: 'Associations (RNA)', color: '#66BB6A' },
+  { source: 'bodacc', key: 'bodacc', label: 'BODACC', color: '#EC407A' },
+  { source: 'dvf', key: 'dvf', label: 'Valeurs foncières (DVF)', color: '#26C6DA' },
+  { source: 'adresse', key: 'ban', label: 'Adresses (BAN)', color: '#7E57C2' },
+  { source: 'geo_communes', key: 'commune', label: 'Communes', color: '#448AFF' },
+  { source: 'data_gouv', key: 'datasets', label: 'Jeux de données', color: '#9E9E9E' },
+];
+
+/** Regroupe les cartes trouvées par type d'affichage, pour le panneau résultats. */
+export function groupCardsByType(resp: SearchResponse | null): CardGroup[] {
+  const cards = resp?.results?.raw_cards ?? [];
+  return GROUP_DEFS.map((g) => ({
+    key: g.key,
+    label: g.label,
+    color: g.color,
+    cards: cards.filter((c) => c.source_id === g.source && c.status === 'found'),
+  })).filter((g) => g.cards.length > 0);
+}
