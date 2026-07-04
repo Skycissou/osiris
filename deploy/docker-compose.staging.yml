@@ -1,0 +1,89 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  OSIRIS V4 — STAGING / TEST (osiris-v4.cissouhub.cloud)
+#  Environnement de test ISOLÉ de la V3 prod (osiris.cissouhub.cloud, intouchée).
+#  Deux conteneurs sur le MÊME domaine (obligatoire pour le cookie de login) :
+#     /        → front Next.js V4 (cette repo)
+#     /api/*   → FastAPI (instance staging dédiée, Traefik strippe /api)
+#  Réseau + certresolver identiques à la prod. Volumes SÉPARÉS (aucun partage V3).
+#
+#  ⚠️ AVANT `docker compose up` :
+#   1. DNS : A `osiris-v4` → 76.13.41.17 (Hostinger)
+#   2. Firewall Hostinger : 443 déjà ouvert (Traefik) → rien à ajouter
+#   3. .env staging à côté de ce fichier (voir README-staging.md)
+#   4. Vérifier le chemin de build backend (BACKEND_CONTEXT ci-dessous) sur le VPS
+# ═══════════════════════════════════════════════════════════════════════════
+services:
+
+  osiris-v4-api:
+    build:
+      # Le backend FastAPI vit dans le clone claude-brain (comme la V3).
+      # Adapter ce chemin absolu à l'emplacement réel sur le VPS.
+      context: /docker/claude-brain/projects/open-radar-fr/backend
+    container_name: osiris-v4-api
+    restart: unless-stopped
+    environment:
+      OPEN_RADAR_CACHE: /data/cache
+      OPEN_RADAR_CACHE_TTL: "900"
+      OSIRIS_DATA: /data/osiris
+      OSIRIS_FEEDBACK_EMAIL: cyril.detout@gmail.com
+      OSIRIS_LOGIN_USERS: ${OSIRIS_LOGIN_USERS:?definir OSIRIS_LOGIN_USERS dans .env}
+      OSIRIS_SESSION_SECRET: ${OSIRIS_SESSION_SECRET:?definir OSIRIS_SESSION_SECRET dans .env}
+      OSIRIS_COOKIE_SECURE: "1"          # cookie HTTPS-only (Traefik fournit le TLS)
+    volumes:
+      - osiris_v4_cache:/data/cache      # volumes DÉDIÉS staging (pas ceux de la V3)
+      - osiris_v4_data:/data/osiris
+    expose:
+      - "8000"
+    networks:
+      - traefik_proxy
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+      # Router API : /api/* → strip /api → FastAPI. Priorité > front pour matcher en premier.
+      - "traefik.http.routers.osiris-v4-api.rule=Host(`osiris-v4.cissouhub.cloud`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.osiris-v4-api.priority=100"
+      - "traefik.http.routers.osiris-v4-api.entrypoints=websecure"
+      - "traefik.http.routers.osiris-v4-api.tls.certresolver=myresolver"
+      - "traefik.http.routers.osiris-v4-api.middlewares=osiris-v4-strip,osiris-v4-rl"
+      - "traefik.http.middlewares.osiris-v4-strip.stripprefix.prefixes=/api"
+      - "traefik.http.services.osiris-v4-api.loadbalancer.server.port=8000"
+      # Rate-limit défensif partagé
+      - "traefik.http.middlewares.osiris-v4-rl.ratelimit.average=30"
+      - "traefik.http.middlewares.osiris-v4-rl.ratelimit.burst=60"
+
+  osiris-v4-front:
+    build:
+      context: ..                         # racine de la repo osiris (ce front)
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE: /api        # same-domain → appels /api/* (Traefik route vers l'API)
+    container_name: osiris-v4-front
+    restart: unless-stopped
+    expose:
+      - "3000"
+    networks:
+      - traefik_proxy
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - osiris-v4-api
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+      # Router front : tout le reste du domaine (priorité basse, l'API matche avant)
+      - "traefik.http.routers.osiris-v4-front.rule=Host(`osiris-v4.cissouhub.cloud`)"
+      - "traefik.http.routers.osiris-v4-front.priority=1"
+      - "traefik.http.routers.osiris-v4-front.entrypoints=websecure"
+      - "traefik.http.routers.osiris-v4-front.tls.certresolver=myresolver"
+      - "traefik.http.routers.osiris-v4-front.middlewares=osiris-v4-rl"
+      - "traefik.http.services.osiris-v4-front.loadbalancer.server.port=3000"
+
+networks:
+  traefik_proxy:
+    external: true
+
+volumes:
+  osiris_v4_cache:
+  osiris_v4_data:
