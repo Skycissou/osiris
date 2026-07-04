@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
-import { Globe, MapPinned } from 'lucide-react';
+import { Globe, MapPinned, Layers, X } from 'lucide-react';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { search, buildMapData, type SearchResponse, type PlotPoint } from '@/lib/api';
 
@@ -22,6 +22,41 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
   fr_rna: false,
   day_night: false,
 };
+
+// ── Options du menu de couches (labels lisibles, ordre d'affichage) ──
+const BASEMAP_OPTS: { key: 'dark' | 'ign' | 'scan25' | 'ortho' | 'satellite'; label: string }[] = [
+  { key: 'dark', label: 'Sombre (défaut)' },
+  { key: 'ign', label: 'Plan IGN' },
+  { key: 'scan25', label: 'SCAN25 topo' },
+  { key: 'ortho', label: 'Ortho (actuelle)' },
+  { key: 'satellite', label: 'Satellite' },
+];
+// « Remonter le temps » : radio unique. 'ortho-year' déclenche le curseur d'année.
+const TIME_OPTS: { key: string; label: string }[] = [
+  { key: 'none', label: 'Actuel (aucune)' },
+  { key: 'ortho-year', label: 'Ortho par année' },
+  { key: 'ortho1950', label: 'Photo 1950-1965 (N&B)' },
+  { key: 'ortho1965', label: 'Photo 1965-1980 (N&B)' },
+  { key: 'ortho1980', label: 'Photo 1980-1995 (N&B)' },
+  { key: 'scan50', label: 'Carte 1950' },
+  { key: 'etatmajor', label: 'État-Major 1820-1866' },
+];
+const ORTHO_YEAR_MIN = 2000;
+const ORTHO_YEAR_MAX = 2024;
+// Surcouches thématiques : checkboxes cumulables.
+const OVERLAY_OPTS: { key: string; label: string }[] = [
+  { key: 'cadastre', label: 'Cadastre' },
+  { key: 'rpg', label: 'Parcelles agricoles' },
+  { key: 'forets', label: 'Forêts publiques' },
+  { key: 'hydro', label: 'Hydrographie' },
+  { key: 'routes', label: 'Routes' },
+  { key: 'rail', label: 'Voies ferrées' },
+  { key: 'admin', label: 'Limites admin' },
+  { key: 'noms', label: 'Toponymes' },
+  { key: 'pentes', label: 'Pentes' },
+  { key: 'irc', label: 'Infrarouge' },
+  { key: 'protected', label: 'Zones protégées' },
+];
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
@@ -67,15 +102,17 @@ export default function Dashboard() {
   const [flyToLocation, setFlyToLocation] = useState<{ lat: number; lng: number; ts: number } | null>(null);
   const [locationLabel, setLocationLabel] = useState('');
   const [mapProjection, setMapProjection] = useState<'globe' | 'mercator'>('mercator');
-  // Fonds : Sombre (CARTO) → Plan IGN → SCAN25 → Ortho IGN → Satellite (cycle).
-  const BASEMAPS = ['dark', 'ign', 'scan25', 'ortho', 'satellite'] as const;
-  const BASEMAP_LABEL: Record<string, string> = { dark: 'SOMBRE', ign: 'PLAN IGN', scan25: 'SCAN25', ortho: 'ORTHO', satellite: 'SAT' };
+  // ── Menu de couches (panneau dépliable) ──
+  const [layersOpen, setLayersOpen] = useState(false);
+  // Fond moderne actif (radio, un seul).
   const [mapStyle, setMapStyle] = useState<'dark' | 'satellite' | 'ign' | 'scan25' | 'ortho'>('dark');
-  // Couche historique (remonter le temps) : ACTUEL → 1950 photo → CARTE 1950 → État-major → Cassini.
-  const HISTMAPS = ['none', 'ortho1950', 'scan50', 'etatmajor', 'cassini'] as const;
-  const HISTMAP_LABEL: Record<string, string> = { none: 'ACTUEL', ortho1950: '1950 (photo)', scan50: 'CARTE 1950', etatmajor: 'ÉTAT-MAJOR', cassini: 'CASSINI' };
-  const [histLayer, setHistLayer] = useState<'none' | 'ortho1950' | 'scan50' | 'etatmajor' | 'cassini'>('none');
-  const [cadastre, setCadastre] = useState(false);
+  // « Remonter le temps » (radio, un seul) : 'none' | 'ortho-year' | clés décennies/cartes.
+  const [timeLayer, setTimeLayer] = useState<string>('none');
+  // Année choisie pour l'ortho annuelle (curseur 2000→2024).
+  const [orthoYear, setOrthoYear] = useState<number>(2021);
+  // Surcouches thématiques (checkboxes, plusieurs simultanées).
+  const [overlays, setOverlays] = useState<Record<string, boolean>>({});
+  const toggleOverlay = useCallback((k: string) => setOverlays((prev) => ({ ...prev, [k]: !prev[k] })), []);
   const [activeLayers, setActiveLayers] = useState<Record<string, boolean>>(DEFAULT_LAYERS);
 
   // ── Recherche cible (search-first) : appelle le backend puis plotte ──
@@ -202,8 +239,9 @@ export default function Dashboard() {
           activeLayers={activeLayers}
           projection={mapProjection}
           mapStyle={mapStyle}
-          histLayer={histLayer}
-          cadastre={cadastre}
+          timeLayer={timeLayer}
+          orthoYear={orthoYear}
+          overlays={overlays}
           onMouseCoords={handleMouseCoords}
           onRightClick={handleRightClick}
           flyToLocation={flyToLocation}
@@ -259,7 +297,114 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
-      {/* ── CONTRÔLES CARTE (globe/2D + satellite/nuit + recentrage FR) ── */}
+      {/* ── PANNEAU MENU DE COUCHES (dépliable, au-dessus du bouton COUCHES) ── */}
+      {layersOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="glass-panel absolute z-[210] pointer-events-auto p-4 w-[248px] overflow-y-auto"
+          style={{
+            left: isMobile ? '12px' : '120px',
+            bottom: isMobile ? '128px' : '153px',
+            maxHeight: 'min(62vh, 520px)',
+          }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-mono font-bold tracking-widest text-[var(--gold-primary)]">COUCHES</span>
+            <button
+              onClick={() => setLayersOpen(false)}
+              className="text-[var(--text-muted)] hover:text-[var(--gold-primary)] transition-colors"
+              title="Fermer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* FONDS (radio) */}
+          <div className="mb-4">
+            <div className="text-[9px] font-mono tracking-widest text-[var(--cyan-primary)] uppercase mb-2 pb-1 border-b border-white/10">Fond de carte</div>
+            <div className="flex flex-col gap-1">
+              {BASEMAP_OPTS.map((o) => (
+                <button
+                  key={o.key}
+                  onClick={() => setMapStyle(o.key)}
+                  className="flex items-center gap-2.5 px-1.5 py-1 rounded hover:bg-white/5 transition-colors text-left"
+                >
+                  <span
+                    className={`w-3 h-3 rounded-full flex-shrink-0 border ${mapStyle === o.key ? 'bg-[var(--gold-primary)] border-[var(--gold-primary)]' : 'border-white/30'}`}
+                  />
+                  <span className={`text-[11px] font-mono ${mapStyle === o.key ? 'text-white' : 'text-white/60'}`}>{o.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* REMONTER LE TEMPS (radio + curseur d'année) */}
+          <div className="mb-4">
+            <div className="text-[9px] font-mono tracking-widest text-[var(--cyan-primary)] uppercase mb-2 pb-1 border-b border-white/10">Remonter le temps</div>
+            <div className="flex flex-col gap-1">
+              {TIME_OPTS.map((o) => (
+                <div key={o.key}>
+                  <button
+                    onClick={() => setTimeLayer(o.key)}
+                    className="w-full flex items-center gap-2.5 px-1.5 py-1 rounded hover:bg-white/5 transition-colors text-left"
+                  >
+                    <span
+                      className={`w-3 h-3 rounded-full flex-shrink-0 border ${timeLayer === o.key ? 'bg-[var(--gold-primary)] border-[var(--gold-primary)]' : 'border-white/30'}`}
+                    />
+                    <span className={`text-[11px] font-mono ${timeLayer === o.key ? 'text-white' : 'text-white/60'}`}>
+                      {o.key === 'ortho-year' ? `${o.label} · ${orthoYear}` : o.label}
+                    </span>
+                  </button>
+                  {/* Curseur d'année, visible seulement quand l'ortho annuelle est active */}
+                  {o.key === 'ortho-year' && timeLayer === 'ortho-year' && (
+                    <div className="pl-[22px] pr-1 pt-1.5 pb-1">
+                      <input
+                        type="range"
+                        min={ORTHO_YEAR_MIN}
+                        max={ORTHO_YEAR_MAX}
+                        step={1}
+                        value={orthoYear}
+                        onChange={(e) => setOrthoYear(Number(e.target.value))}
+                        className="w-full accent-[var(--gold-primary)] cursor-pointer"
+                      />
+                      <div className="flex justify-between text-[8px] font-mono text-[var(--text-muted)] tabular-nums mt-0.5">
+                        <span>{ORTHO_YEAR_MIN}</span>
+                        <span className="text-[var(--gold-primary)] text-[10px]">{orthoYear}</span>
+                        <span>{ORTHO_YEAR_MAX}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* SURCOUCHES (checkboxes) */}
+          <div>
+            <div className="text-[9px] font-mono tracking-widest text-[var(--cyan-primary)] uppercase mb-2 pb-1 border-b border-white/10">Surcouches</div>
+            <div className="flex flex-col gap-1">
+              {OVERLAY_OPTS.map((o) => (
+                <button
+                  key={o.key}
+                  onClick={() => toggleOverlay(o.key)}
+                  className="flex items-center gap-2.5 px-1.5 py-1 rounded hover:bg-white/5 transition-colors text-left"
+                >
+                  <span
+                    className={`w-3 h-3 rounded-sm flex-shrink-0 border flex items-center justify-center ${overlays[o.key] ? 'bg-[var(--gold-primary)] border-[var(--gold-primary)]' : 'border-white/30'}`}
+                  >
+                    {overlays[o.key] && <span className="w-1.5 h-1.5 bg-[var(--bg-void)] rounded-[1px]" />}
+                  </span>
+                  <span className={`text-[11px] font-mono ${overlays[o.key] ? 'text-white' : 'text-white/60'}`}>{o.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* ── CONTRÔLES CARTE (globe/2D + menu couches + recentrage FR) ── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -277,25 +422,12 @@ export default function Dashboard() {
             : <Globe className="w-5 h-5 text-[var(--cyan-primary)] group-hover:scale-110 transition-transform" />}
         </button>
         <button
-          onClick={() => setMapStyle((s) => BASEMAPS[(BASEMAPS.indexOf(s) + 1) % BASEMAPS.length])}
-          className="glass-panel px-3 py-2 pointer-events-auto hover:border-[var(--gold-primary)]/40 transition-colors text-[9px] font-mono tracking-widest text-[var(--cyan-primary)] min-w-[72px]"
-          title="Changer de fond de carte (Sombre / Plan IGN / Ortho / Satellite)"
+          onClick={() => setLayersOpen((v) => !v)}
+          className={`glass-panel px-3 py-2.5 pointer-events-auto hover:border-[var(--gold-primary)]/40 transition-colors flex items-center gap-2 text-[9px] font-mono tracking-widest ${layersOpen || timeLayer !== 'none' || mapStyle !== 'dark' || Object.values(overlays).some(Boolean) ? 'text-[var(--gold-primary)] border-[var(--gold-primary)]/50' : 'text-[var(--cyan-primary)]'}`}
+          title="Menu des couches (fonds, remonter le temps, surcouches)"
         >
-          {BASEMAP_LABEL[mapStyle]}
-        </button>
-        <button
-          onClick={() => setHistLayer((h) => HISTMAPS[(HISTMAPS.indexOf(h) + 1) % HISTMAPS.length])}
-          className={`glass-panel px-3 py-2 pointer-events-auto hover:border-[var(--gold-primary)]/40 transition-colors text-[9px] font-mono tracking-widest min-w-[72px] ${histLayer !== 'none' ? 'text-[var(--gold-primary)] border-[var(--gold-primary)]/50' : 'text-[var(--text-muted)]'}`}
-          title="Remonter le temps (Actuel / 1950 photo / Carte 1950 / État-major / Cassini)"
-        >
-          {HISTMAP_LABEL[histLayer]}
-        </button>
-        <button
-          onClick={() => setCadastre((c) => !c)}
-          className={`glass-panel px-3 py-2 pointer-events-auto hover:border-[var(--gold-primary)]/40 transition-colors text-[9px] font-mono tracking-widest ${cadastre ? 'text-[var(--gold-primary)] border-[var(--gold-primary)]/50' : 'text-[var(--text-muted)]'}`}
-          title="Surcouche cadastre IGN (parcelles)"
-        >
-          CAD
+          <Layers className="w-4 h-4" />
+          COUCHES
         </button>
         <button
           onClick={() => setFlyToLocation({ lat: 46.6, lng: 2.35, ts: Date.now() })}

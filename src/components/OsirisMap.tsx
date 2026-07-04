@@ -25,10 +25,16 @@ interface OsirisMapProps {
   projection?: 'mercator' | 'globe';
   /** Fond : 'dark' (CARTO) · 'satellite' (ArcGIS) · 'ign' (Plan IGN) · 'scan25' · 'ortho' (ortho IGN). */
   mapStyle?: string;
-  /** Couche historique IGN empilée AU-DESSUS du fond moderne (un seul visible, 'none' = aucune). */
-  histLayer?: string;
-  /** Surcouche cadastre IGN (parcelles), indépendante du fond. */
-  cadastre?: boolean;
+  /**
+   * Couche « remonter le temps » active (un seul, empilée AU-DESSUS du fond).
+   * 'none' = aucune · 'ortho-year' = ortho annuelle pilotée par `orthoYear`
+   * · sinon clé de TIME_LAYERS (décennies N&B / cartes anciennes).
+   */
+  timeLayer?: string;
+  /** Année choisie pour l'ortho annuelle (utilisée seulement si timeLayer === 'ortho-year'). */
+  orthoYear?: number;
+  /** Surcouches thématiques IGN cochables (plusieurs simultanées) — clé → actif. */
+  overlays?: Record<string, boolean>;
 }
 
 // Terminateur solaire jour/nuit (couche optionnelle) — géométrie polygonale.
@@ -63,31 +69,54 @@ const wmts = (layer: string, format: string) =>
 // ── Fonds raster empilables (satellite ArcGIS + fonds IGN modernes) ──
 // Chaque fond = un calque raster inséré SOUS les points/historique. Un seul
 // visible selon `mapStyle` ; 'dark' = aucun (CARTO seul).
-const RASTER_BASES: Record<string, { tiles: string; tileSize: number; maxzoom: number; opacity: number }> = {
+const RASTER_BASES: Record<string, { tiles: string; tileSize: number; minzoom: number; maxzoom: number; opacity: number }> = {
   satellite: {
     tiles: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    tileSize: 256, maxzoom: 18, opacity: 0.85,
+    tileSize: 256, minzoom: 0, maxzoom: 18, opacity: 0.85,
   },
-  ign: { tiles: wmts('GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2', 'image/png'), tileSize: 256, maxzoom: 19, opacity: 1 },
-  scan25: { tiles: wmts('GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR', 'image/jpeg'), tileSize: 256, maxzoom: 16, opacity: 1 },
-  ortho: { tiles: wmts('ORTHOIMAGERY.ORTHOPHOTOS', 'image/jpeg'), tileSize: 256, maxzoom: 19, opacity: 1 },
+  ign: { tiles: wmts('GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2', 'image/png'), tileSize: 256, minzoom: 0, maxzoom: 19, opacity: 1 },
+  scan25: { tiles: wmts('GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR', 'image/jpeg'), tileSize: 256, minzoom: 0, maxzoom: 16, opacity: 1 },
+  ortho: { tiles: wmts('ORTHOIMAGERY.ORTHOPHOTOS', 'image/jpeg'), tileSize: 256, minzoom: 0, maxzoom: 19, opacity: 1 },
 };
 
-// ── Couches HISTORIQUES IGN (remonter le temps) — empilées AU-DESSUS du fond ──
-// Un seul visible selon `histLayer` ; 'none' = aucune. Opacity 1 (masque le fond).
-const HIST_LAYERS: Record<string, { tiles: string; tileSize: number; maxzoom: number }> = {
-  ortho1950: { tiles: wmts('ORTHOIMAGERY.ORTHOPHOTOS.1950-1965', 'image/png'), tileSize: 256, maxzoom: 18 },
-  scan50: { tiles: wmts('GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN50.1950', 'image/jpeg'), tileSize: 256, maxzoom: 15 },
-  etatmajor: { tiles: wmts('GEOGRAPHICALGRIDSYSTEMS.ETATMAJOR40', 'image/jpeg'), tileSize: 256, maxzoom: 15 },
-  cassini: { tiles: wmts('GEOGRAPHICALGRIDSYSTEMS.CASSINI', 'image/jpeg'), tileSize: 256, maxzoom: 14 },
+// ── Couches « REMONTER LE TEMPS » à identifiant FIXE — empilées AU-DESSUS du fond ──
+// Un seul visible à la fois ; l'ortho annuelle (identifiant dynamique) est gérée
+// à part (cf. effet time-layer). minzoom/maxzoom VÉRIFIÉS au GetCapabilities.
+const TIME_LAYERS: Record<string, { tiles: string; minzoom: number; maxzoom: number }> = {
+  ortho1950: { tiles: wmts('ORTHOIMAGERY.ORTHOPHOTOS.1950-1965', 'image/png'), minzoom: 0, maxzoom: 18 },
+  ortho1965: { tiles: wmts('ORTHOIMAGERY.ORTHOPHOTOS.1965-1980', 'image/png'), minzoom: 3, maxzoom: 18 },
+  ortho1980: { tiles: wmts('ORTHOIMAGERY.ORTHOPHOTOS.1980-1995', 'image/png'), minzoom: 3, maxzoom: 18 },
+  scan50: { tiles: wmts('GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN50.1950', 'image/jpeg'), minzoom: 3, maxzoom: 15 },
+  etatmajor: { tiles: wmts('GEOGRAPHICALGRIDSYSTEMS.ETATMAJOR40', 'image/jpeg'), minzoom: 6, maxzoom: 15 },
 };
 
-// Ids MapLibre des rasters, du plus bas au plus haut (fond < historique < cadastre).
+// ── SURCOUCHES thématiques IGN (checkboxes, plusieurs simultanées) ──
+// Empilées AU-DESSUS de la couche temps, SOUS les points de données.
+// minzoom/maxzoom/format VÉRIFIÉS au GetCapabilities → jamais de tuiles hors plage.
+const OVERLAYS: Record<string, { tiles: string; minzoom: number; maxzoom: number; opacity: number }> = {
+  cadastre:  { tiles: wmts('CADASTRALPARCELS.PARCELLAIRE_EXPRESS', 'image/png'), minzoom: 0, maxzoom: 19, opacity: 0.7 },
+  rpg:       { tiles: wmts('LANDUSE.AGRICULTURE.LATEST', 'image/png'), minzoom: 6, maxzoom: 16, opacity: 0.7 },
+  forets:    { tiles: wmts('FORETS.PUBLIQUES', 'image/png'), minzoom: 3, maxzoom: 16, opacity: 0.7 },
+  protected: { tiles: wmts('PROTECTEDAREAS.PRSF', 'image/png'), minzoom: 6, maxzoom: 17, opacity: 0.6 },
+  pentes:    { tiles: wmts('ELEVATION.SLOPES', 'image/jpeg'), minzoom: 6, maxzoom: 14, opacity: 0.5 },
+  irc:       { tiles: wmts('ORTHOIMAGERY.ORTHOPHOTOS.IRC', 'image/jpeg'), minzoom: 6, maxzoom: 19, opacity: 1 },
+  hydro:     { tiles: wmts('HYDROGRAPHY.HYDROGRAPHY', 'image/png'), minzoom: 6, maxzoom: 18, opacity: 0.8 },
+  routes:    { tiles: wmts('TRANSPORTNETWORKS.ROADS', 'image/png'), minzoom: 6, maxzoom: 18, opacity: 0.8 },
+  rail:      { tiles: wmts('TRANSPORTNETWORKS.RAILWAYS', 'image/png'), minzoom: 6, maxzoom: 18, opacity: 0.9 },
+  admin:     { tiles: wmts('ADMINEXPRESS-COG-CARTO.LATEST', 'image/png'), minzoom: 6, maxzoom: 16, opacity: 0.7 },
+  noms:      { tiles: wmts('GEOGRAPHICALNAMES.NAMES', 'image/png'), minzoom: 6, maxzoom: 18, opacity: 1 },
+};
+
+// Ordre de peinture STABLE des surcouches (bas → haut) : imagerie/zones d'abord,
+// réseaux ensuite, toponymes tout en haut (toujours lisibles).
+const OVERLAY_ORDER = Object.keys(OVERLAYS);
+const ID_TIME_LAYER = 'time-layer';
+
+// Ids MapLibre des rasters, du plus bas au plus haut.
 const MODERN_BASE_IDS = Object.keys(RASTER_BASES).map((k) => `base-${k}`);
-const HIST_IDS = Object.keys(HIST_LAYERS).map((k) => `hist-${k}`);
 
 // ── Garant de l'ORDRE DE PEINTURE des rasters (bas → haut) ──
-// fond moderne < historique < cadastre < [day-night-fill] < points de données.
+// fond moderne < couche temps < surcouches < [day-night-fill] < points de données.
 // On déplace chaque raster juste SOUS la 1ʳᵉ couche de données (day-night-fill),
 // dans l'ordre voulu : le dernier déplacé finit le plus haut (juste sous l'ancre).
 function restackRasters(map: maplibregl.Map) {
@@ -95,7 +124,7 @@ function restackRasters(map: maplibregl.Map) {
     ? 'day-night-fill'
     : FR_LAYERS.map((l) => l.layer).find((id) => map.getLayer(id));
   if (!anchor) return;
-  const order = [...MODERN_BASE_IDS, ...HIST_IDS, 'cadastre-layer'];
+  const order = [...MODERN_BASE_IDS, ID_TIME_LAYER, ...OVERLAY_ORDER.map((k) => `ov-${k}`)];
   for (const id of order) {
     if (map.getLayer(id)) {
       try { map.moveLayer(id, anchor); } catch { /* couche absente/ordre déjà bon */ }
@@ -152,8 +181,9 @@ function OsirisMap({
   flyToLocation,
   projection = 'mercator',
   mapStyle = 'dark',
-  histLayer = 'none',
-  cadastre = false,
+  timeLayer = 'none',
+  orthoYear = 2021,
+  overlays = {},
 }: OsirisMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -419,66 +449,73 @@ function OsirisMap({
         const layerId = `base-${key}`;
         const active = mapStyle === key;
         if (active && !map.getSource(`src-${key}`)) {
-          map.addSource(`src-${key}`, { type: 'raster', tiles: [cfg.tiles], tileSize: cfg.tileSize, maxzoom: cfg.maxzoom });
+          map.addSource(`src-${key}`, { type: 'raster', tiles: [cfg.tiles], tileSize: cfg.tileSize, minzoom: cfg.minzoom, maxzoom: cfg.maxzoom });
           map.addLayer({ id: layerId, type: 'raster', source: `src-${key}`, paint: { 'raster-opacity': cfg.opacity } }, anchor);
         } else if (map.getLayer(layerId)) {
           map.setLayoutProperty(layerId, 'visibility', active ? 'visible' : 'none');
         }
       }
-      restackRasters(map); // fond < historique < cadastre < points
+      restackRasters(map); // fond < temps < surcouches < points
     } catch (e) {
       console.warn('[OSIRIS] Style switch failed:', e);
     }
   }, [mapReady, mapStyle]);
 
-  // ── Couche HISTORIQUE IGN (remonter le temps) — au-dessus du fond, sous le cadastre ──
-  // Un seul calque visible selon `histLayer` ; 'none' = aucune (fond moderne seul).
+  // ── Couche « REMONTER LE TEMPS » — au-dessus du fond, sous les surcouches ──
+  // Un seul calque à la fois. L'ortho annuelle a un identifiant DYNAMIQUE
+  // (ORTHOIMAGERY.ORTHOPHOTOS<ANNEE>) : on reconstruit source+layer à chaque
+  // changement de `timeLayer` OU d'`orthoYear` (swap propre = remove puis add).
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     const map = mapRef.current;
     try {
       const anchor = map.getLayer('day-night-fill') ? 'day-night-fill' : undefined;
-      for (const [key, cfg] of Object.entries(HIST_LAYERS)) {
-        const layerId = `hist-${key}`;
-        const active = histLayer === key;
-        if (active && !map.getSource(`histsrc-${key}`)) {
-          map.addSource(`histsrc-${key}`, { type: 'raster', tiles: [cfg.tiles], tileSize: cfg.tileSize, maxzoom: cfg.maxzoom });
-          map.addLayer({ id: layerId, type: 'raster', source: `histsrc-${key}`, paint: { 'raster-opacity': 1 } }, anchor);
+      // Purge systématique du calque temps précédent (identifiant peut avoir changé).
+      if (map.getLayer(ID_TIME_LAYER)) map.removeLayer(ID_TIME_LAYER);
+      if (map.getSource('time-src')) map.removeSource('time-src');
+
+      let cfg: { tiles: string; minzoom: number; maxzoom: number } | null = null;
+      if (timeLayer === 'ortho-year') {
+        // Identifiant construit depuis l'année du curseur (série uniforme jpeg 0-18).
+        cfg = { tiles: wmts(`ORTHOIMAGERY.ORTHOPHOTOS${orthoYear}`, 'image/jpeg'), minzoom: 0, maxzoom: 18 };
+      } else if (timeLayer !== 'none' && TIME_LAYERS[timeLayer]) {
+        cfg = TIME_LAYERS[timeLayer];
+      }
+
+      if (cfg) {
+        map.addSource('time-src', { type: 'raster', tiles: [cfg.tiles], tileSize: 256, minzoom: cfg.minzoom, maxzoom: cfg.maxzoom });
+        map.addLayer({ id: ID_TIME_LAYER, type: 'raster', source: 'time-src', paint: { 'raster-opacity': 1 } }, anchor);
+      }
+      restackRasters(map); // fond < temps < surcouches < points
+    } catch (e) {
+      console.warn('[OSIRIS] Time layer toggle failed:', e);
+    }
+  }, [mapReady, timeLayer, orthoYear]);
+
+  // ── SURCOUCHES thématiques IGN (plusieurs simultanées) — au-dessus du temps ──
+  // Lazy-add au 1ᵉ affichage puis simple bascule de visibilité. L'ordre stable
+  // est garanti par restackRasters (OVERLAY_ORDER).
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const map = mapRef.current;
+    try {
+      const anchor = map.getLayer('day-night-fill') ? 'day-night-fill' : undefined;
+      for (const key of OVERLAY_ORDER) {
+        const cfg = OVERLAYS[key];
+        const layerId = `ov-${key}`;
+        const active = !!overlays[key];
+        if (active && !map.getSource(`ovsrc-${key}`)) {
+          map.addSource(`ovsrc-${key}`, { type: 'raster', tiles: [cfg.tiles], tileSize: 256, minzoom: cfg.minzoom, maxzoom: cfg.maxzoom });
+          map.addLayer({ id: layerId, type: 'raster', source: `ovsrc-${key}`, paint: { 'raster-opacity': cfg.opacity } }, anchor);
         } else if (map.getLayer(layerId)) {
           map.setLayoutProperty(layerId, 'visibility', active ? 'visible' : 'none');
         }
       }
-      restackRasters(map); // fond < historique < cadastre < points
+      restackRasters(map); // fond < temps < surcouches < points
     } catch (e) {
-      console.warn('[OSIRIS] Hist toggle failed:', e);
+      console.warn('[OSIRIS] Overlays toggle failed:', e);
     }
-  }, [mapReady, histLayer]);
-
-  // ── Surcouche CADASTRE IGN (parcelles) — indépendante, au-dessus du fond ──
-  useEffect(() => {
-    if (!mapReady || !mapRef.current) return;
-    const map = mapRef.current;
-    try {
-      const anchor = map.getLayer('day-night-fill') ? 'day-night-fill' : undefined;
-      if (cadastre) {
-        if (!map.getSource('src-cadastre')) {
-          map.addSource('src-cadastre', {
-            type: 'raster',
-            tiles: ['https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=CADASTRALPARCELS.PARCELLAIRE_EXPRESS&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}'],
-            tileSize: 256, maxzoom: 19,
-          });
-          map.addLayer({ id: 'cadastre-layer', type: 'raster', source: 'src-cadastre', paint: { 'raster-opacity': 0.7 } }, anchor);
-        } else {
-          map.setLayoutProperty('cadastre-layer', 'visibility', 'visible');
-        }
-      } else if (map.getLayer('cadastre-layer')) {
-        map.setLayoutProperty('cadastre-layer', 'visibility', 'none');
-      }
-      restackRasters(map); // garantit cadastre au-dessus du fond ET de l'historique
-    } catch (e) {
-      console.warn('[OSIRIS] Cadastre toggle failed:', e);
-    }
-  }, [mapReady, cadastre]);
+  }, [mapReady, overlays]);
 
   return <div ref={containerRef} className="absolute inset-0 w-full h-full" />;
 }
