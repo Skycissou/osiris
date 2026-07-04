@@ -98,6 +98,8 @@ export default function Dashboard() {
     setAuthed(true);
   }, []);
 
+  // Dernière requête lancée — sert à la continuité V3 ⇄ cockpit (lien retour ?q=).
+  const [lastQuery, setLastQuery] = useState('');
   // Points plottés par couche fr_* (issus de la recherche backend → api.buildMapData).
   const [data, setData] = useState<Record<string, PlotPoint[]>>({});
   // Réponse brute de la dernière recherche (alimente le panneau résultats).
@@ -125,6 +127,7 @@ export default function Dashboard() {
 
   // ── Recherche cible (search-first) : appelle le backend puis plotte ──
   const runSearch = useCallback(async (q: string) => {
+    setLastQuery(q);
     setSearchLoading(true);
     setSearchError(null);
     try {
@@ -167,6 +170,14 @@ export default function Dashboard() {
       setSearchLoading(false);
     }
   }, []);
+
+  // Continuité V3 → cockpit : si on arrive avec ?q= (lien "Cockpit carte" de la V3),
+  // on relance la même recherche à l'arrivée → la carte/les résultats suivent.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search).get('q');
+    if (q) runSearch(q);
+  }, [runSearch]);
 
   const isMobile = useIsMobile();
   const coordsDisplayRef = useRef<HTMLDivElement>(null);
@@ -307,9 +318,9 @@ export default function Dashboard() {
               Anchor natif (pas next/link) → href '/' non préfixé par basePath = racine V3. */}
           {COCKPIT_MODE && (
             <a
-              href="/"
+              href={lastQuery ? `/?q=${encodeURIComponent(lastQuery)}` : '/'}
               className="glass-panel pointer-events-auto px-2.5 py-1 text-[10px] font-mono tracking-widest text-[var(--cyan-primary)] hover:text-[var(--gold-primary)] hover:border-[var(--gold-primary)]/40 transition-colors"
-              title="Retour à OSIRIS (V3)"
+              title="Retour à OSIRIS (V3) — la recherche suit"
             >
               ← OSIRIS
             </a>
