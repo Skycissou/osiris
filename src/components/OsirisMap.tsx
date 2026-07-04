@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback, memo } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { BASE_PATH } from '@/lib/api';
 
 // ─────────────────────────────────────────────────────────────────────────
 //  OsirisMap — CHÂSSIS carto MapLibre (OSIRIS V4 LEAN)
@@ -248,9 +249,11 @@ function OsirisMap({
         // Requêtes CARTO CDN → proxy interne Next.js `/proxy-tiles`.
         // NB: PAS sous `/api` — en prod, Traefik route `/api/*` vers le FastAPI ;
         // le proxy de tuiles doit rester servi par le front Next.
+        // ⚠️ Sous basePath (/cockpit), la route Next vit à `/cockpit/proxy-tiles` :
+        // on préfixe BASE_PATH (source unique), sinon carte noire (proxy en 404).
         if (url.includes('cartocdn.com')) {
           const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-          return { url: `${baseUrl}/proxy-tiles?url=${encodeURIComponent(url)}` };
+          return { url: `${baseUrl}${BASE_PATH}/proxy-tiles?url=${encodeURIComponent(url)}` };
         }
         return { url };
       },

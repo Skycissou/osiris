@@ -5,7 +5,12 @@ import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import { Globe, MapPinned, Layers, X } from 'lucide-react';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { search, buildMapData, type SearchResponse, type PlotPoint } from '@/lib/api';
+import { search, buildMapData, BASE_PATH, type SearchResponse, type PlotPoint } from '@/lib/api';
+
+// Cockpit servi sous basePath (/cockpit) → l'utilisateur arrive DÉJÀ loggué via la
+// V3 (cookie httponly même-domaine couvre /search). Dans ce mode on court-circuite
+// le LoginGate V4 et, sur 401, on renvoie vers le login V3 à la racine (`/login`).
+const COCKPIT_MODE = BASE_PATH !== '';
 
 const OsirisMap = dynamic(() => import('@/components/OsirisMap'), { ssr: false });
 const LayerPanel = dynamic(() => import('@/components/LayerPanel'));
@@ -83,6 +88,9 @@ export default function Dashboard() {
   // souple en localStorage ; un 401 sur /search y ramène (session expirée).
   const [authed, setAuthed] = useState<boolean | null>(null);
   useEffect(() => {
+    // Sous /cockpit : on considère l'utilisateur authentifié d'emblée (cookie V3).
+    // Un 401 sur une requête le renverra vers /login (V3) — cf. runSearch.
+    if (COCKPIT_MODE) { setAuthed(true); return; }
     setAuthed(typeof window !== 'undefined' && localStorage.getItem('osiris_authed') === '1');
   }, []);
   const handleAuthed = useCallback(() => {
@@ -141,8 +149,13 @@ export default function Dashboard() {
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erreur inconnue';
-      // Session expirée / non authentifié → retour à l'écran de login.
+      // Session expirée / non authentifié.
       if (msg.includes('401')) {
+        // Mode cockpit : le login vit dans la V3 → redirection racine, pas de gate V4.
+        if (COCKPIT_MODE) {
+          if (typeof window !== 'undefined') window.location.href = '/login';
+          return;
+        }
         if (typeof window !== 'undefined') localStorage.removeItem('osiris_authed');
         setAuthed(false);
         return;
@@ -290,6 +303,17 @@ export default function Dashboard() {
         style={{ left: isMobile ? '16px' : '100px', right: '16px' }}
       >
         <div className="flex items-center gap-3 w-fit">
+          {/* Lien retour vers la V3 (racine du domaine) — visible seulement sous /cockpit.
+              Anchor natif (pas next/link) → href '/' non préfixé par basePath = racine V3. */}
+          {COCKPIT_MODE && (
+            <a
+              href="/"
+              className="glass-panel pointer-events-auto px-2.5 py-1 text-[10px] font-mono tracking-widest text-[var(--cyan-primary)] hover:text-[var(--gold-primary)] hover:border-[var(--gold-primary)]/40 transition-colors"
+              title="Retour à OSIRIS (V3)"
+            >
+              ← OSIRIS
+            </a>
+          )}
           <h1 className="text-lg md:text-xl font-bold tracking-[0.4em] text-[var(--gold-primary)] font-mono">OSIRIS</h1>
           <span className="text-[8px] md:text-[9px] font-mono tracking-[0.2em] opacity-70 uppercase text-[var(--gold-primary)]">
             COCKPIT OSINT · V4

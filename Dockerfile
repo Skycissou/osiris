@@ -7,10 +7,13 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# URL de base de l'API FR, inlinée AU BUILD (Next fige les NEXT_PUBLIC_* à la compilation).
-# Staging same-domain derrière Traefik : "/api" (Traefik strippe /api → FastAPI).
+# Vars NEXT_PUBLIC_* inlinées AU BUILD (Next les fige à la compilation).
+#  - NEXT_PUBLIC_API_BASE : base des appels API ('' = racine du domaine → FastAPI V3).
+#  - NEXT_PUBLIC_BASE_PATH : basePath Next ('' = racine · '/cockpit' = servi sous /cockpit).
 ARG NEXT_PUBLIC_API_BASE=""
 ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
+ARG NEXT_PUBLIC_BASE_PATH=""
+ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
 RUN npm run build
 
 FROM node:22-alpine AS runner

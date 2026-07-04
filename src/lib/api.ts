@@ -6,8 +6,16 @@
 //  S'inspire du `fetchEndpoint` de l'ancien front (cache no-store).
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Base URL du backend FastAPI FR (ex: https://api.osiris.cissouhub.cloud). */
+/** Base URL du backend FastAPI FR (ex: https://api.osiris.cissouhub.cloud).
+ *  DOIT rester VIDE ('') quand le cockpit est servi sous /cockpit du MÊME domaine
+ *  que la V3 : les appels API partent alors à la RACINE de l'origine (`/search`,
+ *  `/login`, …), là où Traefik route la V3 FastAPI (cookie partagé même-domaine). */
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? '';
+
+/** basePath sous lequel CE front Next est servi (ex '/cockpit'). Vide en standalone.
+ *  Source UNIQUE de vérité pour préfixer les routes internes Next (proxy-tiles…).
+ *  ⚠️ NE concerne PAS les appels API (voir API_BASE) : ceux-ci restent à la racine. */
+export const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
 export interface ApiOptions extends RequestInit {
   /** Paramètres de query string ajoutés à l'URL. */
@@ -15,6 +23,10 @@ export interface ApiOptions extends RequestInit {
 }
 
 function buildUrl(path: string, params?: ApiOptions['params']): string {
+  // API_BASE vide → chemin ABSOLU d'origine (ex '/search'). Le fetch natif résout
+  // un chemin absolu contre l'ORIGINE du document, en IGNORANT le basePath Next :
+  // c'est exactement voulu ici (cockpit sous /cockpit, mais API V3 à la racine).
+  // On ne préfixe donc JAMAIS BASE_PATH ici.
   const base = API_BASE.replace(/\/$/, '');
   const url = /^https?:\/\//.test(path) ? path : `${base}${path.startsWith('/') ? path : `/${path}`}`;
   if (!params) return url;

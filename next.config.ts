@@ -1,7 +1,14 @@
 import type { NextConfig } from "next";
 
+// basePath sous lequel le cockpit V4 est servi (ex '/cockpit' derrière Traefik,
+// tout le reste du domaine = V3 FastAPI). Vide par défaut → build standalone racine.
+// Piloté par NEXT_PUBLIC_BASE_PATH pour rester une source unique (cf. src/lib/api.ts).
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 const nextConfig: NextConfig = {
   output: 'standalone',
+  // On n'injecte basePath que s'il est défini : Next refuse une chaîne vide.
+  ...(basePath ? { basePath } : {}),
   transpilePackages: ['maplibre-gl'],
   typescript: {
     // Le front lean doit compiler proprement : plus d'ignore des erreurs.
