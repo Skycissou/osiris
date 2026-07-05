@@ -381,6 +381,18 @@ export default function Dashboard() {
         />
       </ErrorBoundary>
 
+      {/* ── BOUTON RETOUR ACCUEIL (desktop) — réintégré à la demande de Cissou,
+          en plus du lien Accueil de la sidebar (accès rapide flottant). ── */}
+      {!isMobile && (
+        <a
+          href={lastQuery ? `/?q=${encodeURIComponent(lastQuery)}` : '/'}
+          className="absolute top-4 left-[92px] z-[210] glass-panel hover-lift pointer-events-auto rounded-[12px] px-3 py-1.5 text-[10px] font-mono tracking-widest text-[var(--accent-bright)] hover:text-[var(--accent)] transition-colors"
+          title="Retour à l'accueil"
+        >
+          ← Accueil
+        </a>
+      )}
+
       {/* ── PANNEAU COUCHES (desktop) ── */}
       {!isMobile && (
         <ErrorBoundary name="Couches">
