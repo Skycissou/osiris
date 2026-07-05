@@ -13,11 +13,26 @@ import { BASE_PATH } from '@/lib/api';
 //  plus bas (`useEffect(setGeo(...))`).
 // ─────────────────────────────────────────────────────────────────────────
 
+/** Avion temps réel normalisé (source adsb.lol, données publiques ADS-B). */
+export interface AircraftPoint {
+  id: string;
+  lat: number;
+  lng: number;
+  heading?: number;
+  speed?: number;
+  alt?: number;
+  callsign?: string;
+  hex?: string;
+  category?: string;
+}
+
 interface OsirisMapProps {
   /** Données brutes issues du backend FR (clés à définir couche par couche). */
   data?: Record<string, any>;
   /** Etat des couches actives (clés FR stub — cf. LayerPanel). */
   activeLayers: Record<string, boolean>;
+  /** Avions temps réel (adsb.lol) — rendus si activeLayers.live_aircraft. */
+  aircraft?: AircraftPoint[];
   onEntityClick?: (entity: any) => void;
   onMouseCoords?: (coords: { lat: number; lng: number }) => void;
   onRightClick?: (coords: { lat: number; lng: number }) => void;
@@ -175,6 +190,7 @@ function escapeHtml(v: unknown): string {
 function OsirisMap({
   data = {},
   activeLayers,
+  aircraft = [],
   onEntityClick,
   onMouseCoords,
   onRightClick,
@@ -317,6 +333,51 @@ function OsirisMap({
       });
       // ──────────────────────────────────────────────────────────────────
 
+      // ─── COUCHE TEMPS RÉEL : AVIONS (adsb.lol, données publiques ADS-B) ──
+      // Symboles "avion" orientés par le cap. Alimentée par la prop `aircraft`
+      // (polling 15 s + interpolation), affichée si activeLayers.live_aircraft.
+      map.addSource('live-aircraft', { type: 'geojson', data: EMPTY_FC });
+      map.addLayer({
+        id: 'live-aircraft-symbols',
+        type: 'symbol',
+        source: 'live-aircraft',
+        layout: {
+          'icon-image': 'plane',
+          'icon-size': ['interpolate', ['linear'], ['zoom'], 4, 0.6, 10, 1.1],
+          'icon-rotate': ['coalesce', ['get', 'heading'], 0],
+          'icon-rotation-alignment': 'map',
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+          visibility: 'none',
+        },
+      });
+      map.on('click', 'live-aircraft-symbols', (e) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        const p = f.properties || {};
+        const geom = f.geometry;
+        const coords = geom && geom.type === 'Point'
+          ? (geom.coordinates as [number, number])
+          : [e.lngLat.lng, e.lngLat.lat];
+        const alt = p.alt != null && p.alt !== '' ? `${escapeHtml(p.alt)} ft` : '—';
+        const spd = p.speed != null && p.speed !== '' ? `${escapeHtml(p.speed)} nds` : '—';
+        const hdg = p.heading != null && p.heading !== '' ? `${escapeHtml(p.heading)}°` : '—';
+        const html =
+          `<div style="${POPUP_STYLE}">` +
+          `<div style="color:#9bdcf0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Aéronef · temps réel</div>` +
+          `<div style="color:#fff;font-size:14px;font-weight:600;margin-bottom:6px;">${escapeHtml(p.callsign || p.hex || 'Inconnu')}</div>` +
+          `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">` +
+          `Altitude : ${alt}<br>Vitesse sol : ${spd}<br>Cap : ${hdg}</div>` +
+          `<div style="color:#586475;font-size:10px;margin-top:8px;">hex ${escapeHtml(p.hex || '—')} · source adsb.lol (public)</div>` +
+          `</div>`;
+        popupRef.current?.remove();
+        popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '360px', offset: 14 })
+          .setLngLat(coords as maplibregl.LngLatLike).setHTML(html).addTo(map);
+      });
+      map.on('mouseenter', 'live-aircraft-symbols', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'live-aircraft-symbols', () => { map.getCanvas().style.cursor = ''; });
+      // ──────────────────────────────────────────────────────────────────
+
       setMapReady(true);
     });
 
@@ -388,6 +449,31 @@ function OsirisMap({
       setVis([layer], !!activeLayers?.[key]);
     });
   }, [mapReady, data, activeLayers, setGeo, setVis]);
+  // ─────────────────────────────────────────────────────────────────────
+
+  // ─── RENDU COUCHE TEMPS RÉEL : AVIONS ────────────────────────────────
+  // `aircraft` = positions live (adsb.lol via /api/live-data/fast, lissées par
+  // interpolation). On (re)construit la FeatureCollection à chaque changement
+  // et on affiche/masque selon le toggle live_aircraft.
+  useEffect(() => {
+    if (!mapReady) return;
+    const rows = Array.isArray(aircraft) ? aircraft : [];
+    const features = rows
+      .filter((a) => typeof a?.lat === 'number' && typeof a?.lng === 'number')
+      .map((a) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [a.lng, a.lat] },
+        properties: {
+          heading: typeof a.heading === 'number' ? a.heading : 0,
+          callsign: a.callsign ?? '',
+          hex: a.hex ?? a.id ?? '',
+          alt: a.alt ?? '',
+          speed: a.speed ?? '',
+        },
+      }));
+    setGeo('live-aircraft', features);
+    setVis(['live-aircraft-symbols'], !!activeLayers?.live_aircraft);
+  }, [mapReady, aircraft, activeLayers, setGeo, setVis]);
   // ─────────────────────────────────────────────────────────────────────
 
   // ── Couche jour/nuit (affichage, conservée du châssis d'origine) ──

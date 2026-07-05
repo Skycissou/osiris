@@ -6,6 +6,9 @@ import { motion } from 'framer-motion';
 import { Globe, MapPinned, Layers, X } from 'lucide-react';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { search, buildMapData, BASE_PATH, type SearchResponse, type PlotPoint } from '@/lib/api';
+import { useDataPolling } from '@/lib/liveData';
+import { useDataKey } from '@/lib/store';
+import type { AircraftPoint } from '@/components/OsirisMap';
 
 // Cockpit servi sous basePath (/cockpit) → l'utilisateur arrive DÉJÀ loggué via la
 // V3 (cookie httponly même-domaine couvre /search). Dans ce mode on court-circuite
@@ -26,6 +29,7 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
   fr_ban: false,
   fr_rna: false,
   day_night: false,
+  live_aircraft: false,
 };
 
 // ── Options du menu de couches (labels lisibles, ordre d'affichage) ──
@@ -124,6 +128,13 @@ export default function Dashboard() {
   const [overlays, setOverlays] = useState<Record<string, boolean>>({});
   const toggleOverlay = useCallback((k: string) => setOverlays((prev) => ({ ...prev, [k]: !prev[k] })), []);
   const [activeLayers, setActiveLayers] = useState<Record<string, boolean>>(DEFAULT_LAYERS);
+
+  // ── Couche temps réel : avions (adsb.lol, données publiques ADS-B) ──
+  // Le polling ne tourne QUE quand la couche est allumée (économie réseau +
+  // respect de la source gratuite). Le hook merge les avions dans le store
+  // par-clé ; on lit la clé 'aircraft' pour la passer à la carte.
+  useDataPolling({ enabled: !!activeLayers.live_aircraft });
+  const aircraft = useDataKey<AircraftPoint[]>('aircraft');
 
   // ── Recherche cible (search-first) : appelle le backend puis plotte ──
   const runSearch = useCallback(async (q: string) => {
@@ -261,6 +272,7 @@ export default function Dashboard() {
         <OsirisMap
           data={data}
           activeLayers={activeLayers}
+          aircraft={aircraft}
           projection={mapProjection}
           mapStyle={mapStyle}
           timeLayer={timeLayer}
@@ -436,6 +448,25 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+
+          {/* TEMPS RÉEL (couches live — données publiques) */}
+          <div className="mt-4">
+            <div className="text-[9px] font-mono tracking-widest text-[var(--accent-bright)] uppercase mb-2 pb-1 border-b border-white/10">Temps réel</div>
+            <div className="flex flex-col gap-1">
+              <button
+                onClick={() => setActiveLayers((prev) => ({ ...prev, live_aircraft: !prev.live_aircraft }))}
+                className="flex items-center gap-2.5 px-1.5 py-1 rounded hover:bg-white/5 transition-colors text-left"
+                title="Avions en vol (ADS-B public, adsb.lol) — actualisé toutes les 15 s"
+              >
+                <span
+                  className={`w-3 h-3 rounded-sm flex-shrink-0 border flex items-center justify-center ${activeLayers.live_aircraft ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-white/30'}`}
+                >
+                  {activeLayers.live_aircraft && <span className="w-1.5 h-1.5 bg-[var(--bg)] rounded-[1px]" />}
+                </span>
+                <span className={`text-[11px] font-mono ${activeLayers.live_aircraft ? 'text-white' : 'text-white/60'}`}>Avions ✈ (adsb.lol)</span>
+              </button>
+            </div>
+          </div>
         </motion.div>
       )}
 
@@ -458,7 +489,7 @@ export default function Dashboard() {
         </button>
         <button
           onClick={() => setLayersOpen((v) => !v)}
-          className={`glass-panel px-3 py-2.5 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors flex items-center gap-2 text-[9px] font-mono tracking-widest ${layersOpen || timeLayer !== 'none' || mapStyle !== 'dark' || Object.values(overlays).some(Boolean) ? 'text-[var(--accent)] border-[var(--accent)]/50' : 'text-[var(--accent-bright)]'}`}
+          className={`glass-panel px-3 py-2.5 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors flex items-center gap-2 text-[9px] font-mono tracking-widest ${layersOpen || timeLayer !== 'none' || mapStyle !== 'dark' || Object.values(overlays).some(Boolean) || activeLayers.live_aircraft ? 'text-[var(--accent)] border-[var(--accent)]/50' : 'text-[var(--accent-bright)]'}`}
           title="Menu des couches (fonds, remonter le temps, surcouches)"
         >
           <Layers className="w-4 h-4" />
