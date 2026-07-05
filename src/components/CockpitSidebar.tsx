@@ -51,8 +51,9 @@ function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenN
 
   return (
     <nav className="ck-sidenav">
+      {/* Marque : .ck-mark = clone CSS du logo conic-gradient de l'accueil (pas d'image). */}
       <div className="ck-brand">
-        <span className="ck-brand-mark">◎</span>
+        <span className="ck-mark" aria-hidden="true" />
         <span className="ck-brand-word">OSIRIS</span>
         <span className="ck-brand-v">{version.replace('-dev', '')}</span>
       </div>
@@ -68,17 +69,18 @@ function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenN
         )}
       </div>
 
-      <div className="ck-navlabel" style={{ marginTop: 14 }}>Outils</div>
+      <div className="ck-navlabel">Outils</div>
       <div className="ck-navlinks">
         {TOOLS.map((t) => (
-          <button key={t.label} type="button" className="ck-navlink" onClick={t.onClick} style={{ background: 'none', textAlign: 'left', width: '100%' }}>
+          <button key={t.label} type="button" className="ck-navlink" onClick={t.onClick}>
             {t.label}
           </button>
         ))}
       </div>
 
-      <a className="ck-navlink" href="/" style={{ marginTop: 'auto', borderColor: 'var(--accent-line)', color: 'var(--accent-bright)' }}>💬 Feedback / Questions</a>
-      <a className="ck-navlink" href="/logout" style={{ borderColor: 'var(--line-2)' }}>⏻ Se déconnecter</a>
+      {/* Feedback + Déconnexion : classes dédiées = mêmes styles que .nav-fb / .nav-logout de l'accueil. */}
+      <a className="ck-navfb" href="/">💬 Feedback / Questions</a>
+      <a className="ck-navlogout" href="/logout">⏻ Se déconnecter</a>
       <div className="ck-navfoot"><span className="dot" /> Données publiques FR</div>
     </nav>
   );
