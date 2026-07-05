@@ -30,18 +30,19 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 ## 📜 Changelog
 
 ### V4.003-dev — 2026-07-05 — Vague multi-couches temps réel
-- **Couches géophysiques** (endpoint lent `/api/live-data/slow`, 120 s) :
+- **Couches géophysiques** (endpoint lent `/live-feed/slow`, 120 s) :
   - **Séismes** — USGS GeoJSON (`all_day`), gratuit sans clé. Rayon/couleur par magnitude.
   - **Feux** — NASA FIRMS (VIIRS), nécessite `FIRMS_MAP_KEY` (gratuit) ; couche vide sinon.
   - **Volcans** — stub `[]` documenté (piste Smithsonian GVP), à brancher plus tard.
-- **Tagging VIP avions** (endpoint rapide `/api/live-data/fast`) : watchlist seed (forme 2, données publiques), champs `vip`/`vipName`/`category`/`vipColor`.
+- **Tagging VIP avions** (endpoint rapide `/live-feed/fast`) : watchlist seed (forme 2, données publiques), champs `vip`/`vipName`/`category`/`vipColor`.
 - **Système d'alertes** : toasts FR (seuil séisme ≥ 4.5, apparition VIP), anti-doublon, auto-expiration, clic → recentrage carte.
 - **Dossier de zone** (clic droit) : Nominatim (reverse FR) + restcountries + Wikidata SPARQL (chef d'État P35 / chef gouvernement P122).
 - **Versioning** : `src/lib/version.ts` + ce fichier + affichage header.
 - **Documentation** : `docs/ARCHITECTURE.md` (guide agents + humains, procédure « ajouter une couche »).
+- **Fix routing** : routes live déplacées de `/api/live-data/*` → **`/live-feed/*`** (Traefik strip `/api/*` vers le FastAPI en prod/staging → sinon 404). Même logique que `/proxy-tiles`.
 
 ### V4.002 — 2026-07-05 — Première couche temps réel (avions)
-- Route `/api/live-data/fast` : proxy adsb.lol (ADS-B public), bbox France défaut, SSRF-guardé, ETag/304, dégradation douce.
+- Route `/live-feed/fast` : proxy adsb.lol (ADS-B public), bbox France défaut, SSRF-guardé, ETag/304, dégradation douce.
 - Carte : couche symbole `live-aircraft` (icône orientée cap, popup FR altitude/vitesse/cap).
 - `page.tsx` : `useDataPolling` gated (poll 15 s si couche ON) + toggle FR « Avions ✈ ».
 

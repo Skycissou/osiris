@@ -583,7 +583,7 @@ function OsirisMap({
   // ─────────────────────────────────────────────────────────────────────
 
   // ─── RENDU COUCHE TEMPS RÉEL : AVIONS ────────────────────────────────
-  // `aircraft` = positions live (adsb.lol via /api/live-data/fast, lissées par
+  // `aircraft` = positions live (adsb.lol via /live-feed/fast, lissées par
   // interpolation). On (re)construit la FeatureCollection à chaque changement
   // et on affiche/masque selon le toggle live_aircraft.
   useEffect(() => {

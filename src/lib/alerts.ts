@@ -10,7 +10,7 @@
 //      • Séismes (clé store 'earthquakes', source USGS) → alerte si magnitude
 //        ≥ seuil (défaut 4.5). Sévérité graduée selon la magnitude.
 //      • Avions VIP (clé store 'aircraft', champ `vip:true` posé par la route
-//        /api/live-data/fast) → alerte info à l'apparition d'un appareil suivi.
+//        /live-feed/fast) → alerte info à l'apparition d'un appareil suivi.
 //
 //  CONTRAT (côté composant — voir src/components/AlertToasts.tsx)
 //    const { alerts, dismiss } = useAlertToasts();          // dans page.tsx

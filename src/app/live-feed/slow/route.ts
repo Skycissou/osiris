@@ -21,7 +21,7 @@
 //  500 qui casserait le polling).
 //
 //  Contrat côté client :
-//    GET /api/live-data/slow[?bbox=minLng,minLat,maxLng,maxLat]
+//    GET /live-feed/slow[?bbox=minLng,minLat,maxLng,maxLat]
 //    → 200 { earthquakes, wildfires, volcanoes, ts } + en-tête ETag
 //    → 304 (corps vide) si If-None-Match == ETag courant
 //

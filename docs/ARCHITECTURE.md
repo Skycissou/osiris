@@ -26,7 +26,7 @@ La forme active se pilote par un flag (`NEXT_PUBLIC_OSIRIS_FORM`, défaut `1`). 
 ## 2. Stack
 
 Next.js 16 (App Router, Turbopack) · React 19 · TypeScript strict · MapLibre GL · framer-motion · lucide-react · Tailwind v4 (charte en CSS vars).
-Backend données : **routes Next** (`src/app/api/...`) qui proxifient des sources publiques (SSRF-guardé). La recherche FR (`/search`) est servie par le **FastAPI V3** (hors de ce repo) en prod.
+Backend données : **routes Next** sous `src/app/live-feed/...` (⚠️ **PAS sous `/api`** : en prod/staging, Traefik strip `/api/*` vers le FastAPI V3 — une route Next sous `/api` serait interceptée). Elles proxifient des sources publiques (SSRF-guardé). La recherche FR (`/search`) et le login sont servis par le **FastAPI V3** (hors de ce repo) en prod.
 
 ---
 
@@ -39,11 +39,10 @@ src/
 │   ├── layout.tsx          ← polices + métadonnées
 │   ├── globals.css         ← CHARTE V3 (toutes les couleurs/polices en :root vars)
 │   ├── proxy-tiles/route.ts← proxy des tuiles de fond (CARTO) — PAS sous /api
-│   └── api/
-│       ├── health/route.ts
-│       └── live-data/
-│           ├── fast/route.ts ← flux RAPIDE 15 s (avions + VIP)
-│           └── slow/route.ts ← flux LENT 120 s (séismes, feux, volcans)
+│   ├── api/health/route.ts
+│   └── live-feed/          ← routes données live — PAS sous /api (Traefik strip /api→FastAPI)
+│       ├── fast/route.ts   ← flux RAPIDE 15 s (avions + VIP)
+│       └── slow/route.ts   ← flux LENT 120 s (séismes, feux, volcans)
 ├── components/
 │   ├── OsirisMap.tsx        ← CHÂSSIS carto MapLibre : toutes les couches se dessinent ici
 │   ├── LayerPanel.tsx       ← panneau couches de résultats (recherche FR)
@@ -69,7 +68,7 @@ src/
 Source publique (adsb.lol, USGS…)
       │  fetch SSRF-guardé
       ▼
-Route Next  /api/live-data/{fast|slow}   ── renvoie { <couche>: [...], ... } + ETag
+Route Next  /live-feed/{fast|slow}   ── renvoie { <couche>: [...], ... } + ETag
       │  polling (liveData.ts : 15 s / 120 s, If-None-Match → 304 = no-op)
       ▼
 Store par-clé  (store.ts : mergeData → notifie SEULEMENT les clés changées)
@@ -90,7 +89,7 @@ Points clés :
 
 Exemple : ajouter les **navires**.
 
-1. **Source & route** — dans `src/app/api/live-data/fast/route.ts` (mobile → rapide) ou `slow` (statique → lent) : fetch la source publique (via `safeFetch` SSRF), normalise en items `{ id, lat, lng, ... }`, ajoute la clé au body : `{ aircraft, ships }`.
+1. **Source & route** — dans `src/app/live-feed/fast/route.ts` (mobile → rapide) ou `slow` (statique → lent) : fetch la source publique (via `safeFetch` SSRF), normalise en items `{ id, lat, lng, ... }`, ajoute la clé au body : `{ aircraft, ships }`.
 2. **Registre** — déclare la couche dans `src/lib/layerRegistry.ts` (`LayerDef` : `id`, `name` FR, `source`, `form`, `color` charte V3, `sensitive` si besoin).
 3. **Carte** — dans `OsirisMap.tsx` : ajoute une prop `ships?: ShipPoint[]`, crée `source` + `layer` MapLibre (copie le bloc `live-aircraft`), et un `useEffect` de rendu (copie celui des avions) piloté par `activeLayers.live_ships`.
 4. **Orchestrateur** — dans `page.tsx` : `const ships = useDataKey('ships')`, passe `ships={ships}` à `<OsirisMap>`, ajoute le toggle FR dans le menu COUCHES → section « Temps réel », et ajoute `live_ships` à `DEFAULT_LAYERS`.
@@ -133,7 +132,11 @@ Toutes les couleurs/polices vivent dans `globals.css` (`:root`). **Ne jamais cod
 
 ## 8. Déploiement (rappel)
 
-Cockpit servi sous **basePath `/cockpit`** (`NEXT_PUBLIC_BASE_PATH`). Les routes `/api/*` internes vivent donc sous `/cockpit/api/*` (routées vers Next), tandis que `/api/*` racine va au FastAPI V3 (recherche, login). Détails : `DOCKER.md`, `deploy/`.
+Deux modes de service (via `NEXT_PUBLIC_BASE_PATH`) :
+- **Staging** = servi à la **racine** (`NEXT_PUBLIC_BASE_PATH=""`). Traefik : `/`→front Next, `/api/*`→FastAPI V3. C'est pour ça que les routes live sont sous **`/live-feed/*`** (jamais `/api`), sinon elles partiraient au FastAPI (404).
+- **Prod sous /cockpit** = `NEXT_PUBLIC_BASE_PATH="/cockpit"`. Tout `/cockpit/*` (dont `/cockpit/live-feed/*` et `/cockpit/proxy-tiles`) → Next ; `/api/*` racine → FastAPI V3.
+
+Le client (`liveData.ts`, `api.ts`) préfixe automatiquement le basePath. Détails : `DOCKER.md`, `deploy/README-staging.md`.
 
 ---
 *Doc maintenue à chaque chantier. Si tu ajoutes une brique, ajoute son entrée ici. Un projet non documenté est un projet perdu.*

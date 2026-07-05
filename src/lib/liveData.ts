@@ -4,8 +4,8 @@
 //  OSIRIS V4 — LIVE DATA : polling 2-vitesses + ETag/304 + interpolation.
 //  Alimente le store par-clé (./store) à partir d'endpoints HTTP internes
 //  Next (routes /api/…). Trois flux :
-//    • RAPIDE  (défaut /api/live-data/fast) toutes les 15 s  → avions, navires…
-//    • LENT    (défaut /api/live-data/slow) toutes les 120 s → couches lourdes.
+//    • RAPIDE  (défaut /live-feed/fast) toutes les 15 s  → avions, navires…
+//    • LENT    (défaut /live-feed/slow) toutes les 120 s → couches lourdes.
 //    • CRITIQUE (défaut /api/bootstrap/critical) UNE fois au montage → seed.
 //  Optimisations : ETag conditionnel (If-None-Match → 304 = no-op), scoping
 //  bbox pour les couches denses, et interpolation dead-reckoning entre fetches
@@ -31,9 +31,9 @@ function bboxToParam(bbox: BBox): string {
 
 // ── Options du hook de polling ────────────────────────────────────────────
 export interface DataPollingOptions {
-  /** URL de l'endpoint rapide (défaut '/api/live-data/fast'). */
+  /** URL de l'endpoint rapide (défaut '/live-feed/fast'). */
   fastUrl?: string;
-  /** URL de l'endpoint lent (défaut '/api/live-data/slow'). */
+  /** URL de l'endpoint lent (défaut '/live-feed/slow'). */
   slowUrl?: string;
   /** URL du bootstrap critique, appelé 1 fois au montage (défaut '/api/bootstrap/critical'). */
   criticalUrl?: string;
@@ -55,10 +55,14 @@ export interface DataPollingOptions {
   enabled?: boolean;
 }
 
+// IMPORTANT — les routes live vivent SOUS `/live-feed`, PAS sous `/api`.
+// En prod/staging, Traefik route `/api/*` vers le FastAPI V3 : une route Next
+// sous `/api/...` serait interceptée par le backend (404). Même raison que le
+// proxy de tuiles (`/proxy-tiles`). `/live-feed/*` reste servi par Next.
 const DEFAULTS = {
-  fastUrl: '/api/live-data/fast',
-  slowUrl: '/api/live-data/slow',
-  criticalUrl: '/api/bootstrap/critical',
+  fastUrl: '/live-feed/fast',
+  slowUrl: '/live-feed/slow',
+  criticalUrl: '/live-feed/critical',
   fastIntervalMs: 15_000,
   slowIntervalMs: 120_000,
   denseEndpoints: ['fast'] as ('fast' | 'slow')[],

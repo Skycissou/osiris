@@ -19,7 +19,7 @@
 //  Ré-écriture clean-room : aucune ligne copiée d'un autre projet.
 //
 //  Contrat côté client (voir src/lib/liveData.ts) :
-//    GET /api/live-data/fast?bbox=minLng,minLat,maxLng,maxLat
+//    GET /live-feed/fast?bbox=minLng,minLat,maxLng,maxLat
 //    → 200 { aircraft, count, ts }  + en-tête ETag (faible, stable)
 //      Chaque avion porte désormais les champs vip / vipName / category /
 //      vipColor (voir interface Aircraft). vip=false pour le tout-venant.
