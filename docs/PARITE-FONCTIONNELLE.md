@@ -29,36 +29,54 @@
 
 ## 2. Tableau de parité fonctionnelle
 
-| Feature (référence externe → OSIRIS) | Statut | Forme | Source de données | Variable d'env |
-|---|---|---|---|---|
-| **Avions (ADS-B temps réel)** | ✅ fait | F1 | adsb.lol (`/live-feed/fast`) | — (API publique, sans clé) |
-| **VIP (watchlist aéronefs)** | ✅ fait | F1 | adsb.lol + seed `WATCHLIST_VIP` (tag hex ICAO24) | — (seed interne, extensible) |
-| **Navires (AIS)** | 🧩 scaffold | F1 | AIS public (temps réel) | `AISSTREAM_KEY` |
-| **Satellites (TLE + SGP4)** | ✅ fait | F1 | Celestrak (TLE) + `satellite.js` (`/live-feed/slow`) | — (public, sans clé) |
-| **Séismes** | ✅ fait | F1 | USGS feed (`/live-feed/slow`) | — (public, sans clé) |
-| **Feux de forêt** | 🔑 prêt — clé requise | F1 | NASA FIRMS (`/live-feed/slow`) | `FIRMS_MAP_KEY` |
-| **Volcans** | 🧩 scaffold | F1 | Smithsonian GVP (bulletin hebdo, à normaliser) | — (pas de JSON no-key stable) |
-| **CCTV (caméras)** | 🧩 scaffold | **F2** | OSINT restreint | `CCTV_SOURCE_KEY` |
-| **Brouillage GPS (jamming)** | 🧩 scaffold | **F2** | OSINT restreint (type gpsjam) | `GPSJAM_KEY` |
-| **Scanners radio** | 🧩 scaffold | **F2** | OSINT restreint | `SCANNER_KEY` |
-| **Maillage SIGINT** | 🧩 scaffold | **F2** | OSINT restreint | `SIGINT_KEY` |
-| **Bases / emprises militaires** | 🧩 scaffold | **F2** | OSINT restreint | — (dataset statique à brancher) |
-| **Frontline (ligne de front)** | ⏳ différé | **F2** | OSINT restreint | `FRONTLINE_KEY` |
-| **Telegram (flux OSINT)** | ⏳ différé | **F2** | Canaux Telegram OSINT | `TELEGRAM_OSINT_KEY` |
-| **Trails / routes (traces)** | 🧩 scaffold | F1 | Dérivé des positions live (historisation) | — |
-| **Fiches entité + images** | 🧩 scaffold | F1 | Agrégat interne (+ vignettes planespotters) | — (voir CSP §5) |
-| **Alertes (toasts)** | ✅ fait | F1 | Interne (`src/lib/alerts.ts` + `AlertToasts`) | — |
-| **Dossier de zone** | ✅ fait | F1 | Interne (`RegionDossierPanel` + `regionDossier.ts`) | — |
-| **Modes visuels (skins)** | ✅ fait | F1 | Interne (`visualModes.ts` + `VisualModeOverlay`) | — |
-| **Time machine (rejeu temporel)** | ⏳ différé | F1 | Historisation locale des flux | — |
-| **Graphe / téléonomie bayésienne (GT)** | ⏳ différé | F1 | Moteur interne (à concevoir) | — |
+### 2.1 Ce qui est CÂBLÉ dans OSIRIS (à jour V4.009)
 
-> **Note importante** : les variables des couches 🧩/⏳ **ne sont PAS encore
-> lues dans le code** (seule `FIRMS_MAP_KEY` l'est aujourd'hui, dans
-> `src/app/live-feed/slow/route.ts`). Elles sont **réservées** ici pour cadrer
-> l'intégration à venir : quand on branche la couche, on lit `process.env.<CLÉ>`
-> dans la route `/live-feed/*` correspondante, avec **dégradation douce** si
-> absente.
+| Feature | Statut | Forme | Source / clé |
+|---|---|---|---|
+| **Avions (ADS-B)** | ✅ fait | F1 | adsb.lol — sans clé |
+| **VIP (watchlist aéronefs)** | ✅ fait | F1 | seed `WATCHLIST_VIP` (hex ICAO24) |
+| **Trails / routes tracées** | ✅ **câblé** | F1 | dérivé des positions (`lib/trails.ts`) |
+| **Fiches entité + photo** | ✅ **câblé** | F1 | planespotters (photo avion) + détails |
+| **Séismes** | ✅ fait | F1 | USGS — sans clé |
+| **Satellites (TLE+SGP4)** | ✅ fait | F1 | Celestrak + `satellite.js` — sans clé |
+| **Feux** | 🔑 clé | F1 | NASA FIRMS — `FIRMS_MAP_KEY` |
+| **Volcans** | 🧩 scaffold | F1 | Smithsonian GVP (à normaliser) |
+| **Navires (AIS)** | 🔑 **câblé, clé** | F1 | couche+trails câblés — `AIS_REST_URL`/`AIS_REST_KEY` |
+| **Bases militaires** | ✅ **câblé, sans clé** | F2 | OpenStreetMap/Overpass (réel !) |
+| **CCTV → flux in-app** | 🔑 **câblé, clé** | F2 | couche + `StreamViewer` HLS — `CCTV_SOURCE_KEY` |
+| **Brouillage GPS** | 🔑 **câblé, clé** | F2 | `GPSJAM_KEY` |
+| **Scanners radio** | 🔑 **câblé, clé** | F2 | `SCANNER_KEY` |
+| **SIGINT (mesh/APRS)** | 🔑 **câblé, clé** | F2 | `SIGINT_KEY` |
+| **Telegram OSINT** | 🔑 **câblé, clé** | F2 | `TELEGRAM_OSINT_KEY` |
+| **Alertes (toasts)** | ✅ fait | F1 | `alerts.ts` + `AlertToasts` |
+| **Dossier de zone (clic droit)** | ✅ fait | F1 | Nominatim + restcountries + Wikidata |
+| **Lecteur de flux in-app** | ✅ **câblé** | F2 | `StreamViewer` (HLS/vidéo/MJPEG/iframe) |
+| **Modes visuels (CRT/NVG/thermique)** | ✅ fait | F1 | `visualModes.ts` + overlay |
+| **Formes public/perso + consentement** | ✅ fait | — | `forms.ts` + `ConsentModal` |
+| **Frontline (ligne de front)** | 🧩 scaffold | F2 | route OK, rendu geojson à faire — `FRONTLINE_KEY` |
+
+### 2.2 ENCORE À PORTER depuis la version d'origine (branche `master`, MIT)
+
+> Repéré en comparant le dépôt à la version d'origine complète (~48 routes / 17 composants). Rien n'est copié : on **ré-implémente** en clean-room + charte OSIRIS.
+
+| Bloc manquant | Détail | Intérêt enquêteur | Priorité |
+|---|---|---|---|
+| 🔍 **Boîte à outils OSINT** | 14 lookups : whois, dns, ip, cve, leaks, mac, phone, sanctions, shodan, bgp, certs, github, sweep, threats (+ panneau `OsintPanel`) | ⭐⭐⭐ ÉNORME (cœur du métier) | **haute** |
+| 🕸️ **Graphe d'entités** | relations entre entités (`EntityGraphPanel` + `entity/expand`) — investigation visuelle | ⭐⭐⭐ | **haute** |
+| 🛰️ **Imagerie Sentinel** | imagerie satellite à la demande (clic droit → Sentinel) | ⭐⭐ | moyenne |
+| 📰 **Feeds géopolitiques** | GDELT (événements mondiaux), news / live-news, country-risk | ⭐⭐ | moyenne |
+| 🛡️ **Couches cyber** | cyber-threats, malware, infrastructure | ⭐⭐ | moyenne |
+| 🌦️ **Couches environnement** | météo, qualité de l'air, radar météo, météo spatiale | ⭐ | basse |
+| 🤖 **IA (analyse/briefing)** | `ai/analyze`, `ai/briefing`, `AiAnalyst` — synthèse auto | ⭐⭐ | moyenne (clé LLM) |
+| 🎛️ **Filtres d'attributs** | filtrer DANS une couche (avions par catégorie/pays…) — la 2ᵉ famille de filtres | ⭐⭐ | moyenne |
+| 🗺️ **Scoping bbox viewport** | ne charger que la zone visible (le polling le supporte, pas branché au déplacement carte) | ⭐ (perf) | basse |
+| 🧰 **Confort UI** | barre d'échelle, barre de statut, raccourcis clavier, presets de vue, partage, flux intel | ⭐ | basse |
+| 📈 **Marchés / supply chain** | markets, scm-suppliers | ✖ (hors ARPD) | ignorer |
+| ⏳ **Time Machine (rejeu)** + **GT bayésien** | rejeu temporel des flux + moteur d'alerte précoce | ⭐ | différé (gros) |
+
+> **Note clés** : les variables des couches 🔑 **ne sont PAS encore lues** (seule
+> `FIRMS_MAP_KEY` l'est). Réservées ici : au branchement, on lit `process.env.<CLÉ>`
+> dans la route `/live-feed/*`, avec **dégradation douce** si absente.
 
 ---
 
