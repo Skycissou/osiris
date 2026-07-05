@@ -38,8 +38,8 @@ export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: st
     resume:
       "Filtres d'attributs (filtrer DANS une couche : altitude/vitesse/militaire/VIP, " +
       "magnitude, tonalité, malware). Confort UI : raccourcis clavier, presets de vue, " +
-      "partage de lien, barre d'échelle. Briefing de situation IA (route /analyze, clé LLM, " +
-      "dégradation douce en briefing basique sans clé).",
+      "partage de lien, barre d'échelle. (Briefing IA construit puis MIS DE CÔTÉ à la " +
+      "demande de Cissou — code dormant, débranché de l'UI.)",
   },
   {
     version: 'V4.012-dev',

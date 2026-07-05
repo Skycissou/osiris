@@ -37,7 +37,6 @@
  * fige la forme minuscule pour éviter toute divergence entre agents).
  */
 export type ApiKeyService =
-  | 'llm' // Fournisseur LLM — briefing de situation IA (route /analyze)
   | 'shodan' // Shodan — exposition réseau (osint)
   | 'hibp' // HaveIBeenPwned — fuites d'e-mails (osint/leaks)
   | 'abuseipdb' // AbuseIPDB — réputation d'IP (osint/threats)
@@ -83,20 +82,9 @@ export interface ApiKeyServiceMeta {
  * sources « sensibles » (forme 2). Le panneau les regroupe par catégorie.
  */
 export const API_KEY_SERVICES: readonly ApiKeyServiceMeta[] = [
-  // ── IA (briefing de situation) ────────────────────────────────────────────
-  {
-    service: 'llm',
-    label: 'IA — Briefing (LLM)',
-    env: 'LLM_API_KEY',
-    purpose:
-      'Rédige un briefing de situation FR à partir des couches visibles (route /analyze). Sans clé : briefing basique déterministe.',
-    url: 'https://openrouter.ai/keys',
-    howTo:
-      'Crée un compte OpenRouter (accès à de nombreux modèles avec une seule clé), ouvre « Keys », génère puis colle la clé. Fournisseur/modèle réglables côté serveur (LLM_PROVIDER=openrouter|openai, LLM_MODEL).',
-    cost: 'payant à l’usage (crédits)',
-    form: 1,
-  },
   // ── OSINT (boîte à outils) ────────────────────────────────────────────────
+  // (⏸️ Service 'llm' / briefing IA retiré le 05/07 à la demande de Cissou —
+  //  la route /analyze et son client restent dormants dans le repo.)
   {
     service: 'shodan',
     label: 'Shodan',

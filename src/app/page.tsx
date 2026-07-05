@@ -25,7 +25,6 @@ import { applyFilter, DEFAULT_FILTERS, type LayerFilters } from '@/lib/layerFilt
 import { useKeyboardShortcuts } from '@/lib/shortcuts';
 import type { ViewPreset } from '@/lib/viewPresets';
 import { buildShareUrl, copyShareUrl } from '@/lib/shareLink';
-import type { BriefingContext } from '@/lib/analyzeClient';
 
 // Cockpit servi sous basePath (/cockpit) → l'utilisateur arrive DÉJÀ loggué via la
 // V3 (cookie httponly même-domaine couvre /search). Dans ce mode on court-circuite
@@ -48,7 +47,9 @@ const KeysPanel = dynamic(() => import('@/components/KeysPanel'), { ssr: false }
 const EntityGraphPanel = dynamic(() => import('@/components/EntityGraphPanel'), { ssr: false });
 const NewsPanel = dynamic(() => import('@/components/NewsPanel'), { ssr: false });
 const FilterPanel = dynamic(() => import('@/components/FilterPanel'), { ssr: false });
-const BriefingPanel = dynamic(() => import('@/components/BriefingPanel'), { ssr: false });
+// ⏸️ Briefing IA mis de côté (demande Cissou 05/07) : fichiers conservés dormants
+// (BriefingPanel / analyzeClient / route /analyze), débranchés de l'UI. Réactivation
+// = remonter l'import + l'outil sidebar + le montage + getBriefingContext.
 import CockpitSidebar from '@/components/CockpitSidebar';
 import ComfortBar from '@/components/ComfortBar';
 
@@ -251,7 +252,6 @@ export default function Dashboard() {
   const [keysOpen, setKeysOpen] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
-  const [briefingOpen, setBriefingOpen] = useState(false);
 
   // ── Filtres d'attributs (filtrer DANS une couche affichée) ──
   const [filters, setFilters] = useState<LayerFilters>(DEFAULT_FILTERS);
@@ -339,26 +339,10 @@ export default function Dashboard() {
     onShare: () => { void handleShare(); },
     onEscape: () => {
       setLayersOpen(false); setFilterOpen(false); setOsintOpen(false); setKeysOpen(false);
-      setGraphOpen(false); setNewsOpen(false); setBriefingOpen(false);
+      setGraphOpen(false); setNewsOpen(false);
     },
   }), [handleShare]);
   useKeyboardShortcuts(shortcutHandlers);
-
-  // ── Contexte pour le briefing IA : couches actives + décomptes visibles +
-  // libellé de zone survolée. Closure lue au moment du clic « Générer ». ──
-  const getBriefingContext = useCallback((): BriefingContext => {
-    const layers = LIVE_OPTS.filter((o) => activeLayers[o.key]).map((o) => o.label);
-    const counts: Record<string, number> = {};
-    if (activeLayers.live_aircraft) counts['avions'] = fAircraft?.length ?? 0;
-    if (activeLayers.live_earthquakes) counts['séismes'] = fEarthquakes?.length ?? 0;
-    if (activeLayers.live_wildfires) counts['feux'] = wildfires?.length ?? 0;
-    if (activeLayers.live_volcanoes) counts['volcans'] = volcanoes?.length ?? 0;
-    if (activeLayers.live_satellites) counts['satellites'] = satellites?.length ?? 0;
-    if (activeLayers.live_ships) counts['navires'] = fShips?.length ?? 0;
-    if (activeLayers.live_gdelt) counts['événements géopolitiques'] = fGdelt?.length ?? 0;
-    if (activeLayers.live_cyber) counts['serveurs C2'] = fCyber?.length ?? 0;
-    return { layers, counts, place: locationLabel || undefined };
-  }, [activeLayers, fAircraft, fEarthquakes, wildfires, volcanoes, satellites, fShips, fGdelt, fCyber, locationLabel]);
 
   // ── Recherche cible (search-first) : appelle le backend puis plotte ──
   const runSearch = useCallback(async (q: string) => {
@@ -502,7 +486,6 @@ export default function Dashboard() {
           onOpenOsint={() => setOsintOpen(true)}
           onOpenGraph={() => setGraphOpen(true)}
           onOpenNews={() => setNewsOpen(true)}
-          onOpenBriefing={() => setBriefingOpen(true)}
           onOpenKeys={() => setKeysOpen(true)}
         />
       )}
@@ -654,17 +637,6 @@ export default function Dashboard() {
             onChange={setFilters}
             onClose={() => setFilterOpen(false)}
             activeLayers={activeLayers}
-            isMobile={isMobile}
-          />
-        </ErrorBoundary>
-      )}
-
-      {/* ── BRIEFING DE SITUATION IA (résumé FR du contexte carte) ── */}
-      {briefingOpen && (
-        <ErrorBoundary name="Briefing IA">
-          <BriefingPanel
-            getContext={getBriefingContext}
-            onClose={() => setBriefingOpen(false)}
             isMobile={isMobile}
           />
         </ErrorBoundary>
