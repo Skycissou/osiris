@@ -29,6 +29,10 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.004-dev — 2026-07-05 — Avions fluides (interpolation)
+- **Interpolation dead-reckoning** : entre 2 fetches avions (15 s), tick 2 s qui estime la position (cap + vitesse, 1 nœud = 0,5144 m/s) depuis la dernière position réelle → les aéronefs glissent au lieu de sauter (rendu radar live). Gated sur la couche avions.
+- Fix déploiement (hors-code) : bug bouton « ← Accueil » → V3 causé par un **conteneur doublon** `osiris-v4-front` (projet `deploy/`) servant la racine avec du vieux code ; stoppé (`docker compose down`). Le cockpit vit sous `osiris-v4-cockpit` (`/cockpit`).
+
 ### V4.003-dev — 2026-07-05 — Vague multi-couches temps réel
 - **Couches géophysiques** (endpoint lent `/live-feed/slow`, 120 s) :
   - **Séismes** — USGS GeoJSON (`all_day`), gratuit sans clé. Rayon/couleur par magnitude.

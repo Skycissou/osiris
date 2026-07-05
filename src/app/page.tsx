@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { Globe, MapPinned, Layers, X } from 'lucide-react';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { search, buildMapData, BASE_PATH, type SearchResponse, type PlotPoint } from '@/lib/api';
-import { useDataPolling } from '@/lib/liveData';
+import { useDataPolling, useInterpolation, deadReckon } from '@/lib/liveData';
 import { useDataKey } from '@/lib/store';
 import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint } from '@/components/OsirisMap';
 import { OSIRIS_VERSION, OSIRIS_VERSION_LABEL } from '@/lib/version';
@@ -164,6 +164,31 @@ export default function Dashboard() {
   const wildfires = useDataKey<FirePoint[]>('wildfires');
   const volcanoes = useDataKey<VolcanoPoint[]>('volcanoes');
 
+  // ── Interpolation avions (mouvement fluide entre 2 fetches, façon radar live) ──
+  // Le fetch avions arrive toutes les 15 s ; entre-temps on estime la position
+  // par dead-reckoning (cap + vitesse) toutes les 2 s → les avions glissent au
+  // lieu de sauter. On repart TOUJOURS de la dernière position réelle connue
+  // (baseline) + temps écoulé → pas d'accumulation d'erreur. 1 nœud = 0,5144 m/s.
+  const [displayAircraft, setDisplayAircraft] = useState<AircraftPoint[]>([]);
+  const aircraftBaseRef = useRef<{ data: AircraftPoint[]; t: number }>({ data: [], t: 0 });
+  useEffect(() => {
+    if (!aircraft) return;
+    aircraftBaseRef.current = { data: aircraft, t: Date.now() };
+    setDisplayAircraft(aircraft);
+  }, [aircraft]);
+  useInterpolation(() => {
+    const base = aircraftBaseRef.current;
+    if (!base.data.length) return;
+    const elapsed = (Date.now() - base.t) / 1000; // s depuis le dernier fetch réel
+    setDisplayAircraft(
+      base.data.map((a) => {
+        if (typeof a.heading !== 'number' || typeof a.speed !== 'number' || a.speed <= 0) return a;
+        const m = deadReckon({ ...a, lat: a.lat, lng: a.lng, heading: a.heading, speedMps: a.speed * 0.514444 }, elapsed);
+        return { ...a, lat: m.lat, lng: m.lng };
+      }),
+    );
+  }, { enabled: !!activeLayers.live_aircraft });
+
   // ── Alertes toasts (seuil séisme + apparition VIP) ──
   // Le hook surveille le store et génère des alertes FR anti-doublon.
   const { alerts, dismiss } = useAlertToasts();
@@ -308,7 +333,7 @@ export default function Dashboard() {
         <OsirisMap
           data={data}
           activeLayers={activeLayers}
-          aircraft={aircraft}
+          aircraft={displayAircraft}
           earthquakes={earthquakes}
           wildfires={wildfires}
           volcanoes={volcanoes}
