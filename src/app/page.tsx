@@ -421,7 +421,7 @@ export default function Dashboard() {
           <a
             href={lastQuery ? `/?q=${encodeURIComponent(lastQuery)}` : '/'}
             /* Pill arrondie + léger décollement au survol (langage boutons de la landing) */
-            className="glass-panel hover-lift pointer-events-auto rounded-full px-3 py-1 text-[10px] font-mono tracking-widest text-[var(--accent-bright)] hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-colors"
+            className="glass-panel hover-lift pointer-events-auto rounded-[12px] px-3 py-1 text-[10px] font-mono tracking-widest text-[var(--accent-bright)] hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-colors"
             title="Retour à l'accueil"
           >
             ← Accueil
@@ -574,7 +574,7 @@ export default function Dashboard() {
         <button
           onClick={() => setMapProjection((p) => (p === 'globe' ? 'mercator' : 'globe'))}
           /* Bouton icône rond + hover lift (pills de la landing) */
-          className="glass-panel hover-lift rounded-full p-3.5 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors group"
+          className="glass-panel hover-lift rounded-[12px] p-3.5 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors group"
           title={mapProjection === 'globe' ? 'Vue 2D' : 'Vue Globe 3D'}
         >
           {mapProjection === 'globe'
@@ -584,7 +584,7 @@ export default function Dashboard() {
         <button
           onClick={() => setLayersOpen((v) => !v)}
           /* Pill COUCHES arrondie + hover lift ; actif = bordure accent (état .chip.active) */
-          className={`glass-panel hover-lift rounded-full px-3.5 py-2.5 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors flex items-center gap-2 text-[9px] font-mono tracking-widest ${layersOpen || timeLayer !== 'none' || mapStyle !== 'dark' || Object.values(overlays).some(Boolean) || anyLiveOn ? 'text-[var(--accent)] border-[var(--accent)]/50 bg-[var(--accent-soft)]' : 'text-[var(--accent-bright)]'}`}
+          className={`glass-panel hover-lift rounded-[12px] px-3.5 py-2.5 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors flex items-center gap-2 text-[9px] font-mono tracking-widest ${layersOpen || timeLayer !== 'none' || mapStyle !== 'dark' || Object.values(overlays).some(Boolean) || anyLiveOn ? 'text-[var(--accent)] border-[var(--accent)]/50 bg-[var(--accent-soft)]' : 'text-[var(--accent-bright)]'}`}
           title="Menu des couches (fonds, remonter le temps, surcouches)"
         >
           <Layers className="w-4 h-4" />
@@ -593,7 +593,7 @@ export default function Dashboard() {
         <button
           onClick={() => setFlyToLocation({ lat: 46.6, lng: 2.35, ts: Date.now() })}
           /* Pill FR arrondie + hover lift */
-          className="glass-panel hover-lift rounded-full px-3.5 py-2 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors text-[9px] font-mono tracking-widest text-[var(--accent)]"
+          className="glass-panel hover-lift rounded-[12px] px-3.5 py-2 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors text-[9px] font-mono tracking-widest text-[var(--accent)]"
           title="Recentrer sur la France"
         >
           FR
