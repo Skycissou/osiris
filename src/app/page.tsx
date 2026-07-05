@@ -330,7 +330,36 @@ export default function Dashboard() {
   if (!authed) return <LoginGate onAuthed={handleAuthed} />;
 
   return (
-    <main className="fixed inset-0 w-full h-full bg-[var(--bg)] overflow-hidden">
+    <main className="fixed inset-0 w-full h-full bg-[var(--bg)] overflow-hidden flex">
+      {/* ── SIDEBAR APP (clone de la sidenav de l'accueil — barre figée) ──
+          Le cockpit devient un « module » de l'accueil : même barre, même place,
+          « Cockpit carte » actif. Les liens renvoient aux onglets de l'accueil
+          (racine du domaine, non préfixée par le basePath /cockpit). */}
+      {!isMobile && (
+        <nav className="ck-sidenav">
+          <div className="ck-brand">
+            <span className="ck-brand-mark">◎</span>
+            <span className="ck-brand-word">OSIRIS</span>
+            <span className="ck-brand-v">{OSIRIS_VERSION.replace('-dev', '')}</span>
+          </div>
+          <div className="ck-navlabel">Navigation</div>
+          <div className="ck-navlinks">
+            <a className="ck-navlink" href="/">Accueil</a>
+            <a className="ck-navlink" href="/#chercher">Chercher</a>
+            <span className="ck-navlink active" aria-current="page">Cockpit carte</span>
+            <a className="ck-navlink" href="/#sources">Sources</a>
+            <a className="ck-navlink" href="/#recettes">Recettes</a>
+            <a className="ck-navlink" href="/#prototype">Prototype</a>
+            <a className="ck-navlink" href="/#rgpd">Garde-fous</a>
+          </div>
+          <a className="ck-navlink" href="/" style={{ marginTop: 'auto', borderColor: 'var(--accent-line)', color: 'var(--accent-bright)' }}>💬 Feedback / Questions</a>
+          <a className="ck-navlink" href="/logout" style={{ borderColor: 'var(--line-2)' }}>⏻ Se déconnecter</a>
+          <div className="ck-navfoot"><span className="dot" /> Données publiques FR</div>
+        </nav>
+      )}
+
+      {/* ── ZONE CONTENU (carte + panneaux) — à droite de la barre figée ── */}
+      <div className="relative flex-1 h-full overflow-hidden">
       {/* ── CARTE ── */}
       <ErrorBoundary name="Carte">
         <OsirisMap
@@ -405,13 +434,15 @@ export default function Dashboard() {
         </ErrorBoundary>
       )}
 
-      {/* ── EN-TÊTE ── */}
+      {/* ── EN-TÊTE (mobile uniquement — sur desktop c'est la sidebar qui porte
+          la marque + la nav + la version) ── */}
+      {isMobile && (
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
         className="absolute top-4 z-[200] pointer-events-none flex flex-col"
-        style={{ left: isMobile ? '16px' : '100px', right: '16px' }}
+        style={{ left: '16px', right: '16px' }}
       >
         <div className="flex items-center gap-3 w-fit">
           {/* Lien retour vers la V3 (racine du domaine) — visible seulement sous /cockpit.
@@ -432,6 +463,7 @@ export default function Dashboard() {
           </span>
         </div>
       </motion.div>
+      )}
 
       {/* ── PANNEAU MENU DE COUCHES (dépliable, au-dessus du bouton COUCHES) ── */}
       {layersOpen && (
@@ -605,6 +637,7 @@ export default function Dashboard() {
         <div ref={coordsDisplayRef} className="text-[var(--accent-bright)] tabular-nums">--.----, --.----</div>
         {locationLabel && <span className="text-[var(--muted)] truncate max-w-[40vw]">{locationLabel}</span>}
       </div>
+      </div>{/* /zone contenu */}
     </main>
   );
 }
