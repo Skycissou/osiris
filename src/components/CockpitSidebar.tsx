@@ -38,9 +38,11 @@ export interface CockpitSidebarProps {
   onOpenGraph?: () => void;
   /** Ouvre le fil d'actualité (News). */
   onOpenNews?: () => void;
+  /** Replie la sidebar (bouton « ). Si absent, pas de bouton replier. */
+  onCollapse?: () => void;
 }
 
-function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenNews }: CockpitSidebarProps) {
+function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenNews, onCollapse }: CockpitSidebarProps) {
   /** Outils du cockpit (ouvrent un panneau). Édite librement : label + action.
    *  (⏸️ « 🧠 Briefing IA » retiré le 05/07 à la demande de Cissou — code dormant.) */
   const TOOLS: { label: string; onClick?: () => void }[] = [
@@ -53,17 +55,18 @@ function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenN
   return (
     <nav className="ck-sidenav">
       {/* Marque = MÊMES IMAGES que l'accueil (œil + mot OSIRIS métallique), servies
-          par le cockpit sous BASE_PATH (/cockpit/assets/...). */}
+          par le cockpit sous BASE_PATH (/cockpit/assets/...). La version part dans
+          le pied pour ne PAS déborder de la barre. Bouton « = replier. */}
       <div className="ck-brand">
         <span className="ck-logo-mark">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`${BASE_PATH}/assets/logo-cut.png`} alt="OSIRIS" />
         </span>
-        <span className="ck-wordmark">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="ck-wordmark-img" src={`${BASE_PATH}/assets/osiris-cut.png`} alt="OSIRIS" />
-          <span className="ck-wordmark-v">{version.replace('-dev', '')}</span>
-        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="ck-wordmark-img" src={`${BASE_PATH}/assets/osiris-cut.png`} alt="OSIRIS" />
+        {onCollapse && (
+          <button type="button" className="ck-collapse" onClick={onCollapse} title="Replier le menu" aria-label="Replier le menu">«</button>
+        )}
       </div>
 
       <div className="ck-navlabel">Navigation</div>
@@ -89,7 +92,7 @@ function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenN
       {/* Feedback + Déconnexion : classes dédiées = mêmes styles que .nav-fb / .nav-logout de l'accueil. */}
       <a className="ck-navfb" href="/">💬 Feedback / Questions</a>
       <a className="ck-navlogout" href="/logout">⏻ Se déconnecter</a>
-      <div className="ck-navfoot"><span className="dot" /> Données publiques FR</div>
+      <div className="ck-navfoot"><span className="dot" /> {version} · Données publiques FR</div>
     </nav>
   );
 }

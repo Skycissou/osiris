@@ -37,7 +37,9 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 - **Sidebar « toujours la même partout » (demande Cissou)** : la barre du cockpit était un clone qui dérivait de celle de l'accueil (« ça ressemble mais c'est pas pareil »). Corrigé en 2 temps sur la **source canonique** `claude-brain/projects/open-radar-fr/backend/open_radar/static/` :
   - CSS `.ck-*` ré-aligné **verbatim** (largeur 232 px, boutons Feedback/Déconnexion = `.nav-fb`/`.nav-logout`, foot à pulsation).
   - **Marque = MÊMES IMAGES que l'accueil** (le logo « ◎ » CSS ne suffisait pas) : `public/assets/logo-cut.png` (œil) + `public/assets/osiris-cut.png` (mot OSIRIS métallique), police **Orbitron** pour le badge version, servies sous BASE_PATH.
-  - **Vraie transparence (pas de fond ajouté)** : la sidebar **flotte** en verre (position absolue) PAR-DESSUS la carte plein écran → la carte transparaît à travers le blur. Contrôles décalés à 252 px pour dégager la barre. (1re tentative avec une vidéo/image de fond = raccourci abandonné : inutile, la carte EST le fond.)
+  - **Vraie transparence (pas de fond ajouté)** : la sidebar **flotte** en verre (position absolue) PAR-DESSUS la carte plein écran → la carte transparaît à travers le blur. (1re tentative avec une vidéo/image de fond = raccourci abandonné : inutile, la carte EST le fond.)
+  - **Anti-chevauchement** : rail des couches (`LayerPanel`) + contrôles carte décalés dynamiquement de `navW` (0 ou 232) pour ne JAMAIS passer sous la barre. Version déplacée dans le pied (débordait de la barre).
+  - **Repli/afficher** : bouton `«` dans la marque replie la sidebar (`navOpen`), bouton `☰` flottant la rouvre (calque du `.nav-collapse`/`.nav-reopen` de l'accueil). Contrôles/rail se recalent tout seuls.
   - **Règle anti-dérive** : source unique = l'accueil ; toute retouche s'y fait PUIS se re-synchronise ici (commentaire en tête du bloc `globals.css`).
 
 ### V4.012-dev — 2026-07-05 — Géopolitique + Cyber + News (sources gratuites)

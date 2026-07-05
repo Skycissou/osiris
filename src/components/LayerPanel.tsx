@@ -9,6 +9,8 @@ interface LayerPanelProps {
   activeLayers: Record<string, boolean>;
   setActiveLayers: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   isMobile?: boolean;
+  /** Décalage horizontal (px) pour se placer APRÈS la sidebar flottante. Défaut 0. */
+  leftOffset?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -75,7 +77,7 @@ const LAYER_GROUPS = [
   },
 ];
 
-function LayerPanel({ data, activeLayers, setActiveLayers, isMobile }: LayerPanelProps) {
+function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, leftOffset = 0 }: LayerPanelProps) {
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
 
   const toggle = (key: string) => setActiveLayers((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -140,8 +142,8 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile }: LayerPane
       initial={{ x: -100, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="absolute top-0 left-0 h-full w-[80px] border-r border-[var(--border-primary)] flex flex-col pt-32 pb-8 z-50 pointer-events-auto bg-[var(--bg-panel)] backdrop-blur-[24px] saturate-150"
-      style={{ boxShadow: '4px 0 24px rgba(0,0,0,0.5)' }}
+      className="absolute top-0 h-full w-[80px] border-r border-[var(--border-primary)] flex flex-col pt-32 pb-8 z-50 pointer-events-auto bg-[var(--bg-panel)] backdrop-blur-[24px] saturate-150"
+      style={{ left: leftOffset, boxShadow: '4px 0 24px rgba(0,0,0,0.5)', transition: 'left 0.22s ease' }}
     >
       <div className="flex-1 flex flex-col gap-8 px-2">
         {LAYER_GROUPS.map((group) => {

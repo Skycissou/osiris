@@ -260,6 +260,9 @@ export default function Dashboard() {
   // ── Retour visuel « lien copié » (bouton Partager de la ComfortBar) ──
   const [shareToast, setShareToast] = useState(false);
 
+  // ── Sidebar repliable (comme l'accueil : « pour replier, ☰ pour rouvrir) ──
+  const [navOpen, setNavOpen] = useState(true);
+
   // ── Consentement forme 2 : au 1er toggle d'une couche sensible, si pas
   // encore consenti → modale. Sur accord → consentement + activation. ──
   const [askConsent, setAskConsent] = useState(false);
@@ -399,6 +402,10 @@ export default function Dashboard() {
   }, [runSearch]);
 
   const isMobile = useIsMobile();
+  // Largeur occupée par la sidebar flottante (0 si mobile ou repliée) → sert à
+  // décaler le rail des couches + les contrôles carte pour qu'ils ne passent
+  // JAMAIS sous la sidebar. navW+92/navW+120 reproduisent l'ancien layout.
+  const navW = !isMobile && navOpen ? 232 : 0;
   const coordsDisplayRef = useRef<HTMLDivElement>(null);
   const geocodeCache = useRef<Map<string, string>>(new Map());
   const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -512,7 +519,8 @@ export default function Dashboard() {
       {!isMobile && (
         <a
           href={lastQuery ? `/?q=${encodeURIComponent(lastQuery)}` : '/'}
-          className="absolute top-4 left-[252px] z-[210] glass-panel hover-lift pointer-events-auto rounded-[12px] px-3 py-1.5 text-[10px] font-mono tracking-widest text-[var(--accent-bright)] hover:text-[var(--accent)] transition-colors"
+          style={{ left: navW + 92 }}
+          className="absolute top-4 z-[210] glass-panel hover-lift pointer-events-auto rounded-[12px] px-3 py-1.5 text-[10px] font-mono tracking-widest text-[var(--accent-bright)] hover:text-[var(--accent)] transition-colors"
           title="Retour à l'accueil"
         >
           ← Accueil
@@ -522,7 +530,7 @@ export default function Dashboard() {
       {/* ── PANNEAU COUCHES (desktop) ── */}
       {!isMobile && (
         <ErrorBoundary name="Couches">
-          <LayerPanel data={data} activeLayers={activeLayers} setActiveLayers={setActiveLayers} />
+          <LayerPanel data={data} activeLayers={activeLayers} setActiveLayers={setActiveLayers} leftOffset={navW} />
         </ErrorBoundary>
       )}
 
@@ -692,7 +700,7 @@ export default function Dashboard() {
           transition={{ duration: 0.2 }}
           className="glass-panel absolute z-[210] pointer-events-auto p-4 w-[248px] overflow-y-auto"
           style={{
-            left: isMobile ? '12px' : '252px',
+            left: isMobile ? '12px' : `${navW + 120}px`,
             bottom: isMobile ? '128px' : '153px',
             maxHeight: 'min(62vh, 520px)',
           }}
@@ -843,7 +851,7 @@ export default function Dashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
         className="absolute bottom-[75px] md:bottom-[100px] z-[200] flex items-center gap-2 pointer-events-none"
-        style={{ left: isMobile ? '12px' : '252px' }}
+        style={{ left: isMobile ? '12px' : `${navW + 120}px` }}
       >
         <button
           onClick={() => setMapProjection((p) => (p === 'globe' ? 'mercator' : 'globe'))}
@@ -922,14 +930,28 @@ export default function Dashboard() {
           absolue via .ck-sidenav). La carte passe sous elle et transparaît à
           travers le blur → vraie transparence, sans fond ajouté. Barre figée :
           « Cockpit carte » actif, liens vers les onglets de l'accueil. ── */}
-      {!isMobile && (
+      {!isMobile && navOpen && (
         <CockpitSidebar
           version={OSIRIS_VERSION}
+          onCollapse={() => setNavOpen(false)}
           onOpenOsint={() => setOsintOpen(true)}
           onOpenGraph={() => setGraphOpen(true)}
           onOpenNews={() => setNewsOpen(true)}
           onOpenKeys={() => setKeysOpen(true)}
         />
+      )}
+
+      {/* ── BOUTON ROUVRIR (☰) — visible quand la sidebar est repliée (desktop),
+          calque du .nav-reopen de l'accueil. ── */}
+      {!isMobile && !navOpen && (
+        <button
+          onClick={() => setNavOpen(true)}
+          className="absolute top-4 left-4 z-[220] glass-panel hover-lift pointer-events-auto rounded-[12px] w-11 h-11 grid place-items-center text-[16px] text-[var(--accent-bright)] hover:border-[var(--accent)]/40 transition-colors"
+          title="Afficher le menu"
+          aria-label="Afficher le menu"
+        >
+          ☰
+        </button>
       )}
     </main>
   );
