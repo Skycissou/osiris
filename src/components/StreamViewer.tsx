@@ -14,7 +14,7 @@
 //  à un gating consentement / opt-in (usage défensif ARPD, données publiques).
 //  Ce composant NE GÈRE PAS ce gating : il reçoit une `source` déjà autorisée.
 //
-//  CLEAN-ROOM : aucune ligne dérivée de ShadowBroker (AGPL). Écrit à partir de
+//  CLEAN-ROOM : aucune ligne dérivée de la référence OSINT externe (AGPL). Écrit à partir de
 //  la charte graphique OSIRIS V3/V4 et de la doc publique de hls.js.
 //
 //  TYPES DE FLUX SUPPORTÉS

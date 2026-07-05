@@ -10,7 +10,7 @@
 //  l'âge (dégradé d'opacité). Ce module tient un historique EN MÉMOIRE des
 //  positions et le transforme en GeoJSON prêt à peindre par MapLibre.
 //
-//  Pattern « trails » inspiré de ShadowBroker (projet AGPL) mais
+//  Pattern « trails » inspiré de la référence OSINT externe (projet AGPL) mais
 //  INTÉGRALEMENT ré-écrit en clean-room : aucune ligne copiée, aucune
 //  dépendance ajoutée, aucune structure importée. Seule l'idée générale
 //  (buffer d'historique par entité → LineString estompée) est reprise.

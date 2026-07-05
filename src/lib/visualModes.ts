@@ -11,7 +11,7 @@
 //
 //  CLEAN-ROOM & CHARTE
 //    L'idée de proposer des « skins » FLIR/NVG/CRT est inspirée du *concept*
-//    ShadowBroker, mais tout ici est ré-écrit from scratch et surtout TEINTÉ
+//    la référence OSINT externe, mais tout ici est ré-écrit from scratch et surtout TEINTÉ
 //    charte OSIRIS (accent #54bdde) — PAS le vert « matrix » cru. Aucune ligne
 //    n'a été copiée d'un autre projet. Livré sous licence MIT (repo OSIRIS).
 //

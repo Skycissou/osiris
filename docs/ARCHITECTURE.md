@@ -19,7 +19,7 @@ La forme active se pilote par un flag (`NEXT_PUBLIC_OSIRIS_FORM`, défaut `1`). 
 
 ### Filiation & licence
 - Base : fork **MIT** (`Skycissou/osiris`) → on peut bâtir librement.
-- Inspiration features : **ShadowBroker** (`BigBodyCobain/Shadowbroker`, **AGPL-3.0**). ⚠️ **CLEAN-ROOM STRICT** : on reproduit des *patterns et valeurs*, on **ne copie AUCUN fichier ni bloc de code** AGPL. Spec de repro : `claude-brain/notes/recherche/shadowbroker-repro-spec.md`.
+- Inspiration features : une **référence OSINT externe** (licence copyleft AGPL). ⚠️ **CLEAN-ROOM STRICT** : on reproduit des *patterns et valeurs*, on **ne copie AUCUN fichier ni bloc de code**. Spec de repro interne dans le brain.
 
 ---
 
@@ -113,13 +113,13 @@ Toutes les couleurs/polices vivent dans `globals.css` (`:root`). **Ne jamais cod
 | VIP / autre | `--violet #9a8cef` |
 | Polices | display `Space Grotesk` · UI `IBM Plex Sans` · mono `IBM Plex Mono` |
 
-**Tout le texte UI est en FRANÇAIS** (ShadowBroker est en anglais → OSIRIS 100 % FR).
+**Tout le texte UI est en FRANÇAIS** (la référence externe est en anglais → OSIRIS 100 % FR).
 
 ---
 
 ## 7. Règles de contribution (agents & humains)
 
-1. **Clean-room** vis-à-vis de ShadowBroker (AGPL) : jamais de copie de fichier/bloc.
+1. **Clean-room** vis-à-vis de la référence OSINT externe (AGPL) : jamais de copie de fichier/bloc.
 2. **Fetch externe** : toujours via `safeFetch` (SSRF), timeout, dégradation douce (renvoyer une liste vide plutôt que planter).
 3. **Français partout** + **sur-documentation** (en-tête de fichier obligatoire).
 4. **Charte V3** pour tout nouveau visuel.

@@ -16,7 +16,7 @@
 //      présents dans le projet).
 //
 //  CHARTE OSIRIS (clean-room)
-//    Concept de skins inspiré de ShadowBroker, mais RÉ-ÉCRIT et TEINTÉ charte
+//    Concept de skins inspiré de la référence OSINT externe, mais RÉ-ÉCRIT et TEINTÉ charte
 //    OSIRIS : accent #54bdde, bleu clair #9bdcf0, vert #5bc78d. Pas de vert
 //    « matrix » cru. Effets volontairement SUBTILS (lisibilité avant tout).
 //

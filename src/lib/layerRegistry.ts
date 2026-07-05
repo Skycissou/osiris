@@ -2,7 +2,7 @@
  * layerRegistry.ts — Registre déclaratif des couches carte du cockpit OSIRIS V4.
  * ---------------------------------------------------------------------------
  * Implémentation CLEAN-ROOM (pattern « registre déclaratif de couches »).
- *   • Inspirée du *pattern* ShadowBroker (source AGPL) mais RÉ-ÉCRITE from
+ *   • Inspirée du *pattern* la référence OSINT externe (source AGPL) mais RÉ-ÉCRITE from
  *     scratch : aucun fichier ni bloc de code n'a été copié. Seule l'idée
  *     générale — décrire les couches comme des DONNÉES, pas comme du code —
  *     est reproduite ici.

@@ -1,8 +1,8 @@
-# OSIRIS V4 — Parité ShadowBroker & clés d'environnement
+# OSIRIS V4 — Parité fonctionnelle OSINT & clés d'environnement
 
 > **À quoi sert ce document ?**
 > C'est LA référence pour savoir, feature par feature, où en est OSIRIS V4 par
-> rapport au cockpit d'inspiration (ShadowBroker), quelle **source de données**
+> rapport au cockpit d'inspiration (la référence OSINT externe), quelle **source de données**
 > alimente chaque couche, et quelle **clé d'API** brancher pour l'activer.
 >
 > Tenu à jour comme un document **vivant** : dès qu'une couche change de statut
@@ -29,7 +29,7 @@
 
 ## 2. Tableau de parité fonctionnelle
 
-| Feature (ShadowBroker → OSIRIS) | Statut | Forme | Source de données | Variable d'env |
+| Feature (référence externe → OSIRIS) | Statut | Forme | Source de données | Variable d'env |
 |---|---|---|---|---|
 | **Avions (ADS-B temps réel)** | ✅ fait | F1 | adsb.lol (`/live-feed/fast`) | — (API publique, sans clé) |
 | **VIP (watchlist aéronefs)** | ✅ fait | F1 | adsb.lol + seed `WATCHLIST_VIP` (tag hex ICAO24) | — (seed interne, extensible) |

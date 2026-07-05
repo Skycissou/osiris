@@ -34,14 +34,14 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 - **Couche Satellites** : celestrak (TLE public sans clé) + calcul SGP4 (`satellite.js`), seed de satellites notables (ISS, Hubble, Terra, Landsat 8, NOAA 20, Starlink). Toggle FR « Satellites 🛰 ».
 - **Formes public/perso + consentement** (fondation) : `src/lib/forms.ts` (flag `NEXT_PUBLIC_OSIRIS_FORM`, double verrou build+consentement révocable) + `src/components/ConsentModal.tsx` (modale FR, cadre ARPD). Prêt à gater les couches `form: 2` sensibles (câblage à l'ajout de la 1ère couche sensible).
 
-### V4.009-dev — 2026-07-05 — Parité ShadowBroker (le gros livrable)
+### V4.009-dev — 2026-07-05 — Parité fonctionnelle OSINT (le gros livrable)
 - **Routes tracées (trails)** : traînées avion/navire qui s'estompent avec l'âge (`lib/trails.ts`, layer line MapLibre).
 - **Carte-fiche entité** au clic avion/VIP : **photo de l'appareil** (planespotters, gratuit) + détails FR + badge VIP + Centrer, style OSIRIS (`EntityCard.tsx` + `entityEnrich.ts`).
 - **Lecteur de flux in-app** : clic webcam/CCTV → **vidéo en direct dans le cockpit** (HLS via hls.js + vidéo/MJPEG/iframe, `StreamViewer.tsx`).
 - **Navires (AIS)** : couche + toggle (clé `AIS_REST_URL` requise, sinon vide).
 - **Couches sensibles (forme 2)** : `military_bases` (Overpass, **sans clé**) + cctv/jamming/scanners/sigint/telegram (clés requises), section « Sensibles » visible en forme 2, **gating par modale de consentement** (ARPD).
 - **Modes visuels** : CRT / NVG / thermique (overlay teinté OSIRIS, `VisualModeOverlay.tsx`) + bouton cycle.
-- **Doc** : `docs/SHADOWBROKER-PARITY.md` (parité complète + clés), `.env.example` complété (toutes les clés à payer listées).
+- **Doc** : `docs/PARITE-FONCTIONNELLE.md` (parité complète + clés), `.env.example` complété (toutes les clés à payer listées).
 - 5 agents Opus + intégration chef. Tout dégrade en douceur (aucune clé → couche vide, jamais d'erreur).
 
 ### V4.004-dev — 2026-07-05 — Avions fluides (interpolation)
@@ -67,4 +67,4 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ### V4.001 — 2026-07-05 — Re-skin V3 + fondations
 - Re-skin complet du cockpit vers la **charte OSIRIS V3** (bleu-cyan `#070a0f`/`#54bdde`, Space Grotesk / IBM Plex).
-- Fondations clean-room (patterns ShadowBroker AGPL ré-écrits) : `layerRegistry.ts` (registre déclaratif de couches), `store.ts` (store par-clé `useSyncExternalStore`), `liveData.ts` (polling 2-vitesses + ETag/304 + interpolation).
+- Fondations clean-room (patterns externes (copyleft) ré-écrits) : `layerRegistry.ts` (registre déclaratif de couches), `store.ts` (store par-clé `useSyncExternalStore`), `liveData.ts` (polling 2-vitesses + ETag/304 + interpolation).

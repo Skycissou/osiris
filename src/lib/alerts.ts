@@ -17,7 +17,7 @@
 //    <AlertToasts alerts={alerts} onDismiss={dismiss} onFlyTo={...} />
 //
 //  PRINCIPES
-//    • Ré-écriture CLEAN-ROOM : aucune ligne copiée de ShadowBroker (AGPL) ni
+//    • Ré-écriture CLEAN-ROOM : aucune ligne copiée de la référence OSINT externe (AGPL) ni
 //      d'ailleurs. Seule l'idée « surveiller un store et notifier » est réutilisée.
 //    • Anti-doublon : un Set d'ids déjà alertés empêche de re-notifier le même
 //      événement à chaque poll (le store est ré-évalué toutes les ~15 s).
