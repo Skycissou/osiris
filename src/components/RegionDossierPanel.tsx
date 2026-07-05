@@ -193,7 +193,8 @@ function RegionDossierPanel({ dossier, loading, error, onClose, isMobile }: Regi
                   {dossier.sources.map((s) => (
                     <span
                       key={s}
-                      className="text-[9px] font-mono text-[var(--accent)] bg-[var(--accent-soft)] border border-[var(--accent-line)] rounded px-1.5 py-0.5"
+                      /* Badge = style .tag de la landing (accent-soft + accent-line, coins doux) */
+                      className="text-[9px] font-mono text-[var(--accent)] bg-[var(--accent-soft)] border border-[var(--accent-line)] rounded-md px-2 py-0.5"
                     >
                       {s}
                     </span>

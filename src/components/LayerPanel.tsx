@@ -113,8 +113,9 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile }: LayerPane
                   <button
                     key={layer.key}
                     onClick={() => toggle(layer.key)}
-                    className={`flex items-center gap-2 px-2 py-2 rounded border transition-colors ${
-                      isLayerActive ? 'bg-white/10 border-white/20' : 'bg-transparent border-white/5 hover:border-white/10'
+                    /* Actif = accent-soft + accent-line (langage des chips actives de la landing) */
+                    className={`flex items-center gap-2 px-2 py-2 rounded-lg border transition-colors ${
+                      isLayerActive ? 'bg-[var(--accent-soft)] border-[var(--accent-line)]' : 'bg-transparent border-white/5 hover:border-white/10'
                     }`}
                   >
                     <Icon className="w-3 h-3 flex-shrink-0" style={{ color: isLayerActive ? layer.color : 'rgba(255,255,255,0.4)' }} />
@@ -181,7 +182,8 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile }: LayerPane
                     animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
                     exit={{ opacity: 0, x: -5, filter: 'blur(2px)' }}
                     transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className="absolute left-[70px] top-1/2 -translate-y-1/2 min-w-[240px] bg-black/80 backdrop-blur-md border border-white/10 rounded-lg p-3 shadow-2xl z-50 pointer-events-auto"
+                    /* Tooltip = panneau flottant façon landing : coins r-2, bordure fine --line-2, ombre douce */
+                    className="absolute left-[70px] top-1/2 -translate-y-1/2 min-w-[240px] bg-black/80 backdrop-blur-md border border-[var(--line-2)] rounded-xl p-3 shadow-2xl z-50 pointer-events-auto"
                     style={{ boxShadow: `0 0 30px ${group.color}15, inset 0 0 20px ${group.color}05` }}
                   >
                     <div className="text-[11px] font-bold font-mono mb-3 tracking-widest border-b border-white/10 pb-2" style={{ color: group.color }}>
@@ -196,7 +198,7 @@ function LayerPanel({ data, activeLayers, setActiveLayers, isMobile }: LayerPane
                           <button
                             key={layer.key}
                             onClick={() => toggle(layer.key)}
-                            className="w-full flex items-center gap-3 px-2 py-1.5 rounded bg-transparent hover:bg-white/5 transition-colors group"
+                            className="osiris-row w-full flex items-center gap-3 px-2 py-1.5 bg-transparent group"
                           >
                             <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: isLayerActive ? layer.color : 'rgba(255,255,255,0.4)' }} />
                             <span className={`text-[11px] font-mono uppercase tracking-wider flex-1 text-left transition-colors duration-200 ${isLayerActive ? 'text-white' : 'text-white/50 group-hover:text-white/80'}`}>

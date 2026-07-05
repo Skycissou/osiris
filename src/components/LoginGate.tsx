@@ -81,7 +81,8 @@ export default function LoginGate({ onAuthed }: { onAuthed: () => void }) {
         <button
           type="submit"
           disabled={loading || !username.trim() || !password}
-          className="glass-panel py-2.5 text-sm font-mono tracking-widest text-[var(--accent)] hover:border-[var(--accent)]/50 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+          /* CTA principal = bouton primary dégradé accent + ombre glow (style .btn.primary de la landing) */
+          className="osiris-btn osiris-btn-primary w-full py-2.5 text-sm font-mono tracking-widest disabled:opacity-40 disabled:hover:transform-none flex items-center justify-center gap-2"
         >
           {loading ? <LoaderCircle className="w-4 h-4 animate-spin" /> : 'SE CONNECTER'}
         </button>

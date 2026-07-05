@@ -6,13 +6,16 @@
 //  données PUBLIQUES ouvertes, pour un usage strictement VEILLE / situationnel
 //  défensif (esprit ARPD). Aucune donnée personnelle : phénomènes naturels.
 //
-//  Trois couches renvoyées (les CLÉS du body = noms de couches, exigé par
+//  Quatre couches renvoyées (les CLÉS du body = noms de couches, exigé par
 //  mergeData côté client) :
 //    • earthquakes — séismes < 24 h, USGS (source RÉELLE, gratuite, sans clé).
 //                    C'est la couche démo qui DOIT fonctionner hors-ligne de clé.
 //    • wildfires   — feux actifs NASA FIRMS (NÉCESSITE une clé FIRMS_MAP_KEY ;
 //                    absente → couche vide, la route ne casse pas).
 //    • volcanoes   — pas d'API no-key fiable → [] + TODO documenté (voir plus bas).
+//    • satellites  — positions SGP4 (temps réel) de satellites notables, TLE
+//                    Celestrak PUBLICS et SANS clé. Source/calcul KO → [].
+//                    Calcul délégué à src/lib/satellites.ts (fonctions pures).
 //
 //  Ré-écriture clean-room : aucune ligne copiée d'un autre projet. Calquée sur
 //  le style de la route /fast (SSRF-guard safeFetch, ETag/304 dérivé du
@@ -22,7 +25,7 @@
 //
 //  Contrat côté client :
 //    GET /live-feed/slow[?bbox=minLng,minLat,maxLng,maxLat]
-//    → 200 { earthquakes, wildfires, volcanoes, ts } + en-tête ETag
+//    → 200 { earthquakes, wildfires, volcanoes, satellites, ts } + en-tête ETag
 //    → 304 (corps vide) si If-None-Match == ETag courant
 //
 //  bbox : ces couches sont GLOBALES / nationales (USGS « all_day » = monde
@@ -35,6 +38,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { safeFetch } from '@/lib/ssrf-guard';
+import { computeSatellites, SATS_SUIVIS, type SatPosition } from '@/lib/satellites';
 
 // Toujours dynamique : données temps quasi-réel, jamais de pré-rendu statique.
 export const dynamic = 'force-dynamic';
@@ -52,6 +56,13 @@ const FIRMS_AREA_CSV_TMPL =
   'https://firms.modaps.eosdis.nasa.gov/api/area/csv/{KEY}/VIIRS_SNPP_NRT/world/1';
 /** Plafond de points feux retenus (protège le client d'un CSV énorme). */
 const FIRMS_MAX_POINTS = 2000;
+/**
+ * Endpoint Celestrak « GP » (General Perturbations) au format TLE, PUBLIC et
+ * SANS clé. {CATNR} = numéro de catalogue NORAD du satellite suivi. Renvoie 3
+ * lignes (nom + 2 lignes TLE) par satellite. Doc : celestrak.org/NORAD/documentation.
+ */
+const CELESTRAK_GP_TMPL =
+  'https://celestrak.org/NORAD/elements/gp.php?CATNR={CATNR}&FORMAT=tle';
 /** Timeout réseau par source (ms). */
 const FETCH_TIMEOUT_MS = 10_000;
 /** User-Agent identifiant l'appelant (étiquette réseau, cohérent avec /fast). */
@@ -208,7 +219,12 @@ function parseFirmsCsv(text: string): Wildfire[] {
  * jamais de l'horloge — même principe que la route /fast. Deux réponses au même
  * état → même ETag → 304 possible. Hash entier bon-marché (FNV-ish 32 bits).
  */
-function computeETag(eq: Earthquake[], wf: Wildfire[], vo: Volcano[]): string {
+function computeETag(
+  eq: Earthquake[],
+  wf: Wildfire[],
+  vo: Volcano[],
+  sa: SatPosition[],
+): string {
   let acc = 0;
   const mix = (n: number) => {
     // Repli d'un entier dans l'accumulateur (modulo 2^32).
@@ -229,7 +245,16 @@ function computeETag(eq: Earthquake[], wf: Wildfire[], vo: Volcano[]): string {
     mix(v.lat * 100);
     mix(v.lng * 100);
   }
-  return `W/"eq${eq.length}-wf${wf.length}-vo${vo.length}-${acc.toString(36)}"`;
+  // Les satellites bougent en permanence : leur position change à chaque tick,
+  // donc l'ETag varie de fait à chaque poll tant qu'un satellite est visible.
+  // C'est VOULU (temps réel) — le 304 ne joue que si aucune couche n'a bougé,
+  // ce qui n'arrive que si la couche satellites est vide/figée.
+  for (const s of sa) {
+    mix(s.lat * 100);
+    mix(s.lng * 100);
+    mix(s.alt);
+  }
+  return `W/"eq${eq.length}-wf${wf.length}-vo${vo.length}-sa${sa.length}-${acc.toString(36)}"`;
 }
 
 // ── Handler ─────────────────────────────────────────────────────────────────
@@ -262,8 +287,32 @@ export async function GET(request: NextRequest) {
   //  Cible de normalisation : { id, lat, lng, name, status }.
   const volcanoes: Volcano[] = [];
 
+  // ── 4) SATELLITES — TLE Celestrak (public, sans clé) + propagation SGP4 ────
+  //  Pour chaque satellite de SATS_SUIVIS (seed extensible, cf. satellites.ts),
+  //  on récupère son TLE par numéro de catalogue NORAD, on concatène tous les
+  //  blobs, puis on délègue le parsing + la propagation au helper pur
+  //  computeSatellites(). Fetchs en parallèle (poignée de sats, poll 120 s).
+  //  Dégradation douce : une source morte → ce satellite manque simplement ;
+  //  toutes mortes ou lib qui jette → satellites = []. Jamais de 500.
+  let satellites: SatPosition[] = [];
+  try {
+    const tleTexts = await Promise.all(
+      SATS_SUIVIS.map((s) =>
+        fetchText(CELESTRAK_GP_TMPL.replace('{CATNR}', encodeURIComponent(s.id))),
+      ),
+    );
+    // On ne garde que les réponses non nulles, on les recolle en un seul blob.
+    const blob = tleTexts.filter((t): t is string => t !== null).join('\n');
+    if (blob.trim().length > 0) {
+      // Instant unique partagé par tous les satellites (cohérence temporelle).
+      satellites = computeSatellites(blob, new Date());
+    }
+  } catch {
+    satellites = []; // toute erreur inattendue → couche vide, la route tient
+  }
+
   // ── ETag conditionnel : 304 si le client renvoie l'ETag courant ───────────
-  const etag = computeETag(earthquakes, wildfires, volcanoes);
+  const etag = computeETag(earthquakes, wildfires, volcanoes, satellites);
   const ifNoneMatch = request.headers.get('if-none-match');
   if (ifNoneMatch && ifNoneMatch === etag) {
     return new NextResponse(null, {
@@ -273,7 +322,7 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(
-    { earthquakes, wildfires, volcanoes, ts: Date.now() },
+    { earthquakes, wildfires, volcanoes, satellites, ts: Date.now() },
     {
       status: 200,
       headers: {

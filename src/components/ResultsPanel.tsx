@@ -67,8 +67,11 @@ function ResultsPanel({ response, onFlyTo, onClose, isMobile }: ResultsPanelProp
                   key={`${g.key}-${i}`}
                   disabled={!clickable}
                   onClick={() => ll && onFlyTo({ lat: ll[0], lng: ll[1], label: card.title })}
-                  className={`text-left px-2 py-1.5 rounded border border-transparent transition-colors ${
-                    clickable ? 'hover:bg-white/5 hover:border-white/10 cursor-pointer' : 'opacity-70 cursor-default'
+                  /* Survol premium repris de .result de la landing : bordure accent + léger décollement */
+                  className={`text-left px-2.5 py-2 rounded-lg border border-transparent transition-all ${
+                    clickable
+                      ? 'hover:bg-white/5 hover:border-[var(--accent-line)] hover:-translate-y-px cursor-pointer'
+                      : 'opacity-70 cursor-default'
                   }`}
                 >
                   <div className="flex items-center gap-1.5">

@@ -34,7 +34,8 @@ function SearchBar({ onSubmit, loading, error, resultCount, isMobile }: SearchBa
     >
       <form
         onSubmit={submit}
-        className="pointer-events-auto flex items-center gap-2 glass-panel px-3 py-2 border border-[var(--border-primary)]"
+        /* osiris-search = anneau de focus accent repris de .searchbar:focus-within (landing) */
+        className="osiris-search pointer-events-auto flex items-center gap-2 glass-panel px-3 py-2 border border-[var(--border-primary)]"
       >
         <Search className="w-4 h-4 flex-shrink-0 text-[var(--accent)]" />
         <input
@@ -49,7 +50,8 @@ function SearchBar({ onSubmit, loading, error, resultCount, isMobile }: SearchBa
         <button
           type="submit"
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1 rounded bg-[var(--accent)]/15 hover:bg-[var(--accent)]/25 border border-[var(--accent)]/30 text-[10px] font-mono uppercase tracking-widest text-[var(--accent)] transition-colors disabled:opacity-50"
+          /* Pill accent arrondie (rounded-full + accent-soft/line) — style .chip.active de la landing */
+          className="hover-lift flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[var(--accent-soft)] hover:bg-[var(--accent)]/25 border border-[var(--accent-line)] hover:border-[var(--accent)]/50 text-[10px] font-mono uppercase tracking-widest text-[var(--accent-bright)] transition-colors disabled:opacity-50"
         >
           {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
           {loading ? 'Recherche' : 'Chercher'}

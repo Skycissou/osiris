@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.004-dev';
+export const OSIRIS_VERSION = 'V4.005-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,14 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.005-dev',
+    date: '2026-07-05',
+    resume:
+      "Style aligné sur l'accueil (langage visuel de la landing : pills, cartes, " +
+      "glass-panel, focus rings, hover premium). Couche satellites (celestrak + SGP4). " +
+      "Fondations formes public/perso + modale de consentement (form 2).",
+  },
   {
     version: 'V4.004-dev',
     date: '2026-07-05',

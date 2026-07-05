@@ -113,7 +113,8 @@ function AlertToasts({ alerts, onDismiss, onFlyTo }: AlertToastsProps) {
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 40, scale: 0.96 }}
               transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-              className="glass-panel pointer-events-auto relative flex items-stretch overflow-hidden rounded-lg shadow-lg"
+              /* rounded-2xl (16px) = rayon r-3 des panneaux de la landing, coins alignés sur .glass-panel */
+              className="glass-panel pointer-events-auto relative flex items-stretch overflow-hidden rounded-2xl shadow-lg"
               style={{ background: 'rgba(13,18,27,0.92)' }}
             >
               {/* Barre latérale colorée = sévérité (charte V3). */}

@@ -61,6 +61,15 @@ export interface VolcanoPoint {
   status?: string;
 }
 
+/** Satellite (source celestrak TLE + calcul SGP4, public). */
+export interface SatellitePoint {
+  id: string;
+  lat: number;
+  lng: number;
+  name?: string;
+  alt?: number;
+}
+
 interface OsirisMapProps {
   /** Données brutes issues du backend FR (clés à définir couche par couche). */
   data?: Record<string, any>;
@@ -74,6 +83,8 @@ interface OsirisMapProps {
   wildfires?: FirePoint[];
   /** Volcans (stub) — rendus si activeLayers.live_volcanoes. */
   volcanoes?: VolcanoPoint[];
+  /** Satellites (celestrak + SGP4) — rendus si activeLayers.live_satellites. */
+  satellites?: SatellitePoint[];
   onEntityClick?: (entity: any) => void;
   onMouseCoords?: (coords: { lat: number; lng: number }) => void;
   onRightClick?: (coords: { lat: number; lng: number }) => void;
@@ -235,6 +246,7 @@ function OsirisMap({
   earthquakes = [],
   wildfires = [],
   volcanoes = [],
+  satellites = [],
   onEntityClick,
   onMouseCoords,
   onRightClick,
@@ -507,6 +519,43 @@ function OsirisMap({
         },
         layout: { visibility: 'none' },
       });
+
+      // ─── COUCHE SATELLITES (celestrak + SGP4, public) ───────────────────
+      // Point accent-clair + halo, popup FR (nom + altitude km).
+      map.addSource('live-satellites', { type: 'geojson', data: EMPTY_FC });
+      map.addLayer({
+        id: 'live-satellites-dots',
+        type: 'circle',
+        source: 'live-satellites',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 3, 8, 6],
+          'circle-color': '#9bdcf0',
+          'circle-opacity': 0.9,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#54bdde',
+          'circle-stroke-opacity': 0.5,
+        },
+        layout: { visibility: 'none' },
+      });
+      map.on('click', 'live-satellites-dots', (e) => {
+        const f = e.features?.[0]; if (!f) return;
+        const p = f.properties || {};
+        const geom = f.geometry;
+        const coords = geom && geom.type === 'Point' ? (geom.coordinates as [number, number]) : [e.lngLat.lng, e.lngLat.lat];
+        const alt = p.alt != null && p.alt !== '' ? `${escapeHtml(p.alt)} km` : '—';
+        const html =
+          `<div style="${POPUP_STYLE}">` +
+          `<div style="color:#9bdcf0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Satellite · temps réel</div>` +
+          `<div style="color:#fff;font-size:14px;font-weight:600;margin-bottom:4px;">${escapeHtml(p.name || 'Inconnu')}</div>` +
+          `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">Altitude : ${alt}</div>` +
+          `<div style="color:#586475;font-size:10px;margin-top:8px;">NORAD ${escapeHtml(p.id || '—')} · source celestrak (public)</div>` +
+          `</div>`;
+        popupRef.current?.remove();
+        popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '340px', offset: 14 })
+          .setLngLat(coords as maplibregl.LngLatLike).setHTML(html).addTo(map);
+      });
+      map.on('mouseenter', 'live-satellites-dots', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'live-satellites-dots', () => { map.getCanvas().style.cursor = ''; });
       // ──────────────────────────────────────────────────────────────────
 
       setMapReady(true);
@@ -651,7 +700,17 @@ function OsirisMap({
       }));
     setGeo('live-volcanoes', volcFeats);
     setVis(['live-volcanoes-dots'], !!activeLayers?.live_volcanoes);
-  }, [mapReady, earthquakes, wildfires, volcanoes, activeLayers, setGeo, setVis]);
+
+    const satFeats = (Array.isArray(satellites) ? satellites : [])
+      .filter((s) => typeof s?.lat === 'number' && typeof s?.lng === 'number')
+      .map((s) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [s.lng, s.lat] },
+        properties: { id: s.id ?? '', name: s.name ?? '', alt: s.alt != null ? Math.round(s.alt) : '' },
+      }));
+    setGeo('live-satellites', satFeats);
+    setVis(['live-satellites-dots'], !!activeLayers?.live_satellites);
+  }, [mapReady, earthquakes, wildfires, volcanoes, satellites, activeLayers, setGeo, setVis]);
   // ─────────────────────────────────────────────────────────────────────
 
   // ── Couche jour/nuit (affichage, conservée du châssis d'origine) ──

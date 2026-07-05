@@ -8,7 +8,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { search, buildMapData, BASE_PATH, type SearchResponse, type PlotPoint } from '@/lib/api';
 import { useDataPolling, useInterpolation, deadReckon } from '@/lib/liveData';
 import { useDataKey } from '@/lib/store';
-import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint } from '@/components/OsirisMap';
+import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint, SatellitePoint } from '@/components/OsirisMap';
 import { OSIRIS_VERSION, OSIRIS_VERSION_LABEL } from '@/lib/version';
 import { useAlertToasts } from '@/lib/alerts';
 import AlertToasts from '@/components/AlertToasts';
@@ -44,10 +44,11 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
   live_earthquakes: false,
   live_wildfires: false,
   live_volcanoes: false,
+  live_satellites: false,
 };
 
 // Clés des couches temps réel — sert au gating du polling (actif si ≥1 est ON).
-const LIVE_LAYER_KEYS = ['live_aircraft', 'live_earthquakes', 'live_wildfires', 'live_volcanoes'];
+const LIVE_LAYER_KEYS = ['live_aircraft', 'live_earthquakes', 'live_wildfires', 'live_volcanoes', 'live_satellites'];
 
 // ── Options du menu de couches (labels lisibles, ordre d'affichage) ──
 const BASEMAP_OPTS: { key: 'dark' | 'ign' | 'scan25' | 'ortho' | 'satellite'; label: string }[] = [
@@ -89,6 +90,7 @@ const LIVE_OPTS: { key: string; label: string; title: string }[] = [
   { key: 'live_earthquakes', label: 'Séismes (USGS)', title: 'Séismes des dernières 24 h — USGS public, actualisé 120 s' },
   { key: 'live_wildfires', label: 'Feux (FIRMS)', title: 'Foyers actifs — NASA FIRMS (nécessite une clé FIRMS_MAP_KEY)' },
   { key: 'live_volcanoes', label: 'Volcans', title: 'Volcans — à brancher (Smithsonian GVP)' },
+  { key: 'live_satellites', label: 'Satellites 🛰', title: 'Satellites notables (celestrak + calcul SGP4, public sans clé)' },
 ];
 
 function useIsMobile() {
@@ -163,6 +165,7 @@ export default function Dashboard() {
   const earthquakes = useDataKey<QuakePoint[]>('earthquakes');
   const wildfires = useDataKey<FirePoint[]>('wildfires');
   const volcanoes = useDataKey<VolcanoPoint[]>('volcanoes');
+  const satellites = useDataKey<SatellitePoint[]>('satellites');
 
   // ── Interpolation avions (mouvement fluide entre 2 fetches, façon radar live) ──
   // Le fetch avions arrive toutes les 15 s ; entre-temps on estime la position
@@ -337,6 +340,7 @@ export default function Dashboard() {
           earthquakes={earthquakes}
           wildfires={wildfires}
           volcanoes={volcanoes}
+          satellites={satellites}
           projection={mapProjection}
           mapStyle={mapStyle}
           timeLayer={timeLayer}
@@ -416,7 +420,8 @@ export default function Dashboard() {
               la continuité de recherche (?q=) ; sinon il renvoie vers la V3. */}
           <a
             href={lastQuery ? `/?q=${encodeURIComponent(lastQuery)}` : '/'}
-            className="glass-panel pointer-events-auto px-2.5 py-1 text-[10px] font-mono tracking-widest text-[var(--accent-bright)] hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-colors"
+            /* Pill arrondie + léger décollement au survol (langage boutons de la landing) */
+            className="glass-panel hover-lift pointer-events-auto rounded-full px-3 py-1 text-[10px] font-mono tracking-widest text-[var(--accent-bright)] hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-colors"
             title="Retour à l'accueil"
           >
             ← Accueil
@@ -460,7 +465,8 @@ export default function Dashboard() {
                 <button
                   key={o.key}
                   onClick={() => setMapStyle(o.key)}
-                  className="flex items-center gap-2.5 px-1.5 py-1 rounded hover:bg-white/5 transition-colors text-left"
+                  /* Rangée sélectionnable : fond accent-soft + bordure accent quand active (landing) */
+                  className={`osiris-row flex items-center gap-2.5 px-2 py-1.5 text-left ${mapStyle === o.key ? 'osiris-row-active' : ''}`}
                 >
                   <span
                     className={`w-3 h-3 rounded-full flex-shrink-0 border ${mapStyle === o.key ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-white/30'}`}
@@ -479,7 +485,7 @@ export default function Dashboard() {
                 <div key={o.key}>
                   <button
                     onClick={() => setTimeLayer(o.key)}
-                    className="w-full flex items-center gap-2.5 px-1.5 py-1 rounded hover:bg-white/5 transition-colors text-left"
+                    className={`osiris-row w-full flex items-center gap-2.5 px-2 py-1.5 text-left ${timeLayer === o.key ? 'osiris-row-active' : ''}`}
                   >
                     <span
                       className={`w-3 h-3 rounded-full flex-shrink-0 border ${timeLayer === o.key ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-white/30'}`}
@@ -520,7 +526,7 @@ export default function Dashboard() {
                 <button
                   key={o.key}
                   onClick={() => toggleOverlay(o.key)}
-                  className="flex items-center gap-2.5 px-1.5 py-1 rounded hover:bg-white/5 transition-colors text-left"
+                  className={`osiris-row flex items-center gap-2.5 px-2 py-1.5 text-left ${overlays[o.key] ? 'osiris-row-active' : ''}`}
                 >
                   <span
                     className={`w-3 h-3 rounded-sm flex-shrink-0 border flex items-center justify-center ${overlays[o.key] ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-white/30'}`}
@@ -541,7 +547,7 @@ export default function Dashboard() {
                 <button
                   key={o.key}
                   onClick={() => setActiveLayers((prev) => ({ ...prev, [o.key]: !prev[o.key] }))}
-                  className="flex items-center gap-2.5 px-1.5 py-1 rounded hover:bg-white/5 transition-colors text-left"
+                  className={`osiris-row flex items-center gap-2.5 px-2 py-1.5 text-left ${activeLayers[o.key] ? 'osiris-row-active' : ''}`}
                   title={o.title}
                 >
                   <span
@@ -567,7 +573,8 @@ export default function Dashboard() {
       >
         <button
           onClick={() => setMapProjection((p) => (p === 'globe' ? 'mercator' : 'globe'))}
-          className="glass-panel p-3.5 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors group"
+          /* Bouton icône rond + hover lift (pills de la landing) */
+          className="glass-panel hover-lift rounded-full p-3.5 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors group"
           title={mapProjection === 'globe' ? 'Vue 2D' : 'Vue Globe 3D'}
         >
           {mapProjection === 'globe'
@@ -576,7 +583,8 @@ export default function Dashboard() {
         </button>
         <button
           onClick={() => setLayersOpen((v) => !v)}
-          className={`glass-panel px-3 py-2.5 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors flex items-center gap-2 text-[9px] font-mono tracking-widest ${layersOpen || timeLayer !== 'none' || mapStyle !== 'dark' || Object.values(overlays).some(Boolean) || anyLiveOn ? 'text-[var(--accent)] border-[var(--accent)]/50' : 'text-[var(--accent-bright)]'}`}
+          /* Pill COUCHES arrondie + hover lift ; actif = bordure accent (état .chip.active) */
+          className={`glass-panel hover-lift rounded-full px-3.5 py-2.5 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors flex items-center gap-2 text-[9px] font-mono tracking-widest ${layersOpen || timeLayer !== 'none' || mapStyle !== 'dark' || Object.values(overlays).some(Boolean) || anyLiveOn ? 'text-[var(--accent)] border-[var(--accent)]/50 bg-[var(--accent-soft)]' : 'text-[var(--accent-bright)]'}`}
           title="Menu des couches (fonds, remonter le temps, surcouches)"
         >
           <Layers className="w-4 h-4" />
@@ -584,7 +592,8 @@ export default function Dashboard() {
         </button>
         <button
           onClick={() => setFlyToLocation({ lat: 46.6, lng: 2.35, ts: Date.now() })}
-          className="glass-panel px-3 py-2 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors text-[9px] font-mono tracking-widest text-[var(--accent)]"
+          /* Pill FR arrondie + hover lift */
+          className="glass-panel hover-lift rounded-full px-3.5 py-2 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors text-[9px] font-mono tracking-widest text-[var(--accent)]"
           title="Recentrer sur la France"
         >
           FR
