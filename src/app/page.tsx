@@ -475,32 +475,11 @@ export default function Dashboard() {
   if (!authed) return <LoginGate onAuthed={handleAuthed} />;
 
   return (
-    <main
-      className="fixed inset-0 w-full h-full bg-[var(--bg)] overflow-hidden flex"
-      /* Même fond que l'accueil derrière la sidebar translucide → transparence
-         identique (la carte, opaque, le recouvre côté contenu). */
-      style={{
-        backgroundImage: `url(${BASE_PATH}/assets/arriere-plan.jpeg)`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}
-    >
-      {/* ── SIDEBAR APP (clone de la sidenav de l'accueil — barre figée) ──
-          Le cockpit devient un « module » de l'accueil : même barre, même place,
-          « Cockpit carte » actif. Les liens renvoient aux onglets de l'accueil
-          (racine du domaine, non préfixée par le basePath /cockpit). */}
-      {!isMobile && (
-        <CockpitSidebar
-          version={OSIRIS_VERSION}
-          onOpenOsint={() => setOsintOpen(true)}
-          onOpenGraph={() => setGraphOpen(true)}
-          onOpenNews={() => setNewsOpen(true)}
-          onOpenKeys={() => setKeysOpen(true)}
-        />
-      )}
-
-      {/* ── ZONE CONTENU (carte + panneaux) — à droite de la barre figée ── */}
-      <div className="relative flex-1 h-full overflow-hidden">
+    <main className="fixed inset-0 w-full h-full bg-[var(--bg)] overflow-hidden">
+      {/* ── ZONE CONTENU PLEIN ÉCRAN : la CARTE occupe TOUT le fond. La sidebar
+          (plus bas) flotte PAR-DESSUS en verre translucide → la carte transparaît
+          à travers elle (pas de fond ajouté : le fond, c'est la carte elle-même). ── */}
+      <div className="relative w-full h-full overflow-hidden">
       {/* ── CARTE ── */}
       <ErrorBoundary name="Carte">
         <OsirisMap
@@ -533,7 +512,7 @@ export default function Dashboard() {
       {!isMobile && (
         <a
           href={lastQuery ? `/?q=${encodeURIComponent(lastQuery)}` : '/'}
-          className="absolute top-4 left-[92px] z-[210] glass-panel hover-lift pointer-events-auto rounded-[12px] px-3 py-1.5 text-[10px] font-mono tracking-widest text-[var(--accent-bright)] hover:text-[var(--accent)] transition-colors"
+          className="absolute top-4 left-[252px] z-[210] glass-panel hover-lift pointer-events-auto rounded-[12px] px-3 py-1.5 text-[10px] font-mono tracking-widest text-[var(--accent-bright)] hover:text-[var(--accent)] transition-colors"
           title="Retour à l'accueil"
         >
           ← Accueil
@@ -713,7 +692,7 @@ export default function Dashboard() {
           transition={{ duration: 0.2 }}
           className="glass-panel absolute z-[210] pointer-events-auto p-4 w-[248px] overflow-y-auto"
           style={{
-            left: isMobile ? '12px' : '120px',
+            left: isMobile ? '12px' : '252px',
             bottom: isMobile ? '128px' : '153px',
             maxHeight: 'min(62vh, 520px)',
           }}
@@ -864,7 +843,7 @@ export default function Dashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
         className="absolute bottom-[75px] md:bottom-[100px] z-[200] flex items-center gap-2 pointer-events-none"
-        style={{ left: isMobile ? '12px' : '120px' }}
+        style={{ left: isMobile ? '12px' : '252px' }}
       >
         <button
           onClick={() => setMapProjection((p) => (p === 'globe' ? 'mercator' : 'globe'))}
@@ -938,6 +917,20 @@ export default function Dashboard() {
         {locationLabel && <span className="text-[var(--muted)] truncate max-w-[40vw]">{locationLabel}</span>}
       </div>
       </div>{/* /zone contenu */}
+
+      {/* ── SIDEBAR APP — FLOTTE par-dessus la carte (verre translucide, position
+          absolue via .ck-sidenav). La carte passe sous elle et transparaît à
+          travers le blur → vraie transparence, sans fond ajouté. Barre figée :
+          « Cockpit carte » actif, liens vers les onglets de l'accueil. ── */}
+      {!isMobile && (
+        <CockpitSidebar
+          version={OSIRIS_VERSION}
+          onOpenOsint={() => setOsintOpen(true)}
+          onOpenGraph={() => setGraphOpen(true)}
+          onOpenNews={() => setNewsOpen(true)}
+          onOpenKeys={() => setKeysOpen(true)}
+        />
+      )}
     </main>
   );
 }

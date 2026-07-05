@@ -135,8 +135,11 @@ html, body {
    Le cockpit devient un vrai module de l'accueil : MÊME barre, partout.
    ═══════════════════════════════════════════════════════════════ */
 .ck-sidenav {
+  /* FLOTTE par-dessus la carte : position absolue → le blur translucide révèle
+     la carte qui passe dessous (vraie transparence, aucun fond ajouté). */
+  position: absolute; left: 0; top: 0; bottom: 0;
   display: flex; flex-direction: column; gap: 6px;
-  width: 232px; flex: none; height: 100%;            /* = colonne .appshell 232px */
+  width: 232px; flex: none;                          /* largeur = colonne accueil */
   padding: 22px 16px;
   border-right: 1px solid var(--line-2);
   background: linear-gradient(180deg, rgba(14, 20, 30, 0.72), rgba(9, 13, 19, 0.6));
