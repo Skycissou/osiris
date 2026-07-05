@@ -34,6 +34,16 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 - **Couche Satellites** : celestrak (TLE public sans clé) + calcul SGP4 (`satellite.js`), seed de satellites notables (ISS, Hubble, Terra, Landsat 8, NOAA 20, Starlink). Toggle FR « Satellites 🛰 ».
 - **Formes public/perso + consentement** (fondation) : `src/lib/forms.ts` (flag `NEXT_PUBLIC_OSIRIS_FORM`, double verrou build+consentement révocable) + `src/components/ConsentModal.tsx` (modale FR, cadre ARPD). Prêt à gater les couches `form: 2` sensibles (câblage à l'ajout de la 1ère couche sensible).
 
+### V4.009-dev — 2026-07-05 — Parité ShadowBroker (le gros livrable)
+- **Routes tracées (trails)** : traînées avion/navire qui s'estompent avec l'âge (`lib/trails.ts`, layer line MapLibre).
+- **Carte-fiche entité** au clic avion/VIP : **photo de l'appareil** (planespotters, gratuit) + détails FR + badge VIP + Centrer, style OSIRIS (`EntityCard.tsx` + `entityEnrich.ts`).
+- **Lecteur de flux in-app** : clic webcam/CCTV → **vidéo en direct dans le cockpit** (HLS via hls.js + vidéo/MJPEG/iframe, `StreamViewer.tsx`).
+- **Navires (AIS)** : couche + toggle (clé `AIS_REST_URL` requise, sinon vide).
+- **Couches sensibles (forme 2)** : `military_bases` (Overpass, **sans clé**) + cctv/jamming/scanners/sigint/telegram (clés requises), section « Sensibles » visible en forme 2, **gating par modale de consentement** (ARPD).
+- **Modes visuels** : CRT / NVG / thermique (overlay teinté OSIRIS, `VisualModeOverlay.tsx`) + bouton cycle.
+- **Doc** : `docs/SHADOWBROKER-PARITY.md` (parité complète + clés), `.env.example` complété (toutes les clés à payer listées).
+- 5 agents Opus + intégration chef. Tout dégrade en douceur (aucune clé → couche vide, jamais d'erreur).
+
 ### V4.004-dev — 2026-07-05 — Avions fluides (interpolation)
 - **Interpolation dead-reckoning** : entre 2 fetches avions (15 s), tick 2 s qui estime la position (cap + vitesse, 1 nœud = 0,5144 m/s) depuis la dernière position réelle → les aéronefs glissent au lieu de sauter (rendu radar live). Gated sur la couche avions.
 - Fix déploiement (hors-code) : bug bouton « ← Accueil » → V3 causé par un **conteneur doublon** `osiris-v4-front` (projet `deploy/`) servant la racine avec du vieux code ; stoppé (`docker compose down`). Le cockpit vit sous `osiris-v4-cockpit` (`/cockpit`).

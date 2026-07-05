@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import { Globe, MapPinned, Layers, X } from 'lucide-react';
@@ -8,12 +8,19 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { search, buildMapData, BASE_PATH, type SearchResponse, type PlotPoint } from '@/lib/api';
 import { useDataPolling, useInterpolation, deadReckon } from '@/lib/liveData';
 import { useDataKey } from '@/lib/store';
-import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint, SatellitePoint } from '@/components/OsirisMap';
+import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint, SatellitePoint, ShipPoint, SensitiveData, SensitivePoint } from '@/components/OsirisMap';
 import { OSIRIS_VERSION, OSIRIS_VERSION_LABEL } from '@/lib/version';
 import { useAlertToasts } from '@/lib/alerts';
 import AlertToasts from '@/components/AlertToasts';
 import { useRegionDossier } from '@/lib/regionDossier';
 import RegionDossierPanel from '@/components/RegionDossierPanel';
+import { enrichAircraft, type AircraftEnriched } from '@/lib/entityEnrich';
+import EntityCard from '@/components/EntityCard';
+import StreamViewer, { type StreamSource } from '@/components/StreamViewer';
+import { type VisualMode, nextMode, getVisualMode } from '@/lib/visualModes';
+import VisualModeOverlay from '@/components/VisualModeOverlay';
+import { isForm2Enabled, hasConsented, giveConsent } from '@/lib/forms';
+import ConsentModal from '@/components/ConsentModal';
 
 // Cockpit servi sous basePath (/cockpit) → l'utilisateur arrive DÉJÀ loggué via la
 // V3 (cookie httponly même-domaine couvre /search). Dans ce mode on court-circuite
@@ -45,10 +52,20 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
   live_wildfires: false,
   live_volcanoes: false,
   live_satellites: false,
+  live_ships: false,
+  // Couches sensibles (forme 2) — jamais actives par défaut.
+  sens_military_bases: false,
+  sens_cctv: false,
+  sens_gps_jamming: false,
+  sens_scanners: false,
+  sens_sigint: false,
+  sens_telegram_osint: false,
 };
 
-// Clés des couches temps réel — sert au gating du polling (actif si ≥1 est ON).
-const LIVE_LAYER_KEYS = ['live_aircraft', 'live_earthquakes', 'live_wildfires', 'live_volcanoes', 'live_satellites'];
+// Clés des couches temps réel « publiques » (forme 1) — gating du polling fast/slow.
+const LIVE_LAYER_KEYS = ['live_aircraft', 'live_earthquakes', 'live_wildfires', 'live_volcanoes', 'live_satellites', 'live_ships'];
+// Clés des couches sensibles (forme 2) — gating du polling /live-feed/sensitive.
+const SENSITIVE_LAYER_KEYS = ['sens_military_bases', 'sens_cctv', 'sens_gps_jamming', 'sens_scanners', 'sens_sigint', 'sens_telegram_osint'];
 
 // ── Options du menu de couches (labels lisibles, ordre d'affichage) ──
 const BASEMAP_OPTS: { key: 'dark' | 'ign' | 'scan25' | 'ortho' | 'satellite'; label: string }[] = [
@@ -91,6 +108,16 @@ const LIVE_OPTS: { key: string; label: string; title: string }[] = [
   { key: 'live_wildfires', label: 'Feux (FIRMS)', title: 'Foyers actifs — NASA FIRMS (nécessite une clé FIRMS_MAP_KEY)' },
   { key: 'live_volcanoes', label: 'Volcans', title: 'Volcans — à brancher (Smithsonian GVP)' },
   { key: 'live_satellites', label: 'Satellites 🛰', title: 'Satellites notables (celestrak + calcul SGP4, public sans clé)' },
+  { key: 'live_ships', label: 'Navires 🚢', title: 'Navires AIS — nécessite une source/clé AIS (AIS_REST_URL)' },
+];
+// Couches sensibles (forme 2 — enquêteur, opt-in + consentement, cadre ARPD).
+const SENSITIVE_OPTS: { key: string; label: string; title: string }[] = [
+  { key: 'sens_military_bases', label: 'Bases militaires', title: 'Bases militaires — OpenStreetMap/Overpass (public, sans clé)' },
+  { key: 'sens_cctv', label: 'Caméras 🔴', title: 'Caméras publiques (flux in-app) — LIGNE ROUGE ARPD, nécessite une clé' },
+  { key: 'sens_gps_jamming', label: 'Brouillage GPS', title: 'Zones de brouillage GPS — nécessite une clé' },
+  { key: 'sens_scanners', label: 'Scanners', title: 'Scanners radio — nécessite une clé' },
+  { key: 'sens_sigint', label: 'SIGINT (mesh/APRS)', title: 'Radio mesh / APRS — nécessite une clé' },
+  { key: 'sens_telegram_osint', label: 'Telegram OSINT', title: 'Signaux Telegram géolocalisés — nécessite une clé' },
 ];
 
 function useIsMobile() {
@@ -166,6 +193,52 @@ export default function Dashboard() {
   const wildfires = useDataKey<FirePoint[]>('wildfires');
   const volcanoes = useDataKey<VolcanoPoint[]>('volcanoes');
   const satellites = useDataKey<SatellitePoint[]>('satellites');
+  const ships = useDataKey<ShipPoint[]>('ships');
+
+  // ── Couches sensibles (forme 2) — polling séparé /live-feed/sensitive,
+  // actif UNIQUEMENT en forme 2 ET si une couche sensible est allumée. ──
+  const form2 = isForm2Enabled();
+  const anySensitiveOn = form2 && SENSITIVE_LAYER_KEYS.some((k) => activeLayers[k]);
+  useDataPolling({
+    fastUrl: '/live-feed/sensitive', slowUrl: '/live-feed/sensitive', criticalUrl: '/live-feed/sensitive',
+    fastIntervalMs: 120000, slowIntervalMs: 3_600_000, denseEndpoints: [], enabled: anySensitiveOn,
+  });
+  const s_cctv = useDataKey<SensitivePoint[]>('cctv');
+  const s_military = useDataKey<SensitivePoint[]>('military_bases');
+  const s_jamming = useDataKey<SensitivePoint[]>('gps_jamming');
+  const s_scanners = useDataKey<SensitivePoint[]>('scanners');
+  const s_sigint = useDataKey<SensitivePoint[]>('sigint');
+  const s_telegram = useDataKey<SensitivePoint[]>('telegram_osint');
+  const sensitive: SensitiveData = useMemo(() => ({
+    cctv: s_cctv, military_bases: s_military, gps_jamming: s_jamming,
+    scanners: s_scanners, sigint: s_sigint, telegram_osint: s_telegram,
+  }), [s_cctv, s_military, s_jamming, s_scanners, s_sigint, s_telegram]);
+
+  // ── Carte-fiche entité (clic avion) : affichage immédiat puis photo ──
+  const [selectedEntity, setSelectedEntity] = useState<AircraftEnriched | null>(null);
+  const handleAircraftClick = useCallback((a: AircraftPoint) => {
+    setSelectedEntity({ ...a, photo: null, socials: [] } as AircraftEnriched);
+    enrichAircraft(a).then(setSelectedEntity).catch(() => {});
+  }, []);
+
+  // ── Lecteur de flux in-app (clic webcam/CCTV) ──
+  const [activeStream, setActiveStream] = useState<StreamSource | null>(null);
+
+  // ── Modes visuels (CRT / NVG / thermique) ──
+  const [visualMode, setVisualMode] = useState<VisualMode>('normal');
+
+  // ── Consentement forme 2 : au 1er toggle d'une couche sensible, si pas
+  // encore consenti → modale. Sur accord → consentement + activation. ──
+  const [askConsent, setAskConsent] = useState(false);
+  const pendingSensitiveRef = useRef<string | null>(null);
+  const toggleSensitive = useCallback((key: string) => {
+    if (!hasConsented()) {
+      pendingSensitiveRef.current = key;
+      setAskConsent(true);
+      return;
+    }
+    setActiveLayers((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
 
   // ── Interpolation avions (mouvement fluide entre 2 fetches, façon radar live) ──
   // Le fetch avions arrive toutes les 15 s ; entre-temps on estime la position
@@ -370,6 +443,10 @@ export default function Dashboard() {
           wildfires={wildfires}
           volcanoes={volcanoes}
           satellites={satellites}
+          ships={ships}
+          sensitive={sensitive}
+          onAircraftClick={handleAircraftClick}
+          onStreamClick={setActiveStream}
           projection={mapProjection}
           mapStyle={mapStyle}
           timeLayer={timeLayer}
@@ -445,6 +522,46 @@ export default function Dashboard() {
           />
         </ErrorBoundary>
       )}
+
+      {/* ── CARTE-FICHE ENTITÉ (clic avion : photo + détails) ── */}
+      {selectedEntity && (
+        <ErrorBoundary name="Fiche entité">
+          <EntityCard
+            entity={selectedEntity}
+            onClose={() => setSelectedEntity(null)}
+            onFlyTo={(loc) => setFlyToLocation({ lat: loc.lat, lng: loc.lng, ts: Date.now() })}
+            isMobile={isMobile}
+          />
+        </ErrorBoundary>
+      )}
+
+      {/* ── LECTEUR DE FLUX IN-APP (clic webcam/CCTV) ── */}
+      {activeStream && (
+        <ErrorBoundary name="Lecteur de flux">
+          <StreamViewer
+            source={activeStream}
+            onClose={() => setActiveStream(null)}
+            onFlyTo={(lat, lng) => setFlyToLocation({ lat, lng, ts: Date.now() })}
+            isMobile={isMobile}
+          />
+        </ErrorBoundary>
+      )}
+
+      {/* ── MODE VISUEL (overlay CRT / NVG / thermique) ── */}
+      <VisualModeOverlay mode={visualMode} />
+
+      {/* ── CONSENTEMENT FORME 2 (couches sensibles) ── */}
+      <ConsentModal
+        open={askConsent}
+        onAccept={() => {
+          giveConsent();
+          setAskConsent(false);
+          const k = pendingSensitiveRef.current;
+          pendingSensitiveRef.current = null;
+          if (k) setActiveLayers((prev) => ({ ...prev, [k]: true }));
+        }}
+        onCancel={() => { setAskConsent(false); pendingSensitiveRef.current = null; }}
+      />
 
       {/* ── EN-TÊTE (mobile uniquement — sur desktop c'est la sidebar qui porte
           la marque + la nav + la version) ── */}
@@ -604,6 +721,29 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+
+          {/* SENSIBLES (forme 2 — enquêteur, opt-in + consentement). Affiché
+              UNIQUEMENT si le build est en forme 2 (NEXT_PUBLIC_OSIRIS_FORM=2). */}
+          {form2 && (
+            <div className="mt-4">
+              <div className="text-[9px] font-mono tracking-widest text-[var(--red)] uppercase mb-2 pb-1 border-b border-[var(--red)]/25">Sensibles · forme 2</div>
+              <div className="flex flex-col gap-1">
+                {SENSITIVE_OPTS.map((o) => (
+                  <button
+                    key={o.key}
+                    onClick={() => toggleSensitive(o.key)}
+                    className={`osiris-row flex items-center gap-2.5 px-2 py-1.5 text-left ${activeLayers[o.key] ? 'osiris-row-active' : ''}`}
+                    title={o.title}
+                  >
+                    <span className={`w-3 h-3 rounded-sm flex-shrink-0 border flex items-center justify-center ${activeLayers[o.key] ? 'bg-[var(--red)] border-[var(--red)]' : 'border-white/30'}`}>
+                      {activeLayers[o.key] && <span className="w-1.5 h-1.5 bg-[var(--bg)] rounded-[1px]" />}
+                    </span>
+                    <span className={`text-[11px] font-mono ${activeLayers[o.key] ? 'text-white' : 'text-white/60'}`}>{o.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </motion.div>
       )}
 
@@ -641,6 +781,14 @@ export default function Dashboard() {
           title="Recentrer sur la France"
         >
           FR
+        </button>
+        {/* Cycle des modes visuels (normal → CRT → NVG → thermique) */}
+        <button
+          onClick={() => setVisualMode((m) => nextMode(m))}
+          className={`glass-panel hover-lift rounded-[12px] px-3.5 py-2 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors text-[9px] font-mono tracking-widest ${visualMode !== 'normal' ? 'text-[var(--accent)] border-[var(--accent)]/50' : 'text-[var(--accent-bright)]'}`}
+          title={`Mode visuel : ${getVisualMode(visualMode)?.label ?? 'Normal'} (cliquer pour changer)`}
+        >
+          {(getVisualMode(visualMode)?.label ?? 'Normal').toUpperCase()}
         </button>
       </motion.div>
 

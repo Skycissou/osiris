@@ -16,14 +16,27 @@
 //  Le SEED ci-dessous est volontairement minimal et extensible ; la vraie
 //  base viendra branchée en forme 2 (voir WATCHLIST_VIP).
 //
+//  ── Couche « Navires (AIS) » ────────────────────────────────────────────
+//  Second flux temps-réel de cette route : les navires diffusant leur position
+//  en AIS. À la différence de l'ADS-B (adsb.lol, no-key), il n'existe PAS de
+//  source AIS mondiale gratuite et sans clé fiable → cette couche NÉCESSITE une
+//  clé. Elle reste donc VIDE par défaut (aucun appel réseau) tant que Cissou n'a
+//  pas renseigné les variables d'env (voir bloc « AIS » plus bas). Objectif
+//  « tout prêt, il ne reste qu'à mettre les clés à payer » : le scaffold est
+//  complet (normalisation, filtre bbox, ETag, dégradation douce), il ne manque
+//  que la source. Données PUBLIQUES (positions AIS déjà diffusées), veille
+//  situationnelle défensive (esprit ARPD) : aucun ciblage de personne.
+//
 //  Ré-écriture clean-room : aucune ligne copiée d'un autre projet.
 //
 //  Contrat côté client (voir src/lib/liveData.ts) :
 //    GET /live-feed/fast?bbox=minLng,minLat,maxLng,maxLat
-//    → 200 { aircraft, count, ts }  + en-tête ETag (faible, stable)
-//      Chaque avion porte désormais les champs vip / vipName / category /
-//      vipColor (voir interface Aircraft). vip=false pour le tout-venant.
-//    → 304 (corps vide) si If-None-Match == ETag courant
+//    → 200 { aircraft, ships, count, ts }  + en-tête ETag (faible, stable)
+//      • aircraft[] : chaque avion porte les champs vip / vipName / category /
+//        vipColor (voir interface Aircraft). vip=false pour le tout-venant.
+//      • ships[]    : navires AIS normalisés (voir interface Ship). [] si aucune
+//        clé AIS configurée (défaut). `count` = nombre d'AVIONS (rétro-compat).
+//    → 304 (corps vide) si If-None-Match == ETag courant (couvre avions + navires)
 //    Cache-Control: no-store (le conditionnel se gère à l'ETag, pas au cache HTTP).
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -49,6 +62,34 @@ const DEG2RAD = Math.PI / 180;
 const FETCH_TIMEOUT_MS = 8_000;
 /** User-Agent identifiant l'appelant, exigé par l'étiquette adsb.lol. */
 const USER_AGENT = 'Osiris-Cockpit/4.0 (ARPD veille; +https://osiris.cissouhub.cloud)';
+
+// ── Source AIS (couche « Navires ») — NÉCESSITE une clé ──────────────────────
+//  ⚠️ VARIABLES D'ENV À RENSEIGNER (aucun appel réseau si absentes → ships:[]) :
+//
+//   • AISSTREAM_KEY   — clé aisstream.io (gratuite sur inscription).
+//        ⚠️ IMPORTANT : aisstream.io est un flux WEBSOCKET (stream permanent),
+//        PAS une API REST interrogeable par requête. On ne peut donc pas la
+//        "poller" proprement depuis une route serverless appelée toutes les 15 s.
+//        Pour exploiter aisstream.io il faut un petit pont WS→cache séparé (hors
+//        périmètre de cette route). Renseigner AISSTREAM_KEY SEULE laissera donc
+//        la couche vide (documenté) : il faut EN PLUS une source REST ci-dessous.
+//
+//   • AIS_REST_URL    — (recommandé) gabarit d'URL d'une source AIS REST
+//        interrogeable à la demande (ex. offres REST type aisstream partenaires,
+//        MarineTraffic, aishub, VesselFinder… selon l'abonnement de Cissou).
+//        Placeholders remplacés à l'appel : {KEY} {MINLNG} {MINLAT} {MAXLNG}
+//        {MAXLAT}. Ex. :
+//        https://exemple-ais.tld/v1/vessels?key={KEY}&bbox={MINLNG},{MINLAT},{MAXLNG},{MAXLAT}
+//   • AIS_REST_KEY    — (optionnel) clé de la source REST ci-dessus si elle
+//        diffère d'AISSTREAM_KEY. À défaut on réutilise AISSTREAM_KEY pour {KEY}.
+//
+//  Règle d'or : SANS clé → aucun fetch, ships:[]. AVEC clé mais SANS AIS_REST_URL
+//  → ships:[] (rien à poller). AVEC clé + AIS_REST_URL → on interroge la source
+//  et on normalise. La route ne casse JAMAIS (dégradation douce → couche vide).
+/** Timeout réseau vers la source AIS (ms). */
+const AIS_FETCH_TIMEOUT_MS = 8_000;
+/** Plafond de navires retenus (protège le client d'une réponse énorme). */
+const AIS_MAX_SHIPS = 5000;
 
 // ── Watchlist VIP (couche sensible — forme 2) ───────────────────────────────
 /** Catégories VIP reconnues par le seed. Sert de clé au mapping couleur. */
@@ -138,6 +179,18 @@ interface RawAircraft {
   alt_baro?: number | string; // parfois "ground"
   alt_geom?: number;
   category?: string;
+}
+
+/** Navire AIS normalisé, format compact consommé par la carte. */
+interface Ship {
+  id: string; // identifiant stable (= mmsi en string)
+  lat: number;
+  lng: number;
+  heading?: number; // cap (deg) — COG ou true heading selon la source
+  speed?: number; // vitesse sol (nœuds, SOG)
+  name?: string; // nom du navire (public, tel que diffusé en AIS)
+  type?: string; // type de navire (libellé ou code AIS, selon la source)
+  mmsi: string; // Maritime Mobile Service Identity (identifiant AIS)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -243,13 +296,144 @@ function enrichVip(a: Aircraft): void {
   a.vipColor = VIP_COLORS[entry.category];
 }
 
+// ── Helpers navires (AIS) ────────────────────────────────────────────────────
+
 /**
- * ETag faible, stable et bon-marché : ne dépend QUE du contenu (count + somme
- * des positions arrondies + indicatifs), jamais de l'horloge. Deux réponses au
- * même état renvoient le même ETag → 304 possible ; un mouvement notable le
- * change. Arrondi à ~0.01° (≈1 km) pour éviter un ETag qui gigote au bruit GPS.
+ * Lit le premier champ NUMÉRIQUE trouvé parmi `keys` dans un objet brut (les
+ * sources AIS diffèrent sur la casse/nommage : lat/latitude/LATITUDE, sog/speed…).
+ * Accepte aussi les nombres encodés en string. Renvoie undefined si aucun.
  */
-function computeETag(list: Aircraft[]): string {
+function firstNum(obj: Record<string, unknown>, keys: string[]): number | undefined {
+  for (const k of keys) {
+    const v = obj[k];
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'string' && v.trim() !== '') {
+      const n = Number(v);
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return undefined;
+}
+
+/** Idem `firstNum` mais pour le premier champ chaîne non vide. */
+function firstStr(obj: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const k of keys) {
+    const v = obj[k];
+    if (typeof v === 'string' && v.trim() !== '') return v.trim();
+    if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+  }
+  return undefined;
+}
+
+/**
+ * Normalise un enregistrement AIS brut → Ship compact, en tolérant les
+ * variantes de nommage courantes entre fournisseurs. Renvoie null si pas de
+ * MMSI ni de position exploitable (rien à afficher sans lat/lng). AUCUNE
+ * hypothèse de schéma : on pioche par liste d'alias, tout est optionnel.
+ */
+function normalizeShip(raw: unknown): Ship | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const lat = firstNum(o, ['lat', 'latitude', 'LATITUDE', 'Latitude', 'LAT', 'y']);
+  const lng = firstNum(o, ['lng', 'lon', 'long', 'longitude', 'LONGITUDE', 'Longitude', 'LON', 'x']);
+  if (lat === undefined || lng === undefined) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+
+  const mmsiNum = firstNum(o, ['mmsi', 'MMSI', 'UserID', 'userid']);
+  const mmsiStr = firstStr(o, ['mmsi', 'MMSI', 'UserID', 'userid']);
+  const mmsi = mmsiNum !== undefined ? String(Math.trunc(mmsiNum)) : (mmsiStr ?? '');
+  if (!mmsi) return null; // pas d'identifiant AIS → on écarte
+
+  const heading = firstNum(o, ['heading', 'Heading', 'trueHeading', 'TrueHeading', 'cog', 'COG', 'course', 'Cog']);
+  const speed = firstNum(o, ['speed', 'sog', 'SOG', 'Sog', 'speedOverGround']);
+  const name = firstStr(o, ['name', 'shipname', 'ShipName', 'Name', 'vesselName', 'VesselName']);
+  const type = firstStr(o, ['type', 'shiptype', 'ShipType', 'Type', 'vesselType', 'shipTypeText']);
+
+  return {
+    id: mmsi,
+    mmsi,
+    lat,
+    lng,
+    heading: heading !== undefined ? heading : undefined,
+    speed: speed !== undefined ? speed : undefined,
+    name,
+    type,
+  };
+}
+
+/**
+ * Extrait le tableau d'enregistrements AIS d'un payload JSON tolérant : soit un
+ * tableau nu, soit un objet enveloppant sous une clé usuelle (vessels/ships/
+ * data/results). Renvoie [] si rien d'exploitable.
+ */
+function extractShipArray(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === 'object') {
+    const o = payload as Record<string, unknown>;
+    for (const k of ['vessels', 'ships', 'data', 'results', 'items', 'features']) {
+      if (Array.isArray(o[k])) return o[k] as unknown[];
+    }
+  }
+  return [];
+}
+
+/**
+ * Récupère la couche navires (AIS). Contrat de dégradation douce :
+ *   • pas de clé AIS                → []  (AUCUN appel réseau)
+ *   • clé mais pas d'AIS_REST_URL   → []  (rien à poller — voir bloc AIS en tête)
+ *   • clé + AIS_REST_URL            → fetch + normalisation + filtre bbox
+ * Ne jette JAMAIS : toute erreur (statut, timeout, JSON, réseau) → couche vide.
+ */
+async function fetchShips(bbox: BBox): Promise<Ship[]> {
+  const key = process.env.AISSTREAM_KEY ?? process.env.AIS_REST_KEY;
+  const template = process.env.AIS_REST_URL;
+  // Sans clé : on n'appelle rien (règle d'or). Sans gabarit REST non plus :
+  // aisstream.io est un flux WebSocket, non pollable ici (voir en-tête AIS).
+  if (!key || !template) return [];
+
+  const [minLng, minLat, maxLng, maxLat] = bbox;
+  const url = template
+    .replace(/\{KEY\}/g, encodeURIComponent(key))
+    .replace(/\{MINLNG\}/g, String(minLng))
+    .replace(/\{MINLAT\}/g, String(minLat))
+    .replace(/\{MAXLNG\}/g, String(maxLng))
+    .replace(/\{MAXLAT\}/g, String(maxLat));
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AIS_FETCH_TIMEOUT_MS);
+  try {
+    const res = await safeFetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
+      maxRedirects: 2,
+    });
+    if (!res.ok) return []; // amont KO / rate-limit → couche vide
+    const payload: unknown = await res.json();
+    const rawList = extractShipArray(payload);
+    const ships: Ship[] = [];
+    for (const r of rawList) {
+      if (ships.length >= AIS_MAX_SHIPS) break;
+      const s = normalizeShip(r);
+      // Filtre bbox : la source peut renvoyer plus large que l'emprise demandée.
+      if (s && inBBox(s.lat, s.lng, bbox)) ships.push(s);
+    }
+    return ships;
+  } catch {
+    return []; // timeout / réseau / JSON invalide → dégradation douce
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * ETag faible, stable et bon-marché : ne dépend QUE du contenu (avions +
+ * navires : counts + positions arrondies + identifiants), jamais de l'horloge.
+ * Deux réponses au même état renvoient le même ETag → 304 possible ; un
+ * mouvement notable le change. Arrondi à ~0.01° (≈1 km) pour éviter un ETag qui
+ * gigote au bruit GPS.
+ */
+function computeETag(list: Aircraft[], ships: Ship[]): string {
   let acc = 0;
   for (const a of list) {
     // Combine position arrondie + altitude ; hash entier simple (FNV-ish léger).
@@ -264,7 +448,16 @@ function computeETag(list: Aircraft[]): string {
     // >>> 0 pour rester en entier non signé 32 bits, addition modulo 2^32.
     acc = (acc + (h >>> 0)) % 0x100000000;
   }
-  return `W/"${list.length}-${acc.toString(36)}"`;
+  for (const s of ships) {
+    const latQ = Math.round(s.lat * 100);
+    const lngQ = Math.round(s.lng * 100);
+    let h = 2166136261;
+    for (const ch of s.mmsi) h = (h ^ ch.charCodeAt(0)) * 16777619;
+    h = (h ^ latQ) * 16777619;
+    h = (h ^ lngQ) * 16777619;
+    acc = (acc + (h >>> 0)) % 0x100000000;
+  }
+  return `W/"${list.length}s${ships.length}-${acc.toString(36)}"`;
 }
 
 // ── Handler ─────────────────────────────────────────────────────────────────
@@ -272,6 +465,12 @@ function computeETag(list: Aircraft[]): string {
 export async function GET(request: NextRequest) {
   const bbox = parseBBox(request.nextUrl.searchParams.get('bbox'));
   const { lat, lng, radiusNm } = bboxToPoint(bbox);
+
+  // Couche NAVIRES (AIS) : indépendante des avions. Sans clé configurée elle
+  // renvoie [] immédiatement (aucun fetch), donc zéro latence sur le cas démo.
+  // Calculée d'abord pour être présente dans TOUTES les réponses, y compris les
+  // dégradations avions ci-dessous.
+  const ships = await fetchShips(bbox);
 
   // adsb.lol /v2/point/{lat}/{lon}/{radius_nm} — données publiques, pas de clé.
   const upstream = `https://api.adsb.lol/v2/point/${lat.toFixed(4)}/${lng.toFixed(4)}/${radiusNm}`;
@@ -295,7 +494,7 @@ export async function GET(request: NextRequest) {
       // JSON mergeable ; on renvoie une couche vide plutôt que de casser le
       // polling. On la marque no-store et non conditionnable (pas d'ETag).
       return NextResponse.json(
-        { aircraft: [], count: 0, ts: Date.now(), error: `amont adsb.lol ${res.status}` },
+        { aircraft: [], ships, count: 0, ts: Date.now(), error: `amont adsb.lol ${res.status}` },
         { status: 200, headers: { 'Cache-Control': 'no-store' } },
       );
     }
@@ -305,6 +504,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         aircraft: [],
+        ships,
         count: 0,
         ts: Date.now(),
         error: aborted ? 'timeout adsb.lol' : 'échec réseau adsb.lol',
@@ -329,7 +529,8 @@ export async function GET(request: NextRequest) {
   }
 
   // ETag conditionnel : si le client renvoie le même → 304 sans corps.
-  const etag = computeETag(aircraft);
+  // Couvre avions ET navires (un mouvement de l'un ou l'autre change l'ETag).
+  const etag = computeETag(aircraft, ships);
   const ifNoneMatch = request.headers.get('if-none-match');
   if (ifNoneMatch && ifNoneMatch === etag) {
     return new NextResponse(null, {
@@ -339,7 +540,8 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(
-    { aircraft, count: aircraft.length, ts: Date.now() },
+    // `count` reste le nombre d'AVIONS (rétro-compat) ; navires sous `ships`.
+    { aircraft, ships, count: aircraft.length, ts: Date.now() },
     {
       status: 200,
       headers: {

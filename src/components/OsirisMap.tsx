@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, memo } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { BASE_PATH } from '@/lib/api';
+import { recordPositions, buildTrails, pruneEntities } from '@/lib/trails';
 
 // ─────────────────────────────────────────────────────────────────────────
 //  OsirisMap — CHÂSSIS carto MapLibre (OSIRIS V4 LEAN)
@@ -70,6 +71,46 @@ export interface SatellitePoint {
   alt?: number;
 }
 
+/** Navire (source AIS, clé requise — cf. route fast). */
+export interface ShipPoint {
+  id: string;
+  lat: number;
+  lng: number;
+  heading?: number;
+  speed?: number;
+  name?: string;
+  type?: string;
+  mmsi?: string;
+}
+
+/** Point de couche sensible (forme 2) — générique. cctv porte un streamUrl. */
+export interface SensitivePoint {
+  id: string;
+  lat: number;
+  lng: number;
+  label?: string;
+  name?: string;
+  streamUrl?: string;
+  type?: string;
+  intensity?: number;
+}
+
+/** Dictionnaire des couches sensibles (clé → points) — cf. route /live-feed/sensitive. */
+export type SensitiveData = Partial<Record<
+  'cctv' | 'gps_jamming' | 'scanners' | 'sigint' | 'military_bases' | 'telegram_osint',
+  SensitivePoint[]
+>>;
+
+// Registre des couches sensibles rendues : clé activeLayers, clé données, couleur, flux.
+const SENSITIVE_MAP_LAYERS: { toggle: string; dataKey: keyof SensitiveData; color: string; stream?: boolean }[] = [
+  { toggle: 'sens_military_bases', dataKey: 'military_bases', color: '#d6a445' },
+  { toggle: 'sens_cctv', dataKey: 'cctv', color: '#db6f78', stream: true },
+  { toggle: 'sens_gps_jamming', dataKey: 'gps_jamming', color: '#f0a020' },
+  { toggle: 'sens_scanners', dataKey: 'scanners', color: '#9a8cef' },
+  { toggle: 'sens_sigint', dataKey: 'sigint', color: '#54bdde' },
+  { toggle: 'sens_telegram_osint', dataKey: 'telegram_osint', color: '#9bdcf0' },
+];
+
 interface OsirisMapProps {
   /** Données brutes issues du backend FR (clés à définir couche par couche). */
   data?: Record<string, any>;
@@ -85,6 +126,14 @@ interface OsirisMapProps {
   volcanoes?: VolcanoPoint[];
   /** Satellites (celestrak + SGP4) — rendus si activeLayers.live_satellites. */
   satellites?: SatellitePoint[];
+  /** Navires (AIS) — rendus si activeLayers.live_ships. */
+  ships?: ShipPoint[];
+  /** Couches sensibles (forme 2) — rendues si activeLayers.sens_* + consentement. */
+  sensitive?: SensitiveData;
+  /** Clic sur un avion → ouvre la carte-fiche riche (photo + détails). */
+  onAircraftClick?: (a: AircraftPoint) => void;
+  /** Clic sur une caméra/webcam (cctv) portant un streamUrl → ouvre le lecteur de flux. */
+  onStreamClick?: (s: { label: string; streamUrl: string; lat?: number; lng?: number }) => void;
   onEntityClick?: (entity: any) => void;
   onMouseCoords?: (coords: { lat: number; lng: number }) => void;
   onRightClick?: (coords: { lat: number; lng: number }) => void;
@@ -247,6 +296,10 @@ function OsirisMap({
   wildfires = [],
   volcanoes = [],
   satellites = [],
+  ships = [],
+  sensitive = {},
+  onAircraftClick,
+  onStreamClick,
   onEntityClick,
   onMouseCoords,
   onRightClick,
@@ -267,6 +320,10 @@ function OsirisMap({
   // chargement, la ref évite de capturer une prop périmée (MAJ hors render).
   const onEntityClickRef = useRef(onEntityClick);
   useEffect(() => { onEntityClickRef.current = onEntityClick; }, [onEntityClick]);
+  const onAircraftClickRef = useRef(onAircraftClick);
+  useEffect(() => { onAircraftClickRef.current = onAircraftClick; }, [onAircraftClick]);
+  const onStreamClickRef = useRef(onStreamClick);
+  useEffect(() => { onStreamClickRef.current = onStreamClick; }, [onStreamClick]);
 
   // ── Générateur d'icône "avion" sur canvas (gabarit symbole WebGL) ──
   const createIcon = useCallback((map: maplibregl.Map, id: string, color: string, size: number) => {
@@ -407,6 +464,7 @@ function OsirisMap({
           visibility: 'none',
         },
       });
+      // Clic avion → ouvre la carte-fiche riche (photo + détails) via le parent.
       map.on('click', 'live-aircraft-symbols', (e) => {
         const f = e.features?.[0];
         if (!f) return;
@@ -415,20 +473,19 @@ function OsirisMap({
         const coords = geom && geom.type === 'Point'
           ? (geom.coordinates as [number, number])
           : [e.lngLat.lng, e.lngLat.lat];
-        const alt = p.alt != null && p.alt !== '' ? `${escapeHtml(p.alt)} ft` : '—';
-        const spd = p.speed != null && p.speed !== '' ? `${escapeHtml(p.speed)} nds` : '—';
-        const hdg = p.heading != null && p.heading !== '' ? `${escapeHtml(p.heading)}°` : '—';
-        const html =
-          `<div style="${POPUP_STYLE}">` +
-          `<div style="color:#9bdcf0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Aéronef · temps réel</div>` +
-          `<div style="color:#fff;font-size:14px;font-weight:600;margin-bottom:6px;">${escapeHtml(p.callsign || p.hex || 'Inconnu')}</div>` +
-          `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">` +
-          `Altitude : ${alt}<br>Vitesse sol : ${spd}<br>Cap : ${hdg}</div>` +
-          `<div style="color:#586475;font-size:10px;margin-top:8px;">hex ${escapeHtml(p.hex || '—')} · source adsb.lol (public)</div>` +
-          `</div>`;
-        popupRef.current?.remove();
-        popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '360px', offset: 14 })
-          .setLngLat(coords as maplibregl.LngLatLike).setHTML(html).addTo(map);
+        const num = (v: unknown) => (v != null && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : undefined);
+        onAircraftClickRef.current?.({
+          id: String(p.hex || p.id || ''),
+          lat: coords[1], lng: coords[0],
+          heading: num(p.heading), speed: num(p.speed), alt: num(p.alt),
+          callsign: p.callsign ? String(p.callsign) : undefined,
+          hex: p.hex ? String(p.hex) : undefined,
+          category: p.category ? String(p.category) : undefined,
+          vip: p.vip === true || p.vip === 'true',
+          vipName: p.vipName ? String(p.vipName) : undefined,
+          vipCategory: p.vipCategory ? String(p.vipCategory) : undefined,
+          vipColor: p.vipColor ? String(p.vipColor) : undefined,
+        });
       });
       map.on('mouseenter', 'live-aircraft-symbols', () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', 'live-aircraft-symbols', () => { map.getCanvas().style.cursor = ''; });
@@ -558,6 +615,102 @@ function OsirisMap({
       map.on('mouseleave', 'live-satellites-dots', () => { map.getCanvas().style.cursor = ''; });
       // ──────────────────────────────────────────────────────────────────
 
+      // ─── TRAÎNÉES (routes tracées) avions + navires ─────────────────────
+      // Ligne dont l'opacité décroît avec l'âge (ageRatio), SOUS les symboles.
+      (['aircraft', 'ships'] as const).forEach((k) => {
+        map.addSource(`${k}-trails`, { type: 'geojson', data: EMPTY_FC });
+        map.addLayer({
+          id: `${k}-trails-line`,
+          type: 'line',
+          source: `${k}-trails`,
+          layout: { 'line-cap': 'round', 'line-join': 'round', visibility: 'none' },
+          paint: {
+            'line-color': k === 'aircraft' ? '#9bdcf0' : '#54bdde',
+            'line-width': 1.5,
+            'line-opacity': ['interpolate', ['linear'], ['coalesce', ['get', 'ageRatio'], 0], 0, 0.85, 1, 0.0],
+          },
+        });
+      });
+
+      // ─── COUCHE NAVIRES (AIS — clé requise, [] sinon) ───────────────────
+      map.addSource('live-ships', { type: 'geojson', data: EMPTY_FC });
+      map.addLayer({
+        id: 'live-ships-dots',
+        type: 'circle',
+        source: 'live-ships',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 12, 7],
+          'circle-color': '#54bdde',
+          'circle-opacity': 0.85,
+          'circle-stroke-width': 1.5,
+          'circle-stroke-color': '#070a0f',
+        },
+        layout: { visibility: 'none' },
+      });
+      map.on('click', 'live-ships-dots', (e) => {
+        const f = e.features?.[0]; if (!f) return;
+        const p = f.properties || {};
+        const geom = f.geometry;
+        const coords = geom && geom.type === 'Point' ? (geom.coordinates as [number, number]) : [e.lngLat.lng, e.lngLat.lat];
+        const spd = p.speed != null && p.speed !== '' ? `${escapeHtml(p.speed)} nds` : '—';
+        const html =
+          `<div style="${POPUP_STYLE}">` +
+          `<div style="color:#54bdde;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Navire · AIS</div>` +
+          `<div style="color:#fff;font-size:14px;font-weight:600;margin-bottom:4px;">${escapeHtml(p.name || p.mmsi || 'Inconnu')}</div>` +
+          `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">Type : ${escapeHtml(p.type || '—')}<br>Vitesse : ${spd}</div>` +
+          `<div style="color:#586475;font-size:10px;margin-top:8px;">MMSI ${escapeHtml(p.mmsi || '—')} · AIS public</div>` +
+          `</div>`;
+        popupRef.current?.remove();
+        popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '340px', offset: 14 })
+          .setLngLat(coords as maplibregl.LngLatLike).setHTML(html).addTo(map);
+      });
+      map.on('mouseenter', 'live-ships-dots', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'live-ships-dots', () => { map.getCanvas().style.cursor = ''; });
+
+      // ─── COUCHES SENSIBLES (forme 2 — cctv/jamming/scanners/sigint/bases…) ─
+      // Une couche circle par famille. cctv : clic → lecteur de flux in-app.
+      SENSITIVE_MAP_LAYERS.forEach(({ dataKey, color, stream }) => {
+        const src = `sens-${dataKey}`;
+        const layer = `sens-${dataKey}-dots`;
+        map.addSource(src, { type: 'geojson', data: EMPTY_FC });
+        map.addLayer({
+          id: layer,
+          type: 'circle',
+          source: src,
+          paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3.5, 12, 7],
+            'circle-color': color,
+            'circle-opacity': 0.85,
+            'circle-stroke-width': 1.5,
+            'circle-stroke-color': '#070a0f',
+          },
+          layout: { visibility: 'none' },
+        });
+        map.on('click', layer, (e) => {
+          const f = e.features?.[0]; if (!f) return;
+          const p = f.properties || {};
+          const geom = f.geometry;
+          const coords = geom && geom.type === 'Point' ? (geom.coordinates as [number, number]) : [e.lngLat.lng, e.lngLat.lat];
+          // cctv avec flux → lecteur in-app (webcam en direct dans le cockpit).
+          if (stream && p.streamUrl) {
+            onStreamClickRef.current?.({ label: String(p.label || p.name || 'Caméra'), streamUrl: String(p.streamUrl), lat: coords[1], lng: coords[0] });
+            return;
+          }
+          const html =
+            `<div style="${POPUP_STYLE}">` +
+            `<div style="color:${color};font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">${escapeHtml(String(dataKey).replace('_', ' '))} · forme 2</div>` +
+            `<div style="color:#fff;font-size:13px;font-weight:600;">${escapeHtml(p.label || p.name || p.id || '—')}</div>` +
+            `<div style="color:#586475;font-size:10px;margin-top:8px;">données publiques · usage veille (ARPD)</div>` +
+            `</div>`;
+          popupRef.current?.remove();
+          popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '320px', offset: 14 })
+            .setLngLat(coords as maplibregl.LngLatLike).setHTML(html).addTo(map);
+        });
+        map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
+      });
+      // ──────────────────────────────────────────────────────────────────
+
       setMapReady(true);
     });
 
@@ -644,15 +797,28 @@ function OsirisMap({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: [a.lng, a.lat] },
         properties: {
+          id: a.hex ?? a.id ?? '',
           heading: typeof a.heading === 'number' ? a.heading : 0,
           callsign: a.callsign ?? '',
           hex: a.hex ?? a.id ?? '',
           alt: a.alt ?? '',
           speed: a.speed ?? '',
+          category: a.category ?? '',
+          vip: !!a.vip,
+          vipName: a.vipName ?? '',
+          vipCategory: a.vipCategory ?? '',
+          vipColor: a.vipColor ?? '',
         },
       }));
     setGeo('live-aircraft', features);
     setVis(['live-aircraft-symbols'], !!activeLayers?.live_aircraft);
+    // Traînées (routes tracées) : on enregistre les positions et on redessine.
+    const now = Date.now();
+    const alive = rows.filter((a) => typeof a?.lat === 'number' && typeof a?.lng === 'number');
+    recordPositions('aircraft', alive.map((a) => ({ id: String(a.hex ?? a.id ?? ''), lat: a.lat, lng: a.lng })), now);
+    pruneEntities('aircraft', new Set(alive.map((a) => String(a.hex ?? a.id ?? ''))));
+    setGeo('aircraft-trails', buildTrails('aircraft', now).features);
+    setVis(['aircraft-trails-line'], !!activeLayers?.live_aircraft);
     // Halo VIP : sous-ensemble taggé vip=true (forme 2), affiché avec les avions.
     const vipFeatures = rows
       .filter((a) => a?.vip && typeof a?.lat === 'number' && typeof a?.lng === 'number')
@@ -711,6 +877,39 @@ function OsirisMap({
     setGeo('live-satellites', satFeats);
     setVis(['live-satellites-dots'], !!activeLayers?.live_satellites);
   }, [mapReady, earthquakes, wildfires, volcanoes, satellites, activeLayers, setGeo, setVis]);
+  // ─────────────────────────────────────────────────────────────────────
+
+  // ─── RENDU NAVIRES (AIS) + traînées ──────────────────────────────────
+  useEffect(() => {
+    if (!mapReady) return;
+    const rows = (Array.isArray(ships) ? ships : []).filter((s) => typeof s?.lat === 'number' && typeof s?.lng === 'number');
+    setGeo('live-ships', rows.map((s) => ({
+      type: 'Feature' as const,
+      geometry: { type: 'Point' as const, coordinates: [s.lng, s.lat] },
+      properties: { name: s.name ?? '', mmsi: s.mmsi ?? '', type: s.type ?? '', speed: s.speed ?? '' },
+    })));
+    setVis(['live-ships-dots'], !!activeLayers?.live_ships);
+    const now = Date.now();
+    recordPositions('ships', rows.map((s) => ({ id: String(s.id ?? s.mmsi ?? ''), lat: s.lat, lng: s.lng })), now);
+    pruneEntities('ships', new Set(rows.map((s) => String(s.id ?? s.mmsi ?? ''))));
+    setGeo('ships-trails', buildTrails('ships', now).features);
+    setVis(['ships-trails-line'], !!activeLayers?.live_ships);
+  }, [mapReady, ships, activeLayers, setGeo, setVis]);
+
+  // ─── RENDU COUCHES SENSIBLES (forme 2) ───────────────────────────────
+  useEffect(() => {
+    if (!mapReady) return;
+    SENSITIVE_MAP_LAYERS.forEach(({ toggle, dataKey }) => {
+      const rows = (Array.isArray(sensitive?.[dataKey]) ? sensitive[dataKey]! : [])
+        .filter((p) => typeof p?.lat === 'number' && typeof p?.lng === 'number');
+      setGeo(`sens-${dataKey}`, rows.map((p) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
+        properties: { id: p.id ?? '', label: p.label ?? '', name: p.name ?? '', streamUrl: p.streamUrl ?? '', type: p.type ?? '' },
+      })));
+      setVis([`sens-${dataKey}-dots`], !!activeLayers?.[toggle]);
+    });
+  }, [mapReady, sensitive, activeLayers, setGeo, setVis]);
   // ─────────────────────────────────────────────────────────────────────
 
   // ── Couche jour/nuit (affichage, conservée du châssis d'origine) ──
