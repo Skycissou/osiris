@@ -61,7 +61,7 @@
 
 | Bloc manquant | Détail | Intérêt enquêteur | Priorité |
 |---|---|---|---|
-| 🔍 **Boîte à outils OSINT** | 14 lookups : whois, dns, ip, cve, leaks, mac, phone, sanctions, shodan, bgp, certs, github, sweep, threats (+ panneau `OsintPanel`) | ⭐⭐⭐ ÉNORME (cœur du métier) | **haute** |
+| ✅ ~~🔍 **Boîte à outils OSINT**~~ | **FAIT (V4.010)** : 13 lookups sous `/osint/*` (whois, dns, ip, cve, mac, certs, bgp, github, sanctions, phone + shodan/leaks/threats à clé) + panneau `OsintPanel` (détection auto du type de cible) | ⭐⭐⭐ | ~~haute~~ livré |
 | 🕸️ **Graphe d'entités** | relations entre entités (`EntityGraphPanel` + `entity/expand`) — investigation visuelle | ⭐⭐⭐ | **haute** |
 | 🛰️ **Imagerie Sentinel** | imagerie satellite à la demande (clic droit → Sentinel) | ⭐⭐ | moyenne |
 | 📰 **Feeds géopolitiques** | GDELT (événements mondiaux), news / live-news, country-risk | ⭐⭐ | moyenne |

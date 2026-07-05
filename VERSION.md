@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.010-dev — 2026-07-05 — Boîte à outils OSINT (14 lookups)
+- **Boîte à outils d'investigation** : 13 routes `/osint/*` — whois (RDAP), dns (DoH), ip (géoloc+ASN), cve, mac, certs (crt.sh), bgp, github, sanctions (OpenSanctions), phone (local) **tous gratuits sans clé** ; shodan/leaks/threats à clé (dégradation douce).
+- **Panneau `OsintPanel`** : saisie + **détection auto du type de cible** (IP/domaine/email/CVE/pseudo/MAC/tél/ASN) → lance les bons outils en parallèle → fiches résultat FR style OSIRIS. Bouton « 🔍 OSINT » dans les contrôles carte.
+- `.env.example` complété : `SHODAN_KEY`, `HIBP_KEY`, `ABUSEIPDB_KEY` (+ `GITHUB_TOKEN`/`OPENSANCTIONS_KEY` optionnels).
+- 3 agents Opus + intégration chef. Routes sous `/osint/*` (jamais `/api`). Build + tsc OK.
+
 ### V4.005-dev — 2026-07-05 — Style « accueil », satellites, formes
 - **Design aligné sur l'accueil** (décision Cissou : la landing est LA référence) : langage visuel repris (pills arrondies, cartes premium, `.glass-panel` enrichi, focus rings `--accent-soft`, hover décollé, états actifs `accent-soft`/`accent-line`). Utilitaires `.osiris-btn/-pill/-card/-row/-tag`.
 - **Couche Satellites** : celestrak (TLE public sans clé) + calcul SGP4 (`satellite.js`), seed de satellites notables (ISS, Hubble, Terra, Landsat 8, NOAA 20, Starlink). Toggle FR « Satellites 🛰 ».

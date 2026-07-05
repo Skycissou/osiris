@@ -38,6 +38,7 @@ const LayerPanel = dynamic(() => import('@/components/LayerPanel'));
 const SearchBar = dynamic(() => import('@/components/SearchBar'), { ssr: false });
 const ResultsPanel = dynamic(() => import('@/components/ResultsPanel'), { ssr: false });
 const LoginGate = dynamic(() => import('@/components/LoginGate'), { ssr: false });
+const OsintPanel = dynamic(() => import('@/components/OsintPanel'), { ssr: false });
 
 // Couches FR (stub) — clés canoniques partagées avec LayerPanel + OsirisMap.
 const DEFAULT_LAYERS: Record<string, boolean> = {
@@ -226,6 +227,9 @@ export default function Dashboard() {
 
   // ── Modes visuels (CRT / NVG / thermique) ──
   const [visualMode, setVisualMode] = useState<VisualMode>('normal');
+
+  // ── Boîte à outils OSINT (whois, dns, ip, cve, leaks, shodan…) ──
+  const [osintOpen, setOsintOpen] = useState(false);
 
   // ── Consentement forme 2 : au 1er toggle d'une couche sensible, si pas
   // encore consenti → modale. Sur accord → consentement + activation. ──
@@ -547,6 +551,13 @@ export default function Dashboard() {
         </ErrorBoundary>
       )}
 
+      {/* ── PANNEAU OSINT (boîte à outils d'investigation) ── */}
+      {osintOpen && (
+        <ErrorBoundary name="OSINT">
+          <OsintPanel onClose={() => setOsintOpen(false)} isMobile={isMobile} />
+        </ErrorBoundary>
+      )}
+
       {/* ── MODE VISUEL (overlay CRT / NVG / thermique) ── */}
       <VisualModeOverlay mode={visualMode} />
 
@@ -789,6 +800,14 @@ export default function Dashboard() {
           title={`Mode visuel : ${getVisualMode(visualMode)?.label ?? 'Normal'} (cliquer pour changer)`}
         >
           {(getVisualMode(visualMode)?.label ?? 'Normal').toUpperCase()}
+        </button>
+        {/* Boîte à outils OSINT (whois, dns, ip, cve, leaks, shodan…) */}
+        <button
+          onClick={() => setOsintOpen(true)}
+          className={`glass-panel hover-lift rounded-[12px] px-3.5 py-2 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors text-[9px] font-mono tracking-widest ${osintOpen ? 'text-[var(--accent)] border-[var(--accent)]/50' : 'text-[var(--accent-bright)]'}`}
+          title="Boîte à outils OSINT (whois, DNS, IP, CVE, fuites, Shodan…)"
+        >
+          🔍 OSINT
         </button>
       </motion.div>
 
