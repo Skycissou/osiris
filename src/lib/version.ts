@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.012-dev';
+export const OSIRIS_VERSION = 'V4.013-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,22 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.013-dev',
+    date: '2026-07-05',
+    resume:
+      "Filtres d'attributs (filtrer DANS une couche : altitude/vitesse/militaire/VIP, " +
+      "magnitude, tonalité, malware). Confort UI : raccourcis clavier, presets de vue, " +
+      "partage de lien, barre d'échelle. Briefing de situation IA (route /analyze, clé LLM, " +
+      "dégradation douce en briefing basique sans clé).",
+  },
+  {
+    version: 'V4.012-dev',
+    date: '2026-07-05',
+    resume:
+      "Couches Géopolitique (GDELT) + Cyber (C2 abuse.ch), gratuites sans clé, dans le flux " +
+      "slow. Fil d'actualité /news (GDELT DOC) + NewsPanel.",
+  },
   {
     version: 'V4.005-dev',
     date: '2026-07-05',

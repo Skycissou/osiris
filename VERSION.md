@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.013-dev — 2026-07-05 — Filtres d'attributs + Confort UI + Briefing IA
+- **Filtres d'attributs 🎚️** : filtrer DANS une couche déjà affichée (≠ toggle d'activation). `lib/layerFilters.ts` (fonctions pures, tolérantes, jamais de throw) + `FilterPanel` (n'affiche que les couches actives). Avions : altitude/vitesse mini-maxi, militaires seuls, VIP seuls. Séismes : magnitude mini. Navires : vitesse + type. Géopolitique : plage de tonalité. Cyber : malware/pays (texte). Bouton « 🎚️ Filtres » + raccourci **T**.
+- **Confort UI** : `shortcuts.ts` (raccourcis clavier **C**ouches/**R**ecentrer FR/**O**SINT/**T**ri-filtres/**V**isuel/**P**artage/Échap, ignorés dans les champs de saisie) · `viewPresets.ts` (presets de vue France/Paris/Occitanie/Méditerranée/Manche-Atlantique/Monde + presets custom localStorage) · `shareLink.ts` (lien partageable encodant couches+requête, copie presse-papier) · `ComfortBar` (Vues/Partager/?). **Barre d'échelle** MapLibre (charte OSIRIS).
+- **Briefing de situation IA 🧠** : route `/analyze` (POST, hors `/api`) → briefing FR du contexte carte (couches actives + décomptes + zone) via LLM. Clé user `x-osiris-key-llm` (fallback env `LLM_API_KEY`), fournisseur OpenRouter/OpenAI (`LLM_PROVIDER`), modèle `LLM_MODEL`. **Dégradation douce** : sans clé → briefing basique déterministe (jamais de 500). `BriefingPanel` + bouton « 🧠 Briefing IA » sidebar. Cadre défensif ARPD dans le prompt (données publiques, aucun ciblage).
+- Service `llm` ajouté au registre `apiKeys` (documenté dans le module Clés API). 3 agents Opus + intégration chef. Build + tsc OK.
+
 ### V4.012-dev — 2026-07-05 — Géopolitique + Cyber + News (sources gratuites)
 - **Couche Géopolitique 🌍** : événements mondiaux géolocalisés via **GDELT** (gratuit sans clé), couleur par tonalité, popup + lien source. Toggle « Géopolitique ».
 - **Couche Cyber 🛡️** : serveurs C2 malware via **abuse.ch Feodo** (gratuit), géoloc par centroïde pays, popup (IP/malware/pays). Veille défensive. Toggle « Cyber (C2) ».

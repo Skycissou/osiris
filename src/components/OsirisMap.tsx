@@ -420,6 +420,10 @@ function OsirisMap({
     map.on('load', () => {
       mapRef.current = map;
 
+      // Barre d'échelle (confort de lecture des distances) — coin bas-droit,
+      // unités métriques. Contrôle natif MapLibre, stylé par globals.css.
+      map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-right');
+
       // Icônes/pastilles de base réutilisables par les futures couches FR.
       createIcon(map, 'plane', '#9bdcf0', 24);
       createDot(map, 'dot-gold', '#54bdde', 8);

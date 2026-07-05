@@ -37,13 +37,16 @@ export interface CockpitSidebarProps {
   onOpenGraph?: () => void;
   /** Ouvre le fil d'actualité (News). */
   onOpenNews?: () => void;
+  /** Ouvre le briefing de situation IA. */
+  onOpenBriefing?: () => void;
 }
 
-function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenNews }: CockpitSidebarProps) {
+function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenNews, onOpenBriefing }: CockpitSidebarProps) {
   /** Outils du cockpit (ouvrent un panneau). Édite librement : label + action. */
   const TOOLS: { label: string; onClick?: () => void }[] = [
     { label: '🔍 OSINT', onClick: onOpenOsint },
     { label: '🕸️ Graphe', onClick: onOpenGraph },
+    { label: '🧠 Briefing IA', onClick: onOpenBriefing },
     { label: '📰 News', onClick: onOpenNews },
     { label: '🔑 Clés API', onClick: onOpenKeys },
   ];

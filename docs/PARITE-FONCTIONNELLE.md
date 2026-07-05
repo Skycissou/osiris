@@ -68,10 +68,10 @@
 | ✅ ~~📰 **Feeds géopolitiques**~~ | **FAIT (V4.012)** : couche Géopolitique (GDELT géolocalisé) + fil d'actu `NewsPanel` (GDELT titres FR/EN). country-risk : encore à faire | ⭐⭐ | livré (partiel) |
 | ✅ ~~🛡️ **Couches cyber**~~ | **FAIT (V4.012)** : couche Cyber (serveurs C2 malware, abuse.ch). malware/infrastructure détaillés : encore | ⭐⭐ | livré (partiel) |
 | 🌦️ **Couches environnement** | météo, qualité de l'air, radar météo, météo spatiale | ⭐ | basse |
-| 🤖 **IA (analyse/briefing)** | `ai/analyze`, `ai/briefing`, `AiAnalyst` — synthèse auto | ⭐⭐ | moyenne (clé LLM) |
-| 🎛️ **Filtres d'attributs** | filtrer DANS une couche (avions par catégorie/pays…) — la 2ᵉ famille de filtres | ⭐⭐ | moyenne |
+| ✅ ~~🤖 **IA (analyse/briefing)**~~ | **FAIT (V4.013)** : route `/analyze` (POST, hors `/api`) → briefing FR du contexte carte via LLM (clé user `x-osiris-key-llm`, fallback env). Dégradation douce : sans clé → briefing basique déterministe. `BriefingPanel` + bouton sidebar | ⭐⭐ | livré |
+| ✅ ~~🎛️ **Filtres d'attributs**~~ | **FAIT (V4.013)** : `layerFilters.ts` + `FilterPanel` — filtrer DANS une couche active (avions altitude/vitesse/militaire/VIP, séismes magnitude, navires vitesse/type, géopo tonalité, cyber malware/pays) | ⭐⭐ | livré |
 | 🗺️ **Scoping bbox viewport** | ne charger que la zone visible (le polling le supporte, pas branché au déplacement carte) | ⭐ (perf) | basse |
-| 🧰 **Confort UI** | barre d'échelle, barre de statut, raccourcis clavier, presets de vue, partage, flux intel | ⭐ | basse |
+| ✅ ~~🧰 **Confort UI**~~ | **FAIT (V4.013)** : barre d'échelle MapLibre, raccourcis clavier, presets de vue (France/Occitanie/Médit…), partage de lien. Reste : barre de statut détaillée, flux intel | ⭐ | livré (partiel) |
 | 📈 **Marchés / supply chain** | markets, scm-suppliers | ✖ (hors ARPD) | ignorer |
 | ⏳ **Time Machine (rejeu)** + **GT bayésien** | rejeu temporel des flux + moteur d'alerte précoce | ⭐ | différé (gros) |
 

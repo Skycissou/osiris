@@ -21,6 +21,11 @@ import { type VisualMode, nextMode, getVisualMode } from '@/lib/visualModes';
 import VisualModeOverlay from '@/components/VisualModeOverlay';
 import { isForm2Enabled, hasConsented, giveConsent } from '@/lib/forms';
 import ConsentModal from '@/components/ConsentModal';
+import { applyFilter, DEFAULT_FILTERS, type LayerFilters } from '@/lib/layerFilters';
+import { useKeyboardShortcuts } from '@/lib/shortcuts';
+import type { ViewPreset } from '@/lib/viewPresets';
+import { buildShareUrl, copyShareUrl } from '@/lib/shareLink';
+import type { BriefingContext } from '@/lib/analyzeClient';
 
 // Cockpit servi sous basePath (/cockpit) → l'utilisateur arrive DÉJÀ loggué via la
 // V3 (cookie httponly même-domaine couvre /search). Dans ce mode on court-circuite
@@ -42,7 +47,10 @@ const OsintPanel = dynamic(() => import('@/components/OsintPanel'), { ssr: false
 const KeysPanel = dynamic(() => import('@/components/KeysPanel'), { ssr: false });
 const EntityGraphPanel = dynamic(() => import('@/components/EntityGraphPanel'), { ssr: false });
 const NewsPanel = dynamic(() => import('@/components/NewsPanel'), { ssr: false });
+const FilterPanel = dynamic(() => import('@/components/FilterPanel'), { ssr: false });
+const BriefingPanel = dynamic(() => import('@/components/BriefingPanel'), { ssr: false });
 import CockpitSidebar from '@/components/CockpitSidebar';
+import ComfortBar from '@/components/ComfortBar';
 
 // Couches FR (stub) — clés canoniques partagées avec LayerPanel + OsirisMap.
 const DEFAULT_LAYERS: Record<string, boolean> = {
@@ -243,6 +251,14 @@ export default function Dashboard() {
   const [keysOpen, setKeysOpen] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
+  const [briefingOpen, setBriefingOpen] = useState(false);
+
+  // ── Filtres d'attributs (filtrer DANS une couche affichée) ──
+  const [filters, setFilters] = useState<LayerFilters>(DEFAULT_FILTERS);
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  // ── Retour visuel « lien copié » (bouton Partager de la ComfortBar) ──
+  const [shareToast, setShareToast] = useState(false);
 
   // ── Consentement forme 2 : au 1er toggle d'une couche sensible, si pas
   // encore consenti → modale. Sur accord → consentement + activation. ──
@@ -288,6 +304,61 @@ export default function Dashboard() {
 
   // ── Dossier de zone au clic droit (Nominatim / restcountries / Wikidata) ──
   const { dossier, loading: dossierLoading, error: dossierError, open: openDossier, close: closeDossier } = useRegionDossier();
+
+  // ── Filtres d'attributs : on filtre les points AVANT de les passer à la carte.
+  // applyFilter est pur et tolérant (null/undefined → renvoyé tel quel) ; sans
+  // critère actif pour la couche → tableau inchangé (aucun surcoût perceptible). ──
+  const fAircraft = useMemo(() => applyFilter('aircraft', displayAircraft, filters), [displayAircraft, filters]);
+  const fEarthquakes = useMemo(() => applyFilter('earthquakes', earthquakes ?? [], filters), [earthquakes, filters]);
+  const fShips = useMemo(() => applyFilter('ships', ships ?? [], filters), [ships, filters]);
+  const fGdelt = useMemo(() => applyFilter('gdelt', gdelt ?? [], filters), [gdelt, filters]);
+  const fCyber = useMemo(() => applyFilter('cyber', cyber ?? [], filters), [cyber, filters]);
+
+  // ── Partage : encode l'état carte (couches actives + requête) dans un lien,
+  // copie dans le presse-papier, feedback « Lien copié » éphémère. ──
+  const handleShare = useCallback(async () => {
+    const active = Object.entries(activeLayers).filter(([, v]) => v).map(([k]) => k);
+    const url = buildShareUrl({ layers: active, q: lastQuery || undefined });
+    const ok = await copyShareUrl(url);
+    setShareToast(ok);
+    setTimeout(() => setShareToast(false), 1800);
+  }, [activeLayers, lastQuery]);
+
+  const handleSelectPreset = useCallback((p: ViewPreset) => {
+    setFlyToLocation({ lat: p.lat, lng: p.lng, ts: Date.now() });
+  }, []);
+
+  // ── Raccourcis clavier (c/r/o/t/v/p/Échap) — cf. lib/shortcuts.ts. Objet
+  // mémoïsé pour éviter de ré-attacher l'écouteur à chaque rendu. ──
+  const shortcutHandlers = useMemo(() => ({
+    onToggleLayers: () => setLayersOpen((v) => !v),
+    onRecenterFR: () => setFlyToLocation({ lat: 46.6, lng: 2.35, ts: Date.now() }),
+    onOpenOsint: () => setOsintOpen(true),
+    onOpenFilters: () => setFilterOpen((v) => !v),
+    onCycleVisual: () => setVisualMode((m) => nextMode(m)),
+    onShare: () => { void handleShare(); },
+    onEscape: () => {
+      setLayersOpen(false); setFilterOpen(false); setOsintOpen(false); setKeysOpen(false);
+      setGraphOpen(false); setNewsOpen(false); setBriefingOpen(false);
+    },
+  }), [handleShare]);
+  useKeyboardShortcuts(shortcutHandlers);
+
+  // ── Contexte pour le briefing IA : couches actives + décomptes visibles +
+  // libellé de zone survolée. Closure lue au moment du clic « Générer ». ──
+  const getBriefingContext = useCallback((): BriefingContext => {
+    const layers = LIVE_OPTS.filter((o) => activeLayers[o.key]).map((o) => o.label);
+    const counts: Record<string, number> = {};
+    if (activeLayers.live_aircraft) counts['avions'] = fAircraft?.length ?? 0;
+    if (activeLayers.live_earthquakes) counts['séismes'] = fEarthquakes?.length ?? 0;
+    if (activeLayers.live_wildfires) counts['feux'] = wildfires?.length ?? 0;
+    if (activeLayers.live_volcanoes) counts['volcans'] = volcanoes?.length ?? 0;
+    if (activeLayers.live_satellites) counts['satellites'] = satellites?.length ?? 0;
+    if (activeLayers.live_ships) counts['navires'] = fShips?.length ?? 0;
+    if (activeLayers.live_gdelt) counts['événements géopolitiques'] = fGdelt?.length ?? 0;
+    if (activeLayers.live_cyber) counts['serveurs C2'] = fCyber?.length ?? 0;
+    return { layers, counts, place: locationLabel || undefined };
+  }, [activeLayers, fAircraft, fEarthquakes, wildfires, volcanoes, satellites, fShips, fGdelt, fCyber, locationLabel]);
 
   // ── Recherche cible (search-first) : appelle le backend puis plotte ──
   const runSearch = useCallback(async (q: string) => {
@@ -431,6 +502,7 @@ export default function Dashboard() {
           onOpenOsint={() => setOsintOpen(true)}
           onOpenGraph={() => setGraphOpen(true)}
           onOpenNews={() => setNewsOpen(true)}
+          onOpenBriefing={() => setBriefingOpen(true)}
           onOpenKeys={() => setKeysOpen(true)}
         />
       )}
@@ -442,14 +514,14 @@ export default function Dashboard() {
         <OsirisMap
           data={data}
           activeLayers={activeLayers}
-          aircraft={displayAircraft}
-          earthquakes={earthquakes}
+          aircraft={fAircraft}
+          earthquakes={fEarthquakes}
           wildfires={wildfires}
           volcanoes={volcanoes}
           satellites={satellites}
-          ships={ships}
-          gdelt={gdelt}
-          cyber={cyber}
+          ships={fShips}
+          gdelt={fGdelt}
+          cyber={fCyber}
           sensitive={sensitive}
           onAircraftClick={handleAircraftClick}
           onStreamClick={setActiveStream}
@@ -571,6 +643,30 @@ export default function Dashboard() {
       {newsOpen && (
         <ErrorBoundary name="News">
           <NewsPanel onClose={() => setNewsOpen(false)} isMobile={isMobile} />
+        </ErrorBoundary>
+      )}
+
+      {/* ── FILTRES DE COUCHE (filtrer DANS une couche affichée) ── */}
+      {filterOpen && (
+        <ErrorBoundary name="Filtres">
+          <FilterPanel
+            filters={filters}
+            onChange={setFilters}
+            onClose={() => setFilterOpen(false)}
+            activeLayers={activeLayers}
+            isMobile={isMobile}
+          />
+        </ErrorBoundary>
+      )}
+
+      {/* ── BRIEFING DE SITUATION IA (résumé FR du contexte carte) ── */}
+      {briefingOpen && (
+        <ErrorBoundary name="Briefing IA">
+          <BriefingPanel
+            getContext={getBriefingContext}
+            onClose={() => setBriefingOpen(false)}
+            isMobile={isMobile}
+          />
         </ErrorBoundary>
       )}
 
@@ -832,7 +928,28 @@ export default function Dashboard() {
         >
           🔍 OSINT
         </button>
+        {/* Filtres d'attributs (filtrer DANS une couche temps réel active) */}
+        <button
+          onClick={() => setFilterOpen((v) => !v)}
+          className={`glass-panel hover-lift rounded-[12px] px-3.5 py-2 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors text-[9px] font-mono tracking-widest ${filterOpen ? 'text-[var(--accent)] border-[var(--accent)]/50 bg-[var(--accent-soft)]' : 'text-[var(--accent-bright)]'}`}
+          title="Filtres de couche (altitude, magnitude, malware… — touche T)"
+        >
+          🎚️ FILTRES
+        </button>
+        {/* Confort : Vues prédéfinies · Partager le lien · Aide raccourcis */}
+        <ComfortBar onSelectPreset={handleSelectPreset} onShare={() => { void handleShare(); }} isMobile={isMobile} />
       </motion.div>
+
+      {/* ── TOAST « LIEN COPIÉ » (retour visuel du bouton Partager) ── */}
+      {shareToast && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="absolute bottom-[130px] md:bottom-[155px] left-1/2 -translate-x-1/2 z-[230] pointer-events-none glass-panel px-3 py-1.5 rounded-[12px] text-[10px] font-mono tracking-widest text-[var(--accent)]"
+        >
+          ✓ Lien copié
+        </motion.div>
+      )}
 
       {/* ── BARRE COORDONNÉES (bas) ── */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[200] pointer-events-none flex items-center gap-3 text-[9px] font-mono tracking-widest text-[var(--faint)] glass-panel px-3 py-1.5">
