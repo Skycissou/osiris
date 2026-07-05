@@ -20,11 +20,11 @@ import RegionDossierPanel from '@/components/RegionDossierPanel';
 // le LoginGate V4 et, sur 401, on renvoie vers le login V3 à la racine (`/login`).
 const COCKPIT_MODE = BASE_PATH !== '';
 
-// URL de l'accueil (site V3). Le bouton « ← Accueil » du header pointe dessus.
-//  • Mode /cockpit (même domaine que la V3) : '/' (ou '/?q=' pour la continuité).
-//  • Staging/prod à la racine (V4 sur un sous-domaine dédié) : on renvoie vers la
-//    V3 via NEXT_PUBLIC_HOME_URL, défaut = V3 prod. Surchargeable au build.
-const HOME_URL = process.env.NEXT_PUBLIC_HOME_URL || 'https://osiris.cissouhub.cloud';
+// Accueil = TOUJOURS la racine du MÊME site (la landing qui porte le bouton
+// « Cockpit carte »). On ne saute JAMAIS vers un autre domaine, sinon on tombe
+// sur un site sans carte. `<a href="/">` vise la racine du domaine courant
+// (Next ne réécrit PAS le basePath sur les <a> natifs) → depuis /cockpit,
+// « ← Accueil » ramène bien à la page d'accueil du même domaine.
 
 const OsirisMap = dynamic(() => import('@/components/OsirisMap'), { ssr: false });
 const LayerPanel = dynamic(() => import('@/components/LayerPanel'));
@@ -390,9 +390,9 @@ export default function Dashboard() {
           {/* Bouton retour accueil — TOUJOURS visible. En mode /cockpit il garde
               la continuité de recherche (?q=) ; sinon il renvoie vers la V3. */}
           <a
-            href={COCKPIT_MODE ? (lastQuery ? `/?q=${encodeURIComponent(lastQuery)}` : '/') : HOME_URL}
+            href={lastQuery ? `/?q=${encodeURIComponent(lastQuery)}` : '/'}
             className="glass-panel pointer-events-auto px-2.5 py-1 text-[10px] font-mono tracking-widest text-[var(--accent-bright)] hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-colors"
-            title="Retour à l'accueil OSIRIS"
+            title="Retour à l'accueil"
           >
             ← Accueil
           </a>
