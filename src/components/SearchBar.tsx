@@ -36,7 +36,7 @@ function SearchBar({ onSubmit, loading, error, resultCount, isMobile }: SearchBa
         onSubmit={submit}
         className="pointer-events-auto flex items-center gap-2 glass-panel px-3 py-2 border border-[var(--border-primary)]"
       >
-        <Search className="w-4 h-4 flex-shrink-0 text-[var(--gold-primary)]" />
+        <Search className="w-4 h-4 flex-shrink-0 text-[var(--accent)]" />
         <input
           type="text"
           value={value}
@@ -49,7 +49,7 @@ function SearchBar({ onSubmit, loading, error, resultCount, isMobile }: SearchBa
         <button
           type="submit"
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1 rounded bg-[var(--gold-primary)]/15 hover:bg-[var(--gold-primary)]/25 border border-[var(--gold-primary)]/30 text-[10px] font-mono uppercase tracking-widest text-[var(--gold-primary)] transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1 rounded bg-[var(--accent)]/15 hover:bg-[var(--accent)]/25 border border-[var(--accent)]/30 text-[10px] font-mono uppercase tracking-widest text-[var(--accent)] transition-colors disabled:opacity-50"
         >
           {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
           {loading ? 'Recherche' : 'Chercher'}
@@ -57,12 +57,12 @@ function SearchBar({ onSubmit, loading, error, resultCount, isMobile }: SearchBa
       </form>
 
       {error && (
-        <div className="pointer-events-auto text-[11px] font-mono text-[var(--alert-red,#ff5252)] glass-panel px-3 py-1.5">
+        <div className="pointer-events-auto text-[11px] font-mono text-[var(--red,#db6f78)] glass-panel px-3 py-1.5">
           ⚠ {error}
         </div>
       )}
       {!error && resultCount != null && (
-        <div className="pointer-events-none text-[10px] font-mono tracking-wider text-[var(--text-muted)] px-1">
+        <div className="pointer-events-none text-[10px] font-mono tracking-wider text-[var(--faint)] px-1">
           {resultCount === 0 ? 'Aucun point géolocalisé pour cette recherche.' : `${resultCount} point(s) géolocalisé(s) sur la carte.`}
         </div>
       )}

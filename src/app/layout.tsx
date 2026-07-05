@@ -7,7 +7,7 @@ const SITE_TITLE = "OSIRIS — Cockpit cartographique OSINT";
 const SITE_DESCRIPTION = "Cockpit cartographique OSINT défensif : visualisation de sources ouvertes françaises sur fond de carte interactif.";
 
 export const viewport: Viewport = {
-  themeColor: "#D4AF37",
+  themeColor: "#54bdde",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,

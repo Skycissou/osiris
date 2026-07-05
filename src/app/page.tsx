@@ -251,11 +251,11 @@ export default function Dashboard() {
   }, []);
 
   // Écran d'accès tant que non authentifié (null = check en cours → rien).
-  if (authed === null) return <main className="fixed inset-0 bg-[var(--bg-void)]" />;
+  if (authed === null) return <main className="fixed inset-0 bg-[var(--bg)]" />;
   if (!authed) return <LoginGate onAuthed={handleAuthed} />;
 
   return (
-    <main className="fixed inset-0 w-full h-full bg-[var(--bg-void)] overflow-hidden">
+    <main className="fixed inset-0 w-full h-full bg-[var(--bg)] overflow-hidden">
       {/* ── CARTE ── */}
       <ErrorBoundary name="Carte">
         <OsirisMap
@@ -319,14 +319,14 @@ export default function Dashboard() {
           {COCKPIT_MODE && (
             <a
               href={lastQuery ? `/?q=${encodeURIComponent(lastQuery)}` : '/'}
-              className="glass-panel pointer-events-auto px-2.5 py-1 text-[10px] font-mono tracking-widest text-[var(--cyan-primary)] hover:text-[var(--gold-primary)] hover:border-[var(--gold-primary)]/40 transition-colors"
+              className="glass-panel pointer-events-auto px-2.5 py-1 text-[10px] font-mono tracking-widest text-[var(--accent-bright)] hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-colors"
               title="Retour à OSIRIS (V3) — la recherche suit"
             >
               ← OSIRIS
             </a>
           )}
-          <h1 className="text-lg md:text-xl font-bold tracking-[0.4em] text-[var(--gold-primary)] font-mono">OSIRIS</h1>
-          <span className="text-[8px] md:text-[9px] font-mono tracking-[0.2em] opacity-70 uppercase text-[var(--gold-primary)]">
+          <h1 className="text-lg md:text-xl font-bold tracking-[0.4em] text-[var(--accent)] font-mono">OSIRIS</h1>
+          <span className="text-[8px] md:text-[9px] font-mono tracking-[0.2em] opacity-70 uppercase text-[var(--accent)]">
             COCKPIT OSINT · V4
           </span>
         </div>
@@ -346,10 +346,10 @@ export default function Dashboard() {
           }}
         >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-[11px] font-mono font-bold tracking-widest text-[var(--gold-primary)]">COUCHES</span>
+            <span className="text-[11px] font-mono font-bold tracking-widest text-[var(--accent)]">COUCHES</span>
             <button
               onClick={() => setLayersOpen(false)}
-              className="text-[var(--text-muted)] hover:text-[var(--gold-primary)] transition-colors"
+              className="text-[var(--faint)] hover:text-[var(--accent)] transition-colors"
               title="Fermer"
             >
               <X className="w-4 h-4" />
@@ -358,7 +358,7 @@ export default function Dashboard() {
 
           {/* FONDS (radio) */}
           <div className="mb-4">
-            <div className="text-[9px] font-mono tracking-widest text-[var(--cyan-primary)] uppercase mb-2 pb-1 border-b border-white/10">Fond de carte</div>
+            <div className="text-[9px] font-mono tracking-widest text-[var(--accent-bright)] uppercase mb-2 pb-1 border-b border-white/10">Fond de carte</div>
             <div className="flex flex-col gap-1">
               {BASEMAP_OPTS.map((o) => (
                 <button
@@ -367,7 +367,7 @@ export default function Dashboard() {
                   className="flex items-center gap-2.5 px-1.5 py-1 rounded hover:bg-white/5 transition-colors text-left"
                 >
                   <span
-                    className={`w-3 h-3 rounded-full flex-shrink-0 border ${mapStyle === o.key ? 'bg-[var(--gold-primary)] border-[var(--gold-primary)]' : 'border-white/30'}`}
+                    className={`w-3 h-3 rounded-full flex-shrink-0 border ${mapStyle === o.key ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-white/30'}`}
                   />
                   <span className={`text-[11px] font-mono ${mapStyle === o.key ? 'text-white' : 'text-white/60'}`}>{o.label}</span>
                 </button>
@@ -377,7 +377,7 @@ export default function Dashboard() {
 
           {/* REMONTER LE TEMPS (radio + curseur d'année) */}
           <div className="mb-4">
-            <div className="text-[9px] font-mono tracking-widest text-[var(--cyan-primary)] uppercase mb-2 pb-1 border-b border-white/10">Remonter le temps</div>
+            <div className="text-[9px] font-mono tracking-widest text-[var(--accent-bright)] uppercase mb-2 pb-1 border-b border-white/10">Remonter le temps</div>
             <div className="flex flex-col gap-1">
               {TIME_OPTS.map((o) => (
                 <div key={o.key}>
@@ -386,7 +386,7 @@ export default function Dashboard() {
                     className="w-full flex items-center gap-2.5 px-1.5 py-1 rounded hover:bg-white/5 transition-colors text-left"
                   >
                     <span
-                      className={`w-3 h-3 rounded-full flex-shrink-0 border ${timeLayer === o.key ? 'bg-[var(--gold-primary)] border-[var(--gold-primary)]' : 'border-white/30'}`}
+                      className={`w-3 h-3 rounded-full flex-shrink-0 border ${timeLayer === o.key ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-white/30'}`}
                     />
                     <span className={`text-[11px] font-mono ${timeLayer === o.key ? 'text-white' : 'text-white/60'}`}>
                       {o.key === 'ortho-year' ? `${o.label} · ${orthoYear}` : o.label}
@@ -402,11 +402,11 @@ export default function Dashboard() {
                         step={1}
                         value={orthoYear}
                         onChange={(e) => setOrthoYear(Number(e.target.value))}
-                        className="w-full accent-[var(--gold-primary)] cursor-pointer"
+                        className="w-full accent-[var(--accent)] cursor-pointer"
                       />
-                      <div className="flex justify-between text-[8px] font-mono text-[var(--text-muted)] tabular-nums mt-0.5">
+                      <div className="flex justify-between text-[8px] font-mono text-[var(--faint)] tabular-nums mt-0.5">
                         <span>{ORTHO_YEAR_MIN}</span>
-                        <span className="text-[var(--gold-primary)] text-[10px]">{orthoYear}</span>
+                        <span className="text-[var(--accent)] text-[10px]">{orthoYear}</span>
                         <span>{ORTHO_YEAR_MAX}</span>
                       </div>
                     </div>
@@ -418,7 +418,7 @@ export default function Dashboard() {
 
           {/* SURCOUCHES (checkboxes) */}
           <div>
-            <div className="text-[9px] font-mono tracking-widest text-[var(--cyan-primary)] uppercase mb-2 pb-1 border-b border-white/10">Surcouches</div>
+            <div className="text-[9px] font-mono tracking-widest text-[var(--accent-bright)] uppercase mb-2 pb-1 border-b border-white/10">Surcouches</div>
             <div className="flex flex-col gap-1">
               {OVERLAY_OPTS.map((o) => (
                 <button
@@ -427,9 +427,9 @@ export default function Dashboard() {
                   className="flex items-center gap-2.5 px-1.5 py-1 rounded hover:bg-white/5 transition-colors text-left"
                 >
                   <span
-                    className={`w-3 h-3 rounded-sm flex-shrink-0 border flex items-center justify-center ${overlays[o.key] ? 'bg-[var(--gold-primary)] border-[var(--gold-primary)]' : 'border-white/30'}`}
+                    className={`w-3 h-3 rounded-sm flex-shrink-0 border flex items-center justify-center ${overlays[o.key] ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-white/30'}`}
                   >
-                    {overlays[o.key] && <span className="w-1.5 h-1.5 bg-[var(--bg-void)] rounded-[1px]" />}
+                    {overlays[o.key] && <span className="w-1.5 h-1.5 bg-[var(--bg)] rounded-[1px]" />}
                   </span>
                   <span className={`text-[11px] font-mono ${overlays[o.key] ? 'text-white' : 'text-white/60'}`}>{o.label}</span>
                 </button>
@@ -449,16 +449,16 @@ export default function Dashboard() {
       >
         <button
           onClick={() => setMapProjection((p) => (p === 'globe' ? 'mercator' : 'globe'))}
-          className="glass-panel p-3.5 pointer-events-auto hover:border-[var(--gold-primary)]/40 transition-colors group"
+          className="glass-panel p-3.5 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors group"
           title={mapProjection === 'globe' ? 'Vue 2D' : 'Vue Globe 3D'}
         >
           {mapProjection === 'globe'
-            ? <MapPinned className="w-5 h-5 text-[var(--gold-primary)] group-hover:scale-110 transition-transform" />
-            : <Globe className="w-5 h-5 text-[var(--cyan-primary)] group-hover:scale-110 transition-transform" />}
+            ? <MapPinned className="w-5 h-5 text-[var(--accent)] group-hover:scale-110 transition-transform" />
+            : <Globe className="w-5 h-5 text-[var(--accent-bright)] group-hover:scale-110 transition-transform" />}
         </button>
         <button
           onClick={() => setLayersOpen((v) => !v)}
-          className={`glass-panel px-3 py-2.5 pointer-events-auto hover:border-[var(--gold-primary)]/40 transition-colors flex items-center gap-2 text-[9px] font-mono tracking-widest ${layersOpen || timeLayer !== 'none' || mapStyle !== 'dark' || Object.values(overlays).some(Boolean) ? 'text-[var(--gold-primary)] border-[var(--gold-primary)]/50' : 'text-[var(--cyan-primary)]'}`}
+          className={`glass-panel px-3 py-2.5 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors flex items-center gap-2 text-[9px] font-mono tracking-widest ${layersOpen || timeLayer !== 'none' || mapStyle !== 'dark' || Object.values(overlays).some(Boolean) ? 'text-[var(--accent)] border-[var(--accent)]/50' : 'text-[var(--accent-bright)]'}`}
           title="Menu des couches (fonds, remonter le temps, surcouches)"
         >
           <Layers className="w-4 h-4" />
@@ -466,7 +466,7 @@ export default function Dashboard() {
         </button>
         <button
           onClick={() => setFlyToLocation({ lat: 46.6, lng: 2.35, ts: Date.now() })}
-          className="glass-panel px-3 py-2 pointer-events-auto hover:border-[var(--gold-primary)]/40 transition-colors text-[9px] font-mono tracking-widest text-[var(--gold-primary)]"
+          className="glass-panel px-3 py-2 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors text-[9px] font-mono tracking-widest text-[var(--accent)]"
           title="Recentrer sur la France"
         >
           FR
@@ -474,9 +474,9 @@ export default function Dashboard() {
       </motion.div>
 
       {/* ── BARRE COORDONNÉES (bas) ── */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[200] pointer-events-none flex items-center gap-3 text-[9px] font-mono tracking-widest text-[var(--text-muted)] glass-panel px-3 py-1.5">
-        <div ref={coordsDisplayRef} className="text-[var(--cyan-primary)] tabular-nums">--.----, --.----</div>
-        {locationLabel && <span className="text-[var(--text-secondary)] truncate max-w-[40vw]">{locationLabel}</span>}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[200] pointer-events-none flex items-center gap-3 text-[9px] font-mono tracking-widest text-[var(--faint)] glass-panel px-3 py-1.5">
+        <div ref={coordsDisplayRef} className="text-[var(--accent-bright)] tabular-nums">--.----, --.----</div>
+        {locationLabel && <span className="text-[var(--muted)] truncate max-w-[40vw]">{locationLabel}</span>}
       </div>
     </main>
   );

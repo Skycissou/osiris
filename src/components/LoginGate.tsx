@@ -32,7 +32,7 @@ export default function LoginGate({ onAuthed }: { onAuthed: () => void }) {
   };
 
   return (
-    <main className="fixed inset-0 w-full h-full bg-[var(--bg-void)] flex items-center justify-center overflow-hidden">
+    <main className="fixed inset-0 w-full h-full bg-[var(--bg)] flex items-center justify-center overflow-hidden">
       <motion.form
         onSubmit={submit}
         initial={{ opacity: 0, y: 20 }}
@@ -41,39 +41,39 @@ export default function LoginGate({ onAuthed }: { onAuthed: () => void }) {
         className="glass-panel w-[90%] max-w-sm p-8 flex flex-col gap-5"
       >
         <div className="flex flex-col items-center gap-1 mb-2">
-          <h1 className="text-xl font-bold tracking-[0.4em] text-[var(--gold-primary)] font-mono">OSIRIS</h1>
-          <span className="text-[9px] font-mono tracking-[0.2em] opacity-70 uppercase text-[var(--gold-primary)]">
+          <h1 className="text-xl font-bold tracking-[0.4em] text-[var(--accent)] font-mono">OSIRIS</h1>
+          <span className="text-[9px] font-mono tracking-[0.2em] opacity-70 uppercase text-[var(--accent)]">
             COCKPIT OSINT · V4 — Accès restreint
           </span>
         </div>
 
         <label className="flex items-center gap-2 glass-panel px-3 py-2.5">
-          <User className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
+          <User className="w-4 h-4 text-[var(--faint)] shrink-0" />
           <input
             type="text"
             autoComplete="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             placeholder="Identifiant"
-            className="bg-transparent outline-none w-full text-sm font-mono text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+            className="bg-transparent outline-none w-full text-sm font-mono text-[var(--ink)] placeholder:text-[var(--faint)]"
             autoFocus
           />
         </label>
 
         <label className="flex items-center gap-2 glass-panel px-3 py-2.5">
-          <Lock className="w-4 h-4 text-[var(--text-muted)] shrink-0" />
+          <Lock className="w-4 h-4 text-[var(--faint)] shrink-0" />
           <input
             type="password"
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Mot de passe"
-            className="bg-transparent outline-none w-full text-sm font-mono text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+            className="bg-transparent outline-none w-full text-sm font-mono text-[var(--ink)] placeholder:text-[var(--faint)]"
           />
         </label>
 
         {error && (
-          <div className="text-[11px] font-mono text-[var(--alert-red,#ff5c5c)] border border-[var(--alert-red,#ff5c5c)]/40 rounded px-3 py-2">
+          <div className="text-[11px] font-mono text-[var(--red,#db6f78)] border border-[var(--red,#db6f78)]/40 rounded px-3 py-2">
             ⚠ {error}
           </div>
         )}
@@ -81,7 +81,7 @@ export default function LoginGate({ onAuthed }: { onAuthed: () => void }) {
         <button
           type="submit"
           disabled={loading || !username.trim() || !password}
-          className="glass-panel py-2.5 text-sm font-mono tracking-widest text-[var(--gold-primary)] hover:border-[var(--gold-primary)]/50 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+          className="glass-panel py-2.5 text-sm font-mono tracking-widest text-[var(--accent)] hover:border-[var(--accent)]/50 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
         >
           {loading ? <LoaderCircle className="w-4 h-4 animate-spin" /> : 'SE CONNECTER'}
         </button>

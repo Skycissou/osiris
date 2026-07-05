@@ -39,7 +39,7 @@ function ResultsPanel({ response, onFlyTo, onClose, isMobile }: ResultsPanelProp
       }}
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-primary)]">
-        <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--gold-primary)]">
+        <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--accent)]">
           Résultats · {total}
         </span>
         <button onClick={onClose} className="text-white/40 hover:text-white transition-colors" title="Fermer">
@@ -49,7 +49,7 @@ function ResultsPanel({ response, onFlyTo, onClose, isMobile }: ResultsPanelProp
 
       <div className="overflow-y-auto flex-1 px-2 py-2 flex flex-col gap-3">
         {groups.length === 0 && (
-          <div className="text-[11px] font-mono text-[var(--text-muted)] px-1 py-2">Aucun résultat trouvé.</div>
+          <div className="text-[11px] font-mono text-[var(--faint)] px-1 py-2">Aucun résultat trouvé.</div>
         )}
         {groups.map((g) => (
           <div key={g.key} className="flex flex-col gap-1">

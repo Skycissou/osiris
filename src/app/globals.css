@@ -1,61 +1,76 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════
    OSIRIS V4 LEAN — Design System (cockpit carto OSINT)
+   Charte BLEU-CYAN alignée sur OSIRIS V3 (ligne graphique cohérente).
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  --gold-rgb: 212, 175, 55;
-  --cyan-rgb: 0, 229, 255;
+  /* helper rgb (accent principal, pour rgba() dynamiques) */
+  --accent-rgb: 84, 189, 222;
 
-  /* ── Fonds ── */
-  --bg-void: #04040A;
-  --bg-secondary: #0C0E1A;
-  --bg-panel: rgba(8, 10, 20, 0.88);
-  --bg-panel-solid: #0C0E1A;
+  /* ── Fonds (bleu-nuit V3, PAS noir) ── */
+  --bg: #070a0f;
+  --bg-secondary: #0d121b;
+  --panel: #0d121b;
+  --bg-panel: rgba(13, 18, 27, 0.88);
 
-  /* ── Or (accent principal) ── */
-  --gold-primary: #D4AF37;
-  --gold-light: #F0D060;
-  --gold-glow: rgba(var(--gold-rgb), 0.3);
+  /* ── Accent (bleu-ciel doux = accent principal, remplace l'or) ── */
+  --accent: #54bdde;
+  --accent-bright: #9bdcf0;
+  --accent-deep: #2f8fb3;
+  --accent-soft: rgba(84, 189, 222, 0.12);
+  --accent-line: rgba(84, 189, 222, 0.34);
+  --accent-glow: rgba(84, 189, 222, 0.22);
 
-  /* ── Cyan (flux intel) ── */
-  --cyan-primary: #00E5FF;
-  --cyan-glow: rgba(var(--cyan-rgb), 0.15);
-
-  /* ── Alertes ── */
-  --alert-red: #FF3D3D;
-  --alert-orange: #FF9500;
-  --alert-green: #00E676;
-  --alert-blue: #448AFF;
+  /* ── Statuts ── */
+  --green: #5bc78d;
+  --green-soft: rgba(91, 199, 141, 0.13);
+  --green-line: rgba(91, 199, 141, 0.34);
+  --amber: #d6a445;
+  --amber-soft: rgba(214, 164, 69, 0.13);
+  --amber-line: rgba(214, 164, 69, 0.34);
+  --red: #db6f78;
+  --red-soft: rgba(219, 111, 120, 0.13);
+  --red-line: rgba(219, 111, 120, 0.34);
+  --violet: #9a8cef;
+  --violet-soft: rgba(154, 140, 239, 0.13);
+  --violet-line: rgba(154, 140, 239, 0.38);
 
   /* ── Bordures ── */
-  --border-primary: rgba(var(--gold-rgb), 0.15);
-  --border-secondary: rgba(var(--gold-rgb), 0.08);
-  --border-active: rgba(var(--gold-rgb), 0.4);
+  --line: rgba(255, 255, 255, 0.07);
+  --border-primary: rgba(84, 189, 222, 0.15);
+  --border-secondary: rgba(84, 189, 222, 0.08);
+  --border-active: rgba(84, 189, 222, 0.4);
 
   /* ── Texte ── */
-  --text-primary: #E8E6E0;
-  --text-secondary: #9B978E;
-  --text-muted: #5C5A54;
-  --text-heading: #F5F0E0;
+  --ink: #eaeff6;
+  --ink-dim: #c2cbd8;
+  --muted: #7f8da1;
+  --faint: #586475;
 
   /* ── Scrollbar ── */
-  --scrollbar-thumb: rgba(var(--gold-rgb), 0.2);
-  --scrollbar-thumb-hover: rgba(var(--gold-rgb), 0.4);
+  --scrollbar-thumb: rgba(84, 189, 222, 0.2);
+  --scrollbar-thumb-hover: rgba(84, 189, 222, 0.4);
 
   /* ── Hover ── */
-  --hover-accent: rgba(var(--gold-rgb), 0.08);
+  --hover-accent: rgba(84, 189, 222, 0.08);
+
+  /* ── Rayons & ombres ── */
+  --r-pill: 999px;
+  --shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.4);
 
   /* ── Polices ── */
-  --font-hud: 'JetBrains Mono', 'Courier New', monospace;
-  --font-body: 'Inter', -apple-system, sans-serif;
+  --font-display: 'Space Grotesk', -apple-system, sans-serif;
+  --font-hud: 'IBM Plex Mono', 'Courier New', monospace;
+  --font-body: 'IBM Plex Sans', -apple-system, sans-serif;
 }
 
 @theme inline {
-  --color-background: var(--bg-void);
-  --color-foreground: var(--text-primary);
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
   --font-sans: var(--font-body);
   --font-mono: var(--font-hud);
 }
@@ -66,8 +81,8 @@
 html, body {
   margin: 0; padding: 0; width: 100%; height: 100%;
   overflow: hidden;
-  background: var(--bg-void);
-  color: var(--text-primary);
+  background: var(--bg);
+  color: var(--ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -93,11 +108,11 @@ html, body {
   border-radius: 14px;
   box-shadow:
     0 4px 30px rgba(0, 0, 0, 0.5),
-    0 1px 0 rgba(var(--gold-rgb), 0.06) inset,
+    0 1px 0 rgba(var(--accent-rgb), 0.06) inset,
     0 -1px 0 rgba(0, 0, 0, 0.3) inset;
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
-.glass-panel:hover { border-color: rgba(var(--gold-rgb), 0.22); }
+.glass-panel:hover { border-color: rgba(var(--accent-rgb), 0.22); }
 
 .glass-panel-sm {
   background: var(--bg-panel);
@@ -109,15 +124,15 @@ html, body {
 
 .osiris-glow {
   box-shadow:
-    0 0 20px rgba(var(--gold-rgb), 0.12),
-    0 0 60px rgba(var(--gold-rgb), 0.06),
+    0 0 20px rgba(var(--accent-rgb), 0.12),
+    0 0 60px rgba(var(--accent-rgb), 0.06),
     0 4px 30px rgba(0, 0, 0, 0.5);
 }
 
 /* ── HUD text ── */
 .hud-text { font-family: var(--font-hud); letter-spacing: 0.15em; text-transform: uppercase; }
-.hud-label { font-family: var(--font-hud); font-size: 7px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); }
-.hud-value { font-family: var(--font-hud); font-size: 11px; font-weight: 600; color: var(--gold-primary); font-variant-numeric: tabular-nums; }
+.hud-label { font-family: var(--font-hud); font-size: 7px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--faint); }
+.hud-value { font-family: var(--font-hud); font-size: 11px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
 
 /* ── Animations minimales ── */
 @keyframes osiris-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
@@ -129,8 +144,8 @@ html, body {
 .maplibregl-popup-content { background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
 .maplibregl-popup-tip { display: none !important; }
 .maplibregl-ctrl-attrib { display: none !important; }
-.maplibregl-popup-close-button { color: var(--text-muted) !important; font-size: 16px !important; padding: 4px 8px !important; }
-.maplibregl-popup-close-button:hover { color: var(--gold-primary) !important; }
+.maplibregl-popup-close-button { color: var(--faint) !important; font-size: 16px !important; padding: 4px 8px !important; }
+.maplibregl-popup-close-button:hover { color: var(--accent) !important; }
 
 /* ═══════════════════════════════════════════════════════════════
    RESPONSIVE

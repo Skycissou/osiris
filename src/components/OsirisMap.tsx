@@ -141,16 +141,16 @@ const DEFAULT_ZOOM = 5.2;
 // clé = toggle sidebar (activeLayers) ; src/layer = ids MapLibre ; color = pastille.
 // data[key] doit être un tableau de points { lat, lng, card } (cf. api.buildMapData).
 const FR_LAYERS: { key: string; src: string; layer: string; color: string; label: string }[] = [
-  { key: 'fr_entreprises', src: 'fr-entreprises', layer: 'fr-entreprises-dots', color: '#D4AF37', label: 'Entreprise' },
-  { key: 'fr_bodacc', src: 'fr-bodacc', layer: 'fr-bodacc-dots', color: '#EC407A', label: 'BODACC' },
-  { key: 'fr_dvf', src: 'fr-dvf', layer: 'fr-dvf-dots', color: '#26C6DA', label: 'Valeur foncière' },
-  { key: 'fr_ban', src: 'fr-ban', layer: 'fr-ban-dots', color: '#7E57C2', label: 'Adresse (BAN)' },
-  { key: 'fr_rna', src: 'fr-rna', layer: 'fr-rna-dots', color: '#66BB6A', label: 'Association' },
+  { key: 'fr_entreprises', src: 'fr-entreprises', layer: 'fr-entreprises-dots', color: '#54bdde', label: 'Entreprise' },
+  { key: 'fr_bodacc', src: 'fr-bodacc', layer: 'fr-bodacc-dots', color: '#db6f78', label: 'BODACC' },
+  { key: 'fr_dvf', src: 'fr-dvf', layer: 'fr-dvf-dots', color: '#9bdcf0', label: 'Valeur foncière' },
+  { key: 'fr_ban', src: 'fr-ban', layer: 'fr-ban-dots', color: '#9a8cef', label: 'Adresse (BAN)' },
+  { key: 'fr_rna', src: 'fr-rna', layer: 'fr-rna-dots', color: '#5bc78d', label: 'Association' },
 ];
 
 // Style inline des popups FR (aligné sur le popup helper du châssis).
 const POPUP_STYLE =
-  "background:rgba(12,14,26,0.95);backdrop-filter:blur(16px);border-radius:10px;padding:16px;font-family:'JetBrains Mono',monospace;";
+  "background:rgba(13,18,27,0.95);backdrop-filter:blur(16px);border-radius:10px;padding:16px;font-family:'IBM Plex Mono',monospace;";
 
 // Point plotté minimal attendu dans data[fr_*] (cf. api.PlotPoint).
 interface FrPlotRow {
@@ -263,8 +263,8 @@ function OsirisMap({
       mapRef.current = map;
 
       // Icônes/pastilles de base réutilisables par les futures couches FR.
-      createIcon(map, 'plane', '#00E5FF', 24);
-      createDot(map, 'dot-gold', '#D4AF37', 8);
+      createIcon(map, 'plane', '#9bdcf0', 24);
+      createDot(map, 'dot-gold', '#54bdde', 8);
 
       // Source jour/nuit (couche d'affichage optionnelle conservée).
       map.addSource('day-night', { type: 'geojson', data: EMPTY_FC });
@@ -284,7 +284,7 @@ function OsirisMap({
             'circle-color': color,
             'circle-opacity': 0.85,
             'circle-stroke-width': 1.5,
-            'circle-stroke-color': '#04040A',
+            'circle-stroke-color': '#070a0f',
           },
           layout: { visibility: 'none' },
         });
@@ -303,9 +303,9 @@ function OsirisMap({
             `<div style="${POPUP_STYLE}">` +
             `<div style="color:${color};font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">${escapeHtml(p.typeLabel)}</div>` +
             `<div style="color:#fff;font-size:14px;font-weight:600;margin-bottom:4px;">${escapeHtml(p.title)}</div>` +
-            (p.subtitle ? `<div style="color:#8aa;font-size:11px;margin-bottom:6px;">${escapeHtml(p.subtitle)}</div>` : '') +
-            (summary ? `<div style="color:#cdd;font-size:12px;line-height:1.5;">${summary}</div>` : '') +
-            `<div style="color:#667;font-size:10px;margin-top:8px;">${escapeHtml(p.source)}</div>` +
+            (p.subtitle ? `<div style="color:#7f8da1;font-size:11px;margin-bottom:6px;">${escapeHtml(p.subtitle)}</div>` : '') +
+            (summary ? `<div style="color:#c2cbd8;font-size:12px;line-height:1.5;">${summary}</div>` : '') +
+            `<div style="color:#586475;font-size:10px;margin-top:8px;">${escapeHtml(p.source)}</div>` +
             `</div>`;
           popupRef.current?.remove();
           popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '420px', offset: 14 })
@@ -337,7 +337,7 @@ function OsirisMap({
   }, []);
 
   // ── POPUP HELPER (à réutiliser dans les handlers de couche FR) ──
-  const pStyle = `background:rgba(12,14,26,0.95);backdrop-filter:blur(16px);border-radius:10px;padding:16px;font-family:'JetBrains Mono',monospace;`;
+  const pStyle = `background:rgba(13,18,27,0.95);backdrop-filter:blur(16px);border-radius:10px;padding:16px;font-family:'IBM Plex Mono',monospace;`;
   const showPopup = useCallback((coords: maplibregl.LngLatLike, html: string) => {
     const map = mapRef.current;
     if (!map) return;
@@ -422,11 +422,11 @@ function OsirisMap({
         map.easeTo({ pitch: 20, duration: 1200 });
         try {
           (map as any).setSky({
-            'sky-color': '#04040A',
+            'sky-color': '#070a0f',
             'sky-horizon-blend': 0.5,
             'horizon-color': '#0a0a1a',
             'horizon-fog-blend': 0.3,
-            'fog-color': '#04040A',
+            'fog-color': '#070a0f',
             'fog-ground-blend': 0.9,
           });
         } catch { /* sky non supporté */ }

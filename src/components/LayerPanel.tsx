@@ -23,54 +23,54 @@ const LAYER_GROUPS = [
   {
     label: 'ENTR',
     fullLabel: 'ENTREPRISES',
-    color: '#D4AF37',
+    color: '#54bdde',
     layers: [
       // TODO: Sirene / API Recherche d'entreprises (annuaire-entreprises.data.gouv.fr)
-      { key: 'fr_entreprises', label: 'Entreprises (SIRENE)', icon: Building2, color: '#D4AF37', dataKey: 'fr_entreprises' },
+      { key: 'fr_entreprises', label: 'Entreprises (SIRENE)', icon: Building2, color: '#54bdde', dataKey: 'fr_entreprises' },
     ],
   },
   {
     label: 'BODA',
     fullLabel: 'BODACC',
-    color: '#EC407A',
+    color: '#db6f78',
     layers: [
       // TODO: BODACC (annonces commerciales — bodacc-datadila.opendatasoft.com)
-      { key: 'fr_bodacc', label: 'Annonces BODACC', icon: Scale, color: '#EC407A', dataKey: 'fr_bodacc' },
+      { key: 'fr_bodacc', label: 'Annonces BODACC', icon: Scale, color: '#db6f78', dataKey: 'fr_bodacc' },
     ],
   },
   {
     label: 'DVF',
     fullLabel: 'VALEURS FONCIÈRES (DVF)',
-    color: '#26C6DA',
+    color: '#9bdcf0',
     layers: [
       // TODO: DVF (Demandes de Valeurs Foncières — app.dvf.etalab.gouv.fr / API)
-      { key: 'fr_dvf', label: 'Mutations DVF', icon: Home, color: '#26C6DA', dataKey: 'fr_dvf' },
+      { key: 'fr_dvf', label: 'Mutations DVF', icon: Home, color: '#9bdcf0', dataKey: 'fr_dvf' },
     ],
   },
   {
     label: 'BAN',
     fullLabel: 'BASE ADRESSE NATIONALE',
-    color: '#7E57C2',
+    color: '#9a8cef',
     layers: [
       // TODO: BAN (Base Adresse Nationale — api-adresse.data.gouv.fr)
-      { key: 'fr_ban', label: 'Adresses (BAN)', icon: MapPin, color: '#7E57C2', dataKey: 'fr_ban' },
+      { key: 'fr_ban', label: 'Adresses (BAN)', icon: MapPin, color: '#9a8cef', dataKey: 'fr_ban' },
     ],
   },
   {
     label: 'RNA',
     fullLabel: 'ASSOCIATIONS (RNA)',
-    color: '#66BB6A',
+    color: '#5bc78d',
     layers: [
       // TODO: RNA (Répertoire National des Associations — data.gouv.fr)
-      { key: 'fr_rna', label: 'Associations (RNA)', icon: Users, color: '#66BB6A', dataKey: 'fr_rna' },
+      { key: 'fr_rna', label: 'Associations (RNA)', icon: Users, color: '#5bc78d', dataKey: 'fr_rna' },
     ],
   },
   {
     label: 'DISP',
     fullLabel: 'AFFICHAGE',
-    color: '#448AFF',
+    color: '#54bdde',
     layers: [
-      { key: 'day_night', label: 'Cycle Jour / Nuit', icon: Sun, color: '#448AFF', dataKey: '' },
+      { key: 'day_night', label: 'Cycle Jour / Nuit', icon: Sun, color: '#54bdde', dataKey: '' },
     ],
   },
 ];

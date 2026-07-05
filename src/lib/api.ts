@@ -289,13 +289,13 @@ export interface CardGroup {
 
 /** Définit l'ordre + libellés du panneau résultats (aligné sur les couleurs LayerPanel). */
 const GROUP_DEFS: { source: string; key: string; label: string; color: string }[] = [
-  { source: 'recherche_entreprises', key: 'entreprise', label: 'Entreprises', color: '#D4AF37' },
-  { source: 'rna', key: 'association', label: 'Associations (RNA)', color: '#66BB6A' },
-  { source: 'bodacc', key: 'bodacc', label: 'BODACC', color: '#EC407A' },
-  { source: 'dvf', key: 'dvf', label: 'Valeurs foncières (DVF)', color: '#26C6DA' },
-  { source: 'adresse', key: 'ban', label: 'Adresses (BAN)', color: '#7E57C2' },
-  { source: 'geo_communes', key: 'commune', label: 'Communes', color: '#448AFF' },
-  { source: 'data_gouv', key: 'datasets', label: 'Jeux de données', color: '#9E9E9E' },
+  { source: 'recherche_entreprises', key: 'entreprise', label: 'Entreprises', color: '#54bdde' },
+  { source: 'rna', key: 'association', label: 'Associations (RNA)', color: '#5bc78d' },
+  { source: 'bodacc', key: 'bodacc', label: 'BODACC', color: '#db6f78' },
+  { source: 'dvf', key: 'dvf', label: 'Valeurs foncières (DVF)', color: '#9bdcf0' },
+  { source: 'adresse', key: 'ban', label: 'Adresses (BAN)', color: '#9a8cef' },
+  { source: 'geo_communes', key: 'commune', label: 'Communes', color: '#54bdde' },
+  { source: 'data_gouv', key: 'datasets', label: 'Jeux de données', color: '#7f8da1' },
 ];
 
 /** Regroupe les cartes trouvées par type d'affichage, pour le panneau résultats. */
