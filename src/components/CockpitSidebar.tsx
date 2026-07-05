@@ -23,6 +23,7 @@ const NAV_LINKS: { label: string; href?: string; active?: boolean }[] = [
   { label: 'Cockpit carte', active: true },
   { label: 'Sources', href: '/#sources' },
   { label: 'Recettes', href: '/#recettes' },
+  { label: 'Glossaire', href: '/#glossaire' },
   { label: 'Prototype', href: '/#prototype' },
   { label: 'Garde-fous', href: '/#rgpd' },
 ];
@@ -89,8 +90,14 @@ function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenN
         ))}
       </div>
 
-      {/* Feedback + Déconnexion : classes dédiées = mêmes styles que .nav-fb / .nav-logout de l'accueil. */}
-      <a className="ck-navfb" href="/">💬 Feedback / Questions</a>
+      {/* Feedback + Déconnexion : classes dédiées = mêmes styles que .nav-fb / .nav-logout de l'accueil.
+          Feedback = mailto pré-rempli (livraison fiable, sans backend sous /cockpit). */}
+      <a
+        className="ck-navfb"
+        href="mailto:cyril.detout@gmail.com?subject=%5BOSIRIS%20Cockpit%5D%20Feedback&body=Ton%20retour%20(bug%20%2F%20question%20%2F%20id%C3%A9e)%20%3A%0A%0A"
+      >
+        💬 Feedback / Questions
+      </a>
       <a className="ck-navlogout" href="/logout">⏻ Se déconnecter</a>
       <div className="ck-navfoot"><span className="dot" /> {version} · Données publiques FR</div>
     </nav>
