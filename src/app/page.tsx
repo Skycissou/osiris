@@ -475,7 +475,16 @@ export default function Dashboard() {
   if (!authed) return <LoginGate onAuthed={handleAuthed} />;
 
   return (
-    <main className="fixed inset-0 w-full h-full bg-[var(--bg)] overflow-hidden flex">
+    <main
+      className="fixed inset-0 w-full h-full bg-[var(--bg)] overflow-hidden flex"
+      /* Même fond que l'accueil derrière la sidebar translucide → transparence
+         identique (la carte, opaque, le recouvre côté contenu). */
+      style={{
+        backgroundImage: `url(${BASE_PATH}/assets/arriere-plan.jpeg)`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
       {/* ── SIDEBAR APP (clone de la sidenav de l'accueil — barre figée) ──
           Le cockpit devient un « module » de l'accueil : même barre, même place,
           « Cockpit carte » actif. Les liens renvoient aux onglets de l'accueil

@@ -13,6 +13,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { memo } from 'react';
+import { BASE_PATH } from '@/lib/api';
 
 /** Liens de navigation → onglets de l'accueil (racine du domaine, hors basePath).
  *  `active: true` = page courante (le cockpit). Édite librement cette liste. */
@@ -51,11 +52,18 @@ function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenN
 
   return (
     <nav className="ck-sidenav">
-      {/* Marque : .ck-mark = clone CSS du logo conic-gradient de l'accueil (pas d'image). */}
+      {/* Marque = MÊMES IMAGES que l'accueil (œil + mot OSIRIS métallique), servies
+          par le cockpit sous BASE_PATH (/cockpit/assets/...). */}
       <div className="ck-brand">
-        <span className="ck-mark" aria-hidden="true" />
-        <span className="ck-brand-word">OSIRIS</span>
-        <span className="ck-brand-v">{version.replace('-dev', '')}</span>
+        <span className="ck-logo-mark">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`${BASE_PATH}/assets/logo-cut.png`} alt="OSIRIS" />
+        </span>
+        <span className="ck-wordmark">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="ck-wordmark-img" src={`${BASE_PATH}/assets/osiris-cut.png`} alt="OSIRIS" />
+          <span className="ck-wordmark-v">{version.replace('-dev', '')}</span>
+        </span>
       </div>
 
       <div className="ck-navlabel">Navigation</div>

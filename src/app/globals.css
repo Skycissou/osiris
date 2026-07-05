@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Orbitron:wght@700;800;900&display=swap');
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -144,13 +144,16 @@ html, body {
   -webkit-backdrop-filter: blur(16px) saturate(120%);
   z-index: 40;
 }
-/* Marque : reprise EXACTE du .mark de l'accueil (conic-gradient + double pastille). */
-.ck-brand { display: flex; align-items: center; gap: 11px; font-family: var(--font-display); font-weight: 700; letter-spacing: 0.04em; font-size: 17px; white-space: nowrap; padding: 6px 8px 2px; }
-.ck-mark { width: 34px; height: 34px; border-radius: 8px; position: relative; flex: none; background: conic-gradient(from 130deg, var(--accent), var(--violet), var(--accent-deep), var(--accent)); box-shadow: 0 0 22px var(--accent-glow); }
-.ck-mark::after { content: ""; position: absolute; inset: 6px; border-radius: 4px; background: var(--panel); border: 1px solid var(--line-2); }
-.ck-mark::before { content: ""; position: absolute; inset: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-.ck-brand-word { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.14em; color: var(--ink); font-size: 18px; }
-.ck-brand-v { font-family: var(--font-hud); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--accent-bright); margin-left: auto; }
+/* Marque : reprise EXACTE de l'accueil = IMAGES (logo œil + mot OSIRIS métallique),
+   pas du CSS/texte. Assets copiés depuis open-radar-fr → public/assets/. */
+.ck-brand { display: flex; align-items: center; gap: 11px; white-space: nowrap; padding: 6px 8px 2px; }
+/* Logo = assets/logo-cut.png (œil), calque de .logo-mark de l'accueil. */
+.ck-logo-mark { width: 38px; height: 38px; flex: none; display: grid; place-items: center; overflow: hidden; }
+.ck-logo-mark img { width: 38px; height: 38px; object-fit: contain; display: block; mix-blend-mode: screen; filter: saturate(1.12) brightness(1.12); }
+/* Mot « OSIRIS » = assets/osiris-cut.png (métallique), calque de .wordmark-img. */
+.ck-wordmark { display: inline-flex; align-items: center; gap: 9px; }
+.ck-wordmark-img { height: 26px; width: auto; display: block; filter: drop-shadow(0 0 8px rgba(106, 228, 255, 0.28)); }
+.ck-wordmark-v { font-family: 'Orbitron', var(--font-display); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: #6ae4ff; opacity: 0.85; transform: translateY(-1px); margin-left: auto; }
 .ck-navlabel { font-family: var(--font-hud); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--faint); padding: 0 10px; margin: 24px 0 6px; }
 .ck-navlinks { display: flex; flex-direction: column; gap: 3px; }
 .ck-navlink {
