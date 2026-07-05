@@ -37,14 +37,26 @@ function softError(message: string): NextResponse {
   return NextResponse.json({ error: message }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
 }
 
-/** En-têtes communs aux deux appels ; ajoute Authorization si un token existe. */
-function ghHeaders(): Record<string, string> {
+/**
+ * Clé effective d'un service. Priorité à l'en-tête HTTP fourni par l'utilisateur
+ * (`x-osiris-key-<service>`) — Cissou peut ainsi renseigner sa clé depuis l'app
+ * sans redéployer — sinon repli sur la variable d'env. '' si ni l'un ni l'autre
+ * (dégradation douce inchangée : la route reste vide, jamais un 500).
+ */
+const keyOf = (req: Request, service: string, env?: string) =>
+  req.headers.get(`x-osiris-key-${service}`) || (env ? process.env[env] : undefined) || '';
+
+/**
+ * En-têtes communs aux deux appels ; ajoute Authorization si un token est fourni.
+ * Le token (OPTIONNEL) provient soit de l'en-tête user `x-osiris-key-github`,
+ * soit de l'env GITHUB_TOKEN — la résolution est faite par l'appelant via keyOf.
+ */
+function ghHeaders(token?: string): Record<string, string> {
   const h: Record<string, string> = {
     Accept: 'application/vnd.github+json',
     'User-Agent': USER_AGENT,
     'X-GitHub-Api-Version': '2022-11-28',
   };
-  const token = process.env.GITHUB_TOKEN;
   if (token) h.Authorization = `Bearer ${token}`;
   return h;
 }
@@ -76,7 +88,10 @@ export async function GET(request: NextRequest) {
   // sort de ce jeu (protège du path traversal et des sondes).
   if (!/^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,38})$/.test(q)) return softError('login GitHub invalide');
 
-  const headers = ghHeaders();
+  // Token effectif (OPTIONNEL) : en-tête user `x-osiris-key-github` OU env
+  // GITHUB_TOKEN (voir keyOf). Absent → appels anonymes, juste rate-limités.
+  const token = keyOf(request, 'github', 'GITHUB_TOKEN');
+  const headers = ghHeaders(token);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {

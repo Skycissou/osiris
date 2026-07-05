@@ -38,6 +38,15 @@ function softError(message: string): NextResponse {
   return NextResponse.json({ error: message }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
 }
 
+/**
+ * Clé effective d'un service. Priorité à l'en-tête HTTP fourni par l'utilisateur
+ * (`x-osiris-key-<service>`) — Cissou peut ainsi renseigner sa clé depuis l'app
+ * sans redéployer — sinon repli sur la variable d'env. '' si ni l'un ni l'autre
+ * (dégradation douce inchangée : la route reste vide, jamais un 500).
+ */
+const keyOf = (req: Request, service: string, env?: string) =>
+  req.headers.get(`x-osiris-key-${service}`) || (env ? process.env[env] : undefined) || '';
+
 interface RawBreach {
   Name?: string;
   Domain?: string;
@@ -52,8 +61,9 @@ export async function GET(request: NextRequest) {
   // le path traversal (l'@ + le domaine sont attendus).
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q)) return softError('adresse email invalide');
 
-  // Règle d'or : sans clé, AUCUN appel réseau.
-  const key = process.env.HIBP_KEY;
+  // Clé effective : en-tête user `x-osiris-key-hibp` OU env HIBP_KEY (voir keyOf).
+  // Règle d'or : sans aucune clé, AUCUN appel réseau.
+  const key = keyOf(request, 'hibp', 'HIBP_KEY');
   if (!key) return softError('clé HIBP requise');
 
   const url = `https://haveibeenpwned.com/api/v3/breachedaccount/${encodeURIComponent(q)}?truncateResponse=false`;

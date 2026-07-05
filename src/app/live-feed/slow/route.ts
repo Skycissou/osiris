@@ -117,6 +117,15 @@ interface UsgsFeed {
  * Ne JETTE jamais : chaque couche dégrade en silence (couche vide) pour ne pas
  * casser le polling global — une source morte ne doit pas tuer les deux autres.
  */
+/**
+ * Clé effective d'un service. Priorité à l'en-tête HTTP fourni par l'utilisateur
+ * (`x-osiris-key-<service>`) — Cissou peut ainsi renseigner sa clé depuis l'app
+ * sans redéployer — sinon repli sur la variable d'env. '' si ni l'un ni l'autre
+ * (dégradation douce inchangée : la couche reste vide, jamais un 500).
+ */
+const keyOf = (req: Request, service: string, env?: string) =>
+  req.headers.get(`x-osiris-key-${service}`) || (env ? process.env[env] : undefined) || '';
+
 async function fetchText(url: string): Promise<string | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -272,7 +281,9 @@ export async function GET(request: NextRequest) {
   //  Clé gratuite : https://firms.modaps.eosdis.nasa.gov/api/map_key/
   //  Absente → on n'appelle PAS l'API et on renvoie []. La route ne casse pas.
   let wildfires: Wildfire[] = [];
-  const firmsKey = process.env.FIRMS_MAP_KEY;
+  // Clé effective : en-tête user `x-osiris-key-firms` OU env FIRMS_MAP_KEY (voir
+  // keyOf). Absente → on n'appelle PAS l'API, couche wildfires vide.
+  const firmsKey = keyOf(request, 'firms', 'FIRMS_MAP_KEY');
   if (firmsKey) {
     const firmsUrl = FIRMS_AREA_CSV_TMPL.replace('{KEY}', encodeURIComponent(firmsKey));
     const firmsText = await fetchText(firmsUrl);

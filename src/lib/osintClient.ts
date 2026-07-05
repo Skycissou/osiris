@@ -347,6 +347,13 @@ function buildOsintUrl(tool: OsintTool, q: string): string {
  * @param signal AbortSignal optionnel (ex. démontage du panneau) — combiné au
  *               timeout interne.
  */
+// Outil OSINT → service de clé API (les autres outils n'ont pas besoin de clé).
+// La clé (si configurée dans le module Clés API) part en en-tête x-osiris-key-*.
+import { keyHeaders, type ApiKeyService } from '@/lib/apiKeys';
+const OSINT_TOOL_KEY: Partial<Record<OsintTool, ApiKeyService>> = {
+  shodan: 'shodan', leaks: 'hibp', threats: 'abuseipdb', github: 'github', sanctions: 'opensanctions',
+};
+
 export async function runLookup(
   tool: OsintTool,
   q: string,
@@ -356,6 +363,7 @@ export async function runLookup(
   if (!target) return { tool, ok: false, error: 'cible vide' };
 
   const url = buildOsintUrl(tool, target);
+  const svc = OSINT_TOOL_KEY[tool];
 
   // Timeout local ; si l'appelant fournit un signal, on abandonne au 1er des deux.
   const controller = new AbortController();
@@ -371,7 +379,7 @@ export async function runLookup(
       method: 'GET',
       credentials: 'include',
       cache: 'no-store',
-      headers: { Accept: 'application/json' },
+      headers: { Accept: 'application/json', ...(svc ? keyHeaders([svc]) : {}) },
       signal: controller.signal,
     });
 

@@ -14,6 +14,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { mergeData, type StoreData } from './store';
+import { keyHeaders } from './apiKeys';
+
+// Clés des couches à source payante/restreinte (FIRMS, AIS, sensibles form-2).
+// Envoyées en en-tête x-osiris-key-* si configurées via le module Clés API ;
+// le serveur retombe sur l'env si absentes.
+const LIVE_KEY_SERVICES = ['firms', 'ais_url', 'ais_key', 'cctv', 'gpsjam', 'scanner', 'sigint', 'telegram'] as const;
 
 // ── basePath ───────────────────────────────────────────────────────────
 //  Le cockpit tourne sous /cockpit : les routes /api internes DOIVENT être
@@ -140,7 +146,7 @@ export function useDataPolling(opts: DataPollingOptions = {}): DataPollingHandle
     // Clé ETag = chemin logique (sans bbox) : on veut un ETag par ressource,
     // pas par emprise, sinon chaque pan casse le cache conditionnel.
     const etagKey = path;
-    const headers: Record<string, string> = { Accept: 'application/json' };
+    const headers: Record<string, string> = { Accept: 'application/json', ...keyHeaders([...LIVE_KEY_SERVICES]) };
     const prev = etags.current.get(etagKey);
     if (prev) headers['If-None-Match'] = prev;
 

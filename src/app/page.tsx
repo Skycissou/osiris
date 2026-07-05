@@ -39,6 +39,9 @@ const SearchBar = dynamic(() => import('@/components/SearchBar'), { ssr: false }
 const ResultsPanel = dynamic(() => import('@/components/ResultsPanel'), { ssr: false });
 const LoginGate = dynamic(() => import('@/components/LoginGate'), { ssr: false });
 const OsintPanel = dynamic(() => import('@/components/OsintPanel'), { ssr: false });
+const KeysPanel = dynamic(() => import('@/components/KeysPanel'), { ssr: false });
+const EntityGraphPanel = dynamic(() => import('@/components/EntityGraphPanel'), { ssr: false });
+import CockpitSidebar from '@/components/CockpitSidebar';
 
 // Couches FR (stub) — clés canoniques partagées avec LayerPanel + OsirisMap.
 const DEFAULT_LAYERS: Record<string, boolean> = {
@@ -228,8 +231,10 @@ export default function Dashboard() {
   // ── Modes visuels (CRT / NVG / thermique) ──
   const [visualMode, setVisualMode] = useState<VisualMode>('normal');
 
-  // ── Boîte à outils OSINT (whois, dns, ip, cve, leaks, shodan…) ──
+  // ── Panneaux ouvrables depuis la sidebar ──
   const [osintOpen, setOsintOpen] = useState(false);
+  const [keysOpen, setKeysOpen] = useState(false);
+  const [graphOpen, setGraphOpen] = useState(false);
 
   // ── Consentement forme 2 : au 1er toggle d'une couche sensible, si pas
   // encore consenti → modale. Sur accord → consentement + activation. ──
@@ -413,26 +418,12 @@ export default function Dashboard() {
           « Cockpit carte » actif. Les liens renvoient aux onglets de l'accueil
           (racine du domaine, non préfixée par le basePath /cockpit). */}
       {!isMobile && (
-        <nav className="ck-sidenav">
-          <div className="ck-brand">
-            <span className="ck-brand-mark">◎</span>
-            <span className="ck-brand-word">OSIRIS</span>
-            <span className="ck-brand-v">{OSIRIS_VERSION.replace('-dev', '')}</span>
-          </div>
-          <div className="ck-navlabel">Navigation</div>
-          <div className="ck-navlinks">
-            <a className="ck-navlink" href="/">Accueil</a>
-            <a className="ck-navlink" href="/#chercher">Chercher</a>
-            <span className="ck-navlink active" aria-current="page">Cockpit carte</span>
-            <a className="ck-navlink" href="/#sources">Sources</a>
-            <a className="ck-navlink" href="/#recettes">Recettes</a>
-            <a className="ck-navlink" href="/#prototype">Prototype</a>
-            <a className="ck-navlink" href="/#rgpd">Garde-fous</a>
-          </div>
-          <a className="ck-navlink" href="/" style={{ marginTop: 'auto', borderColor: 'var(--accent-line)', color: 'var(--accent-bright)' }}>💬 Feedback / Questions</a>
-          <a className="ck-navlink" href="/logout" style={{ borderColor: 'var(--line-2)' }}>⏻ Se déconnecter</a>
-          <div className="ck-navfoot"><span className="dot" /> Données publiques FR</div>
-        </nav>
+        <CockpitSidebar
+          version={OSIRIS_VERSION}
+          onOpenOsint={() => setOsintOpen(true)}
+          onOpenGraph={() => setGraphOpen(true)}
+          onOpenKeys={() => setKeysOpen(true)}
+        />
       )}
 
       {/* ── ZONE CONTENU (carte + panneaux) — à droite de la barre figée ── */}
@@ -555,6 +546,20 @@ export default function Dashboard() {
       {osintOpen && (
         <ErrorBoundary name="OSINT">
           <OsintPanel onClose={() => setOsintOpen(false)} isMobile={isMobile} />
+        </ErrorBoundary>
+      )}
+
+      {/* ── GRAPHE D'ENTITÉS ── */}
+      {graphOpen && (
+        <ErrorBoundary name="Graphe d'entités">
+          <EntityGraphPanel onClose={() => setGraphOpen(false)} />
+        </ErrorBoundary>
+      )}
+
+      {/* ── MODULE CLÉS API ── */}
+      {keysOpen && (
+        <ErrorBoundary name="Clés API">
+          <KeysPanel onClose={() => setKeysOpen(false)} />
         </ErrorBoundary>
       )}
 

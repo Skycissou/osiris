@@ -62,7 +62,8 @@
 | Bloc manquant | Détail | Intérêt enquêteur | Priorité |
 |---|---|---|---|
 | ✅ ~~🔍 **Boîte à outils OSINT**~~ | **FAIT (V4.010)** : 13 lookups sous `/osint/*` (whois, dns, ip, cve, mac, certs, bgp, github, sanctions, phone + shodan/leaks/threats à clé) + panneau `OsintPanel` (détection auto du type de cible) | ⭐⭐⭐ | ~~haute~~ livré |
-| 🕸️ **Graphe d'entités** | relations entre entités (`EntityGraphPanel` + `entity/expand`) — investigation visuelle | ⭐⭐⭐ | **haute** |
+| ✅ ~~🕸️ **Graphe d'entités**~~ | **FAIT (V4.011)** : `entity/expand` (orchestre les lookups OSINT) + `EntityGraphPanel` (graphe force SVG, clic=étendre) | ⭐⭐⭐ | ~~haute~~ livré |
+| ✅ **Module Clés API** (nouveau) | **FAIT (V4.011)** : `KeysPanel` + `apiKeys.ts` — fournir ses clés dans l'app (en-tête `x-osiris-key-*`), sans redéployer. Lien+procédure par service. | ⭐⭐⭐ | livré |
 | 🛰️ **Imagerie Sentinel** | imagerie satellite à la demande (clic droit → Sentinel) | ⭐⭐ | moyenne |
 | 📰 **Feeds géopolitiques** | GDELT (événements mondiaux), news / live-news, country-risk | ⭐⭐ | moyenne |
 | 🛡️ **Couches cyber** | cyber-threats, malware, infrastructure | ⭐⭐ | moyenne |

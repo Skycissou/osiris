@@ -196,6 +196,15 @@ interface Ship {
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 /**
+ * Clé effective d'un service. Priorité à l'en-tête HTTP fourni par l'utilisateur
+ * (`x-osiris-key-<service>`) — Cissou peut ainsi renseigner sa clé depuis l'app
+ * sans redéployer — sinon repli sur la variable d'env. '' si ni l'un ni l'autre
+ * (dégradation douce inchangée : la couche reste vide, jamais un 500).
+ */
+const keyOf = (req: Request, service: string, env?: string) =>
+  req.headers.get(`x-osiris-key-${service}`) || (env ? process.env[env] : undefined) || '';
+
+/**
  * Parse le paramètre `bbox` (`minLng,minLat,maxLng,maxLat`). Renvoie la bbox
  * par défaut si absent ou invalide (4 nombres finis, ordre min<max toléré/normalisé).
  */
@@ -384,9 +393,13 @@ function extractShipArray(payload: unknown): unknown[] {
  *   • clé + AIS_REST_URL            → fetch + normalisation + filtre bbox
  * Ne jette JAMAIS : toute erreur (statut, timeout, JSON, réseau) → couche vide.
  */
-async function fetchShips(bbox: BBox): Promise<Ship[]> {
-  const key = process.env.AISSTREAM_KEY ?? process.env.AIS_REST_KEY;
-  const template = process.env.AIS_REST_URL;
+async function fetchShips(request: NextRequest, bbox: BBox): Promise<Ship[]> {
+  // Clé AIS effective : en-tête user `x-osiris-key-ais_key` OU env AIS_REST_KEY
+  // (voir keyOf), avec repli historique sur AISSTREAM_KEY. Gabarit d'URL REST :
+  // en-tête user `x-osiris-key-ais_url` OU env AIS_REST_URL. Ainsi Cissou peut
+  // fournir source + clé depuis l'app sans redéployer.
+  const key = keyOf(request, 'ais_key', 'AIS_REST_KEY') || process.env.AISSTREAM_KEY || '';
+  const template = keyOf(request, 'ais_url', 'AIS_REST_URL');
   // Sans clé : on n'appelle rien (règle d'or). Sans gabarit REST non plus :
   // aisstream.io est un flux WebSocket, non pollable ici (voir en-tête AIS).
   if (!key || !template) return [];
@@ -470,7 +483,7 @@ export async function GET(request: NextRequest) {
   // renvoie [] immédiatement (aucun fetch), donc zéro latence sur le cas démo.
   // Calculée d'abord pour être présente dans TOUTES les réponses, y compris les
   // dégradations avions ci-dessous.
-  const ships = await fetchShips(bbox);
+  const ships = await fetchShips(request, bbox);
 
   // adsb.lol /v2/point/{lat}/{lon}/{radius_nm} — données publiques, pas de clé.
   const upstream = `https://api.adsb.lol/v2/point/${lat.toFixed(4)}/${lng.toFixed(4)}/${radiusNm}`;

@@ -37,6 +37,15 @@ function softError(message: string): NextResponse {
   return NextResponse.json({ error: message }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
 }
 
+/**
+ * Clé effective d'un service. Priorité à l'en-tête HTTP fourni par l'utilisateur
+ * (`x-osiris-key-<service>`) — Cissou peut ainsi renseigner sa clé depuis l'app
+ * sans redéployer — sinon repli sur la variable d'env. '' si ni l'un ni l'autre
+ * (dégradation douce inchangée : la route reste vide, jamais un 500).
+ */
+const keyOf = (req: Request, service: string, env?: string) =>
+  req.headers.get(`x-osiris-key-${service}`) || (env ? process.env[env] : undefined) || '';
+
 interface RawHost {
   ip_str?: string;
   ports?: number[];
@@ -51,8 +60,9 @@ export async function GET(request: NextRequest) {
   if (!q) return softError('paramètre q requis (IP)');
   if (q.length > MAX_Q_LEN) return softError('paramètre q trop long');
 
-  // Règle d'or : sans clé, AUCUN appel réseau.
-  const key = process.env.SHODAN_KEY;
+  // Clé effective : en-tête user `x-osiris-key-shodan` OU env SHODAN_KEY (voir
+  // keyOf). Règle d'or : sans aucune clé, AUCUN appel réseau.
+  const key = keyOf(request, 'shodan', 'SHODAN_KEY');
   if (!key) return softError('clé SHODAN requise');
 
   const url = `https://api.shodan.io/shodan/host/${encodeURIComponent(q)}?key=${encodeURIComponent(key)}`;

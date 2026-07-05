@@ -154,6 +154,15 @@ function parseBBox(raw: string | null): BBox {
   return [minLng, minLat, maxLng, maxLat];
 }
 
+/**
+ * Clé effective d'une couche. Priorité à l'en-tête HTTP fourni par l'utilisateur
+ * (`x-osiris-key-<service>`) — Cissou peut ainsi renseigner sa clé depuis l'app
+ * sans redéployer — sinon repli sur la variable d'env. '' si ni l'un ni l'autre
+ * (opt-in strict inchangé : sans clé → couche VIDE, AUCUN appel réseau).
+ */
+const keyOf = (req: Request, service: string, env?: string) =>
+  req.headers.get(`x-osiris-key-${service}`) || (env ? process.env[env] : undefined) || '';
+
 // ── Couche `military_bases` — OSM/Overpass PUBLIC (implémentée réellement) ─────
 
 /** Sous-ensemble utile d'un élément Overpass. */
@@ -236,8 +245,10 @@ async function fetchMilitaryBases(bbox: BBox): Promise<MilitaryBase[]> {
  * ciblage de personne. Sans clé → [] (aucun appel). Avec clé → à câbler sur la
  * source publique choisie, en normalisant vers CctvCam.
  */
-async function fetchCctv(_bbox: BBox): Promise<CctvCam[]> {
-  const key = process.env.CCTV_SOURCE_KEY;
+async function fetchCctv(req: NextRequest, _bbox: BBox): Promise<CctvCam[]> {
+  // Clé effective : en-tête user `x-osiris-key-cctv` OU env CCTV_SOURCE_KEY (voir
+  // keyOf). Opt-in strict : sans aucune clé → [] SANS appel réseau.
+  const key = keyOf(req, 'cctv', 'CCTV_SOURCE_KEY');
   if (!key) return [];
   // TODO(forme 2) : brancher ICI la source PUBLIQUE de webcams consenties,
   // via safeFetch(url, …), puis normaliser → { id, lat, lng, label?, streamUrl? }.
@@ -251,8 +262,10 @@ async function fetchCctv(_bbox: BBox): Promise<CctvCam[]> {
  * (données ADS-B NIC agrégées) — pas d'API à clé officielle, format hexagones à
  * centroïder. À câbler proprement en forme 2. Sans clé → [] (aucun appel).
  */
-async function fetchGpsJamming(_bbox: BBox): Promise<GpsJamming[]> {
-  const key = process.env.GPSJAM_KEY;
+async function fetchGpsJamming(req: NextRequest, _bbox: BBox): Promise<GpsJamming[]> {
+  // Clé effective : en-tête user `x-osiris-key-gpsjam` OU env GPSJAM_KEY (voir
+  // keyOf). Opt-in strict : sans aucune clé → [] SANS appel réseau.
+  const key = keyOf(req, 'gpsjam', 'GPSJAM_KEY');
   if (!key) return [];
   // TODO(forme 2) : soit une source à clé, soit le GeoJSON public gpsjam.org
   // (centroïde de chaque hexagone H3 → { id, lat, lng, intensity }). Filtrer bbox.
@@ -263,8 +276,10 @@ async function fetchGpsJamming(_bbox: BBox): Promise<GpsJamming[]> {
  * `scanners` — scanners radio publics. Opt-in via SCANNER_KEY. Sans clé → []
  * (aucun appel). Avec clé → normaliser la source vers { id, lat, lng, label? }.
  */
-async function fetchScanners(_bbox: BBox): Promise<Scanner[]> {
-  const key = process.env.SCANNER_KEY;
+async function fetchScanners(req: NextRequest, _bbox: BBox): Promise<Scanner[]> {
+  // Clé effective : en-tête user `x-osiris-key-scanner` OU env SCANNER_KEY (voir
+  // keyOf). Opt-in strict : sans aucune clé → [] SANS appel réseau.
+  const key = keyOf(req, 'scanner', 'SCANNER_KEY');
   if (!key) return [];
   // TODO(forme 2) : brancher la source de scanners publics, normaliser, filtrer bbox.
   return [];
@@ -275,8 +290,10 @@ async function fetchScanners(_bbox: BBox): Promise<Scanner[]> {
  * clé → [] (aucun appel). Avec clé → normaliser vers { id, lat, lng, type? }.
  * Piste : réseaux APRS publics (aprs.fi & co) selon licence/CGU.
  */
-async function fetchSigint(_bbox: BBox): Promise<Sigint[]> {
-  const key = process.env.SIGINT_KEY;
+async function fetchSigint(req: NextRequest, _bbox: BBox): Promise<Sigint[]> {
+  // Clé effective : en-tête user `x-osiris-key-sigint` OU env SIGINT_KEY (voir
+  // keyOf). Opt-in strict : sans aucune clé → [] SANS appel réseau.
+  const key = keyOf(req, 'sigint', 'SIGINT_KEY');
   if (!key) return [];
   // TODO(forme 2) : brancher la source mesh/APRS, normaliser, filtrer bbox.
   return [];
@@ -300,8 +317,10 @@ async function fetchFrontline(_bbox: BBox): Promise<Frontline[]> {
  * publiques uniquement, aucun ciblage de personne. Avec clé → normaliser vers
  * { id, lat, lng, label? } et filtrer bbox.
  */
-async function fetchTelegramOsint(_bbox: BBox): Promise<TelegramOsint[]> {
-  const key = process.env.TELEGRAM_OSINT_KEY;
+async function fetchTelegramOsint(req: NextRequest, _bbox: BBox): Promise<TelegramOsint[]> {
+  // Clé effective : en-tête user `x-osiris-key-telegram` OU env TELEGRAM_OSINT_KEY
+  // (voir keyOf). Opt-in strict : sans aucune clé → [] SANS appel réseau.
+  const key = keyOf(req, 'telegram', 'TELEGRAM_OSINT_KEY');
   if (!key) return [];
   // TODO(forme 2) : brancher le collecteur Telegram OSINT (public), normaliser, bbox.
   return [];
@@ -352,13 +371,13 @@ export async function GET(request: NextRequest) {
   // jette jamais : une source morte ne casse pas les autres ni le polling.
   const [cctv, gps_jamming, scanners, sigint, military_bases, frontline, telegram_osint] =
     await Promise.all([
-      fetchCctv(bbox),
-      fetchGpsJamming(bbox),
-      fetchScanners(bbox),
-      fetchSigint(bbox),
+      fetchCctv(request, bbox),
+      fetchGpsJamming(request, bbox),
+      fetchScanners(request, bbox),
+      fetchSigint(request, bbox),
       fetchMilitaryBases(bbox),
       fetchFrontline(bbox),
-      fetchTelegramOsint(bbox),
+      fetchTelegramOsint(request, bbox),
     ]);
 
   const payload: SensitivePayload = {

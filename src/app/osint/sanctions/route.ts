@@ -36,6 +36,15 @@ function softError(message: string): NextResponse {
   return NextResponse.json({ error: message }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
 }
 
+/**
+ * Clé effective d'un service. Priorité à l'en-tête HTTP fourni par l'utilisateur
+ * (`x-osiris-key-<service>`) — Cissou peut ainsi renseigner sa clé depuis l'app
+ * sans redéployer — sinon repli sur la variable d'env. '' si ni l'un ni l'autre
+ * (dégradation douce inchangée : la route reste vide, jamais un 500).
+ */
+const keyOf = (req: Request, service: string, env?: string) =>
+  req.headers.get(`x-osiris-key-${service}`) || (env ? process.env[env] : undefined) || '';
+
 interface RawResult {
   caption?: string;
   schema?: string;
@@ -51,7 +60,9 @@ export async function GET(request: NextRequest) {
   const url = `https://api.opensanctions.org/search/default?q=${encodeURIComponent(q)}&limit=${MAX_HITS}`;
 
   const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': USER_AGENT };
-  const key = process.env.OPENSANCTIONS_KEY;
+  // Clé effective (OPTIONNELLE) : en-tête user `x-osiris-key-opensanctions` OU
+  // env OPENSANCTIONS_KEY (voir keyOf). Absente → appel anonyme (quota bas).
+  const key = keyOf(request, 'opensanctions', 'OPENSANCTIONS_KEY');
   if (key) headers.Authorization = `ApiKey ${key}`;
 
   const controller = new AbortController();

@@ -29,6 +29,13 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.011-dev — 2026-07-05 — Graphe d'entités + module Clés API + sidebar refactor
+- **Graphe d'entités** : route `/entity/expand` (orchestre les lookups OSINT en nœuds/liens) + `EntityGraphPanel` (graphe force-directed SVG maison, clic = étendre, drag/zoom/pan, style OSIRIS). Bouton « 🕸️ Graphe » dans la sidebar.
+- **Module Clés API** : `apiKeys.ts` (stockage localStorage + `keyHeaders()`) + `KeysPanel` (13 services, lien + procédure + coût par service). **Fournir une clé dans l'app, sans redéployer.** Bouton « 🔑 Clés API » dans la sidebar.
+- **Routes acceptent les clés user** : toutes les routes à clé lisent l'en-tête `x-osiris-key-<service>` (fallback env). `osintClient`/`liveData` attachent automatiquement les clés configurées.
+- **Sidebar refactor** : extraite en `CockpitSidebar.tsx` **piloté par config** (`NAV_LINKS` + `TOOLS`) → facile à corriger. Section « Outils » (OSINT/Graphe/Clés API).
+- 3 agents Opus + intégration chef. Build + tsc OK.
+
 ### V4.010-dev — 2026-07-05 — Boîte à outils OSINT (14 lookups)
 - **Boîte à outils d'investigation** : 13 routes `/osint/*` — whois (RDAP), dns (DoH), ip (géoloc+ASN), cve, mac, certs (crt.sh), bgp, github, sanctions (OpenSanctions), phone (local) **tous gratuits sans clé** ; shodan/leaks/threats à clé (dégradation douce).
 - **Panneau `OsintPanel`** : saisie + **détection auto du type de cible** (IP/domaine/email/CVE/pseudo/MAC/tél/ASN) → lance les bons outils en parallèle → fiches résultat FR style OSIRIS. Bouton « 🔍 OSINT » dans les contrôles carte.
