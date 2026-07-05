@@ -71,6 +71,29 @@ export interface SatellitePoint {
   alt?: number;
 }
 
+/** Événement géopolitique géolocalisé (source GDELT, public). */
+export interface GeoEventPoint {
+  id: string;
+  lat: number;
+  lng: number;
+  title?: string;
+  name?: string;
+  tone?: number;
+  count?: number;
+  url?: string;
+}
+
+/** Serveur C2 malware (source abuse.ch Feodo, public — veille cyber défensive). */
+export interface CyberPoint {
+  id: string;
+  lat: number;
+  lng: number;
+  ip: string;
+  malware?: string;
+  country?: string;
+  first_seen?: string;
+}
+
 /** Navire (source AIS, clé requise — cf. route fast). */
 export interface ShipPoint {
   id: string;
@@ -128,6 +151,10 @@ interface OsirisMapProps {
   satellites?: SatellitePoint[];
   /** Navires (AIS) — rendus si activeLayers.live_ships. */
   ships?: ShipPoint[];
+  /** Événements géopolitiques (GDELT) — rendus si activeLayers.live_gdelt. */
+  gdelt?: GeoEventPoint[];
+  /** Serveurs C2 malware (abuse.ch) — rendus si activeLayers.live_cyber. */
+  cyber?: CyberPoint[];
   /** Couches sensibles (forme 2) — rendues si activeLayers.sens_* + consentement. */
   sensitive?: SensitiveData;
   /** Clic sur un avion → ouvre la carte-fiche riche (photo + détails). */
@@ -297,6 +324,8 @@ function OsirisMap({
   volcanoes = [],
   satellites = [],
   ships = [],
+  gdelt = [],
+  cyber = [],
   sensitive = {},
   onAircraftClick,
   onStreamClick,
@@ -711,6 +740,76 @@ function OsirisMap({
       });
       // ──────────────────────────────────────────────────────────────────
 
+      // ─── COUCHE GÉOPOLITIQUE (GDELT) — couleur par tonalité ─────────────
+      map.addSource('live-gdelt', { type: 'geojson', data: EMPTY_FC });
+      map.addLayer({
+        id: 'live-gdelt-dots',
+        type: 'circle',
+        source: 'live-gdelt',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 3, 8, 7],
+          // tonalité GDELT : très négatif → rouge, positif → vert, sinon ambre.
+          'circle-color': ['step', ['coalesce', ['get', 'tone'], 0], '#db6f78', -2, '#d6a445', 2, '#5bc78d'],
+          'circle-opacity': 0.6,
+          'circle-stroke-width': 1,
+          'circle-stroke-color': '#070a0f',
+        },
+        layout: { visibility: 'none' },
+      });
+      map.on('click', 'live-gdelt-dots', (e) => {
+        const f = e.features?.[0]; if (!f) return;
+        const p = f.properties || {};
+        const geom = f.geometry;
+        const coords = geom && geom.type === 'Point' ? (geom.coordinates as [number, number]) : [e.lngLat.lng, e.lngLat.lat];
+        const link = p.url ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener" style="color:#54bdde;">ouvrir la source ↗</a>` : '';
+        const html =
+          `<div style="${POPUP_STYLE}">` +
+          `<div style="color:#d6a445;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Événement · GDELT</div>` +
+          `<div style="color:#fff;font-size:13px;font-weight:600;line-height:1.4;margin-bottom:6px;">${escapeHtml(p.title || p.name || 'Événement')}</div>` +
+          `<div style="color:#586475;font-size:10px;">Tonalité : ${escapeHtml(p.tone ?? '—')} · ${link} · source GDELT (public)</div>` +
+          `</div>`;
+        popupRef.current?.remove();
+        popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '360px', offset: 14 })
+          .setLngLat(coords as maplibregl.LngLatLike).setHTML(html).addTo(map);
+      });
+      map.on('mouseenter', 'live-gdelt-dots', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'live-gdelt-dots', () => { map.getCanvas().style.cursor = ''; });
+
+      // ─── COUCHE CYBER (serveurs C2 malware, abuse.ch) ───────────────────
+      map.addSource('live-cyber', { type: 'geojson', data: EMPTY_FC });
+      map.addLayer({
+        id: 'live-cyber-dots',
+        type: 'circle',
+        source: 'live-cyber',
+        paint: {
+          'circle-radius': 5,
+          'circle-color': '#db6f78',
+          'circle-opacity': 0.75,
+          'circle-stroke-width': 1.5,
+          'circle-stroke-color': '#070a0f',
+        },
+        layout: { visibility: 'none' },
+      });
+      map.on('click', 'live-cyber-dots', (e) => {
+        const f = e.features?.[0]; if (!f) return;
+        const p = f.properties || {};
+        const geom = f.geometry;
+        const coords = geom && geom.type === 'Point' ? (geom.coordinates as [number, number]) : [e.lngLat.lng, e.lngLat.lat];
+        const html =
+          `<div style="${POPUP_STYLE}">` +
+          `<div style="color:#db6f78;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Serveur C2 · menace</div>` +
+          `<div style="color:#fff;font-size:14px;font-weight:600;margin-bottom:4px;">${escapeHtml(p.ip || '—')}</div>` +
+          `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">Malware : ${escapeHtml(p.malware || '—')}<br>Pays : ${escapeHtml(p.country || '—')}</div>` +
+          `<div style="color:#586475;font-size:10px;margin-top:8px;">source abuse.ch (public) · veille défensive</div>` +
+          `</div>`;
+        popupRef.current?.remove();
+        popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '340px', offset: 14 })
+          .setLngLat(coords as maplibregl.LngLatLike).setHTML(html).addTo(map);
+      });
+      map.on('mouseenter', 'live-cyber-dots', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'live-cyber-dots', () => { map.getCanvas().style.cursor = ''; });
+      // ──────────────────────────────────────────────────────────────────
+
       setMapReady(true);
     });
 
@@ -876,7 +975,27 @@ function OsirisMap({
       }));
     setGeo('live-satellites', satFeats);
     setVis(['live-satellites-dots'], !!activeLayers?.live_satellites);
-  }, [mapReady, earthquakes, wildfires, volcanoes, satellites, activeLayers, setGeo, setVis]);
+
+    const gdeltFeats = (Array.isArray(gdelt) ? gdelt : [])
+      .filter((g) => typeof g?.lat === 'number' && typeof g?.lng === 'number')
+      .map((g) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [g.lng, g.lat] },
+        properties: { title: g.title ?? '', name: g.name ?? '', tone: g.tone ?? '', url: g.url ?? '' },
+      }));
+    setGeo('live-gdelt', gdeltFeats);
+    setVis(['live-gdelt-dots'], !!activeLayers?.live_gdelt);
+
+    const cyberFeats = (Array.isArray(cyber) ? cyber : [])
+      .filter((c) => typeof c?.lat === 'number' && typeof c?.lng === 'number')
+      .map((c) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [c.lng, c.lat] },
+        properties: { ip: c.ip ?? '', malware: c.malware ?? '', country: c.country ?? '' },
+      }));
+    setGeo('live-cyber', cyberFeats);
+    setVis(['live-cyber-dots'], !!activeLayers?.live_cyber);
+  }, [mapReady, earthquakes, wildfires, volcanoes, satellites, gdelt, cyber, activeLayers, setGeo, setVis]);
   // ─────────────────────────────────────────────────────────────────────
 
   // ─── RENDU NAVIRES (AIS) + traînées ──────────────────────────────────

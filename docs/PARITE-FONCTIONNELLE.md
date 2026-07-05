@@ -64,9 +64,9 @@
 | ✅ ~~🔍 **Boîte à outils OSINT**~~ | **FAIT (V4.010)** : 13 lookups sous `/osint/*` (whois, dns, ip, cve, mac, certs, bgp, github, sanctions, phone + shodan/leaks/threats à clé) + panneau `OsintPanel` (détection auto du type de cible) | ⭐⭐⭐ | ~~haute~~ livré |
 | ✅ ~~🕸️ **Graphe d'entités**~~ | **FAIT (V4.011)** : `entity/expand` (orchestre les lookups OSINT) + `EntityGraphPanel` (graphe force SVG, clic=étendre) | ⭐⭐⭐ | ~~haute~~ livré |
 | ✅ **Module Clés API** (nouveau) | **FAIT (V4.011)** : `KeysPanel` + `apiKeys.ts` — fournir ses clés dans l'app (en-tête `x-osiris-key-*`), sans redéployer. Lien+procédure par service. | ⭐⭐⭐ | livré |
-| 🛰️ **Imagerie Sentinel** | imagerie satellite à la demande (clic droit → Sentinel) | ⭐⭐ | moyenne |
-| 📰 **Feeds géopolitiques** | GDELT (événements mondiaux), news / live-news, country-risk | ⭐⭐ | moyenne |
-| 🛡️ **Couches cyber** | cyber-threats, malware, infrastructure | ⭐⭐ | moyenne |
+| 🛰️ **Imagerie Sentinel** | imagerie satellite à la demande (clic droit → Sentinel) | ⭐⭐ | moyenne (URL EOX à vérifier) |
+| ✅ ~~📰 **Feeds géopolitiques**~~ | **FAIT (V4.012)** : couche Géopolitique (GDELT géolocalisé) + fil d'actu `NewsPanel` (GDELT titres FR/EN). country-risk : encore à faire | ⭐⭐ | livré (partiel) |
+| ✅ ~~🛡️ **Couches cyber**~~ | **FAIT (V4.012)** : couche Cyber (serveurs C2 malware, abuse.ch). malware/infrastructure détaillés : encore | ⭐⭐ | livré (partiel) |
 | 🌦️ **Couches environnement** | météo, qualité de l'air, radar météo, météo spatiale | ⭐ | basse |
 | 🤖 **IA (analyse/briefing)** | `ai/analyze`, `ai/briefing`, `AiAnalyst` — synthèse auto | ⭐⭐ | moyenne (clé LLM) |
 | 🎛️ **Filtres d'attributs** | filtrer DANS une couche (avions par catégorie/pays…) — la 2ᵉ famille de filtres | ⭐⭐ | moyenne |

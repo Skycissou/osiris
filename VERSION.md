@@ -29,6 +29,13 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.012-dev — 2026-07-05 — Géopolitique + Cyber + News (sources gratuites)
+- **Couche Géopolitique 🌍** : événements mondiaux géolocalisés via **GDELT** (gratuit sans clé), couleur par tonalité, popup + lien source. Toggle « Géopolitique ».
+- **Couche Cyber 🛡️** : serveurs C2 malware via **abuse.ch Feodo** (gratuit), géoloc par centroïde pays, popup (IP/malware/pays). Veille défensive. Toggle « Cyber (C2) ».
+- **Fil d'actualité** : `/news` (titres GDELT récents, filtre thème + langue FR/EN) + `NewsPanel`. Bouton « 📰 News » dans la sidebar.
+- Les 2 couches carto sont dans le flux slow existant (pas de nouveau polling). 2 agents Opus + intégration chef. Build + tsc OK.
+- ⏳ Sentinel imagery reporté (URL de tuiles EOX à vérifier avant branchement).
+
 ### V4.011-dev — 2026-07-05 — Graphe d'entités + module Clés API + sidebar refactor
 - **Graphe d'entités** : route `/entity/expand` (orchestre les lookups OSINT en nœuds/liens) + `EntityGraphPanel` (graphe force-directed SVG maison, clic = étendre, drag/zoom/pan, style OSIRIS). Bouton « 🕸️ Graphe » dans la sidebar.
 - **Module Clés API** : `apiKeys.ts` (stockage localStorage + `keyHeaders()`) + `KeysPanel` (13 services, lien + procédure + coût par service). **Fournir une clé dans l'app, sans redéployer.** Bouton « 🔑 Clés API » dans la sidebar.

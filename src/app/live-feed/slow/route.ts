@@ -6,7 +6,7 @@
 //  données PUBLIQUES ouvertes, pour un usage strictement VEILLE / situationnel
 //  défensif (esprit ARPD). Aucune donnée personnelle : phénomènes naturels.
 //
-//  Quatre couches renvoyées (les CLÉS du body = noms de couches, exigé par
+//  Six couches renvoyées (les CLÉS du body = noms de couches, exigé par
 //  mergeData côté client) :
 //    • earthquakes — séismes < 24 h, USGS (source RÉELLE, gratuite, sans clé).
 //                    C'est la couche démo qui DOIT fonctionner hors-ligne de clé.
@@ -16,6 +16,15 @@
 //    • satellites  — positions SGP4 (temps réel) de satellites notables, TLE
 //                    Celestrak PUBLICS et SANS clé. Source/calcul KO → [].
 //                    Calcul délégué à src/lib/satellites.ts (fonctions pures).
+//    • gdelt       — événements géopolitiques mondiaux < 24 h, API GDELT 2.0 GEO
+//                    (GeoJSON, GRATUITE et SANS clé). Points chauds (manifs,
+//                    conflits, élections…). Source KO → couche vide.
+//    • cyber       — serveurs C2 malware actifs, abuse.ch Feodo Tracker (JSON,
+//                    GRATUIT et SANS clé). CADRE STRICTEMENT DÉFENSIF : ce sont
+//                    des INDICATEURS PUBLICS DE MENACE (veille cyber, blue-team),
+//                    JAMAIS un outil d'exploitation offensive. Pas de lat/lng
+//                    dans la source → géoloc par CENTROÏDE PAYS (table interne).
+//                    Source KO → couche vide.
 //
 //  Ré-écriture clean-room : aucune ligne copiée d'un autre projet. Calquée sur
 //  le style de la route /fast (SSRF-guard safeFetch, ETag/304 dérivé du
@@ -25,7 +34,8 @@
 //
 //  Contrat côté client :
 //    GET /live-feed/slow[?bbox=minLng,minLat,maxLng,maxLat]
-//    → 200 { earthquakes, wildfires, volcanoes, satellites, ts } + en-tête ETag
+//    → 200 { earthquakes, wildfires, volcanoes, satellites, gdelt, cyber, ts }
+//      + en-tête ETag
 //    → 304 (corps vide) si If-None-Match == ETag courant
 //
 //  bbox : ces couches sont GLOBALES / nationales (USGS « all_day » = monde
@@ -63,6 +73,36 @@ const FIRMS_MAX_POINTS = 2000;
  */
 const CELESTRAK_GP_TMPL =
   'https://celestrak.org/NORAD/elements/gp.php?CATNR={CATNR}&FORMAT=tle';
+/**
+ * API GDELT 2.0 GEO (« Geographic Query »), format GeoJSON, PUBLIQUE et SANS
+ * clé. Renvoie une FeatureCollection de points géolocalisés agrégeant la
+ * couverture média mondiale des dernières 24 h pour une requête donnée.
+ * {QUERY} = requête thématique url-encodée (voir GDELT_QUERY ci-dessous).
+ * Doc : https://blog.gdeltproject.org/gdelt-geo-2-0-api-debuts/
+ */
+const GDELT_GEO_TMPL =
+  'https://api.gdeltproject.org/api/v2/geo/geo?query={QUERY}&format=GeoJSON&timespan=24h';
+/**
+ * Requête GDELT par défaut : points chauds géopolitiques (manifestations,
+ * conflits, attaques, troubles, élections). CONFIGURABLE — élargir/cibler ici
+ * selon le besoin de veille (mots-clés, `domainis:`, `sourcelang:`, etc.).
+ * Voir la doc GDELT DOC 2.0 pour la grammaire des requêtes.
+ */
+const GDELT_QUERY = '(protest OR conflict OR attack OR unrest OR election)';
+/** Plafond de points GDELT retenus (protège le client d'une réponse volumineuse). */
+const GDELT_MAX_POINTS = 300;
+/**
+ * abuse.ch Feodo Tracker — liste des serveurs C2 (Command-and-Control) de
+ * botnets bancaires actifs, format JSON, GRATUIT et SANS clé. Chaque entrée :
+ * { ip_address, port, country, malware, first_seen, last_online, … }.
+ * USAGE STRICTEMENT DÉFENSIF (veille / blue-team / blocage) — indicateurs
+ * publics de compromission, jamais d'exploitation offensive.
+ * Doc : https://feodotracker.abuse.ch/blocklist/
+ */
+const FEODO_C2_JSON =
+  'https://feodotracker.abuse.ch/downloads/ipblocklist.json';
+/** Plafond de points cyber retenus. */
+const CYBER_MAX_POINTS = 500;
 /** Timeout réseau par source (ms). */
 const FETCH_TIMEOUT_MS = 10_000;
 /** User-Agent identifiant l'appelant (étiquette réseau, cohérent avec /fast). */
@@ -99,6 +139,33 @@ interface Volcano {
   status: string; // ex. état d'activité (« eruption », « unrest »…)
 }
 
+/** Événement géopolitique GDELT normalisé (point de couverture média agrégée). */
+interface GdeltEvent {
+  id: string; // synthétique (lat/lng[/name]) — GDELT ne fournit pas d'id stable
+  lat: number;
+  lng: number;
+  name?: string; // libellé du lieu (properties.name)
+  count?: number; // intensité = nb d'articles agrégés sur ce point (properties.count)
+  title?: string; // titre/HTML d'exemple fourni par GDELT (properties.html/name)
+  url?: string; // URL d'un article représentatif si disponible
+  tone?: number; // tonalité moyenne GDELT (négatif = ton hostile), si présente
+}
+
+/**
+ * Serveur C2 (Command-and-Control) normalisé — indicateur PUBLIC de menace.
+ * Géolocalisé au CENTROÏDE de son pays (la source ne donne pas de coordonnées).
+ * Cadre défensif : veille / blocage / cartographie de la menace, jamais offensif.
+ */
+interface CyberC2 {
+  id: string; // ip (les IP C2 sont uniques dans la liste)
+  lat: number;
+  lng: number;
+  ip: string; // adresse IPv4 du serveur C2
+  malware?: string; // famille de malware associée (ex. « Emotet », « QakBot »)
+  country?: string; // code pays ISO2 fourni par la source
+  first_seen?: string; // date de première observation (chaîne source telle quelle)
+}
+
 // ── Types bruts USGS (sous-ensemble utile) ──────────────────────────────────
 interface UsgsFeature {
   id?: string;
@@ -108,6 +175,95 @@ interface UsgsFeature {
 interface UsgsFeed {
   features?: UsgsFeature[];
 }
+
+// ── Types bruts GDELT GeoJSON (sous-ensemble utile) ──────────────────────────
+//  GDELT GEO 2.0 renvoie une FeatureCollection classique. Les propriétés
+//  exactes varient selon le mode ; on lit défensivement les clés courantes
+//  (name/count/html/url/tone) et on ignore le reste.
+interface GdeltFeature {
+  geometry?: { type?: string; coordinates?: [number, number] }; // [lng, lat]
+  properties?: {
+    name?: string | null;
+    count?: number | string | null;
+    html?: string | null;
+    shareimage?: string | null;
+    url?: string | null;
+    tone?: number | string | null;
+  };
+}
+interface GdeltCollection {
+  features?: GdeltFeature[];
+}
+
+// ── Types bruts Feodo Tracker (sous-ensemble utile) ──────────────────────────
+interface FeodoEntry {
+  ip_address?: string | null;
+  country?: string | null;
+  malware?: string | null;
+  first_seen?: string | null;
+}
+
+// ── Table de centroïdes pays (ISO2 → {lat,lng}) ──────────────────────────────
+//  La source Feodo ne fournit PAS de coordonnées, seulement un code pays ISO2.
+//  On géolocalise chaque C2 au centroïde APPROXIMATIF de son pays (précision
+//  volontairement grossière : c'est une carte de MENACE agrégée, pas du
+//  ciblage). Couverture : ~45 pays les plus fréquents dans les feeds C2 ;
+//  un pays absent de la table → le point est simplement OMIS (dégradation
+//  douce, jamais d'erreur). Valeurs = centroïdes géographiques usuels (approx).
+const COUNTRY_CENTROIDS: Record<string, { lat: number; lng: number }> = {
+  US: { lat: 39.8, lng: -98.6 }, // États-Unis
+  CA: { lat: 56.1, lng: -106.3 }, // Canada
+  BR: { lat: -14.2, lng: -51.9 }, // Brésil
+  MX: { lat: 23.6, lng: -102.5 }, // Mexique
+  AR: { lat: -38.4, lng: -63.6 }, // Argentine
+  GB: { lat: 55.4, lng: -3.4 }, // Royaume-Uni
+  IE: { lat: 53.4, lng: -8.2 }, // Irlande
+  FR: { lat: 46.2, lng: 2.2 }, // France
+  DE: { lat: 51.2, lng: 10.4 }, // Allemagne
+  NL: { lat: 52.1, lng: 5.3 }, // Pays-Bas
+  BE: { lat: 50.5, lng: 4.5 }, // Belgique
+  LU: { lat: 49.8, lng: 6.1 }, // Luxembourg
+  ES: { lat: 40.5, lng: -3.7 }, // Espagne
+  PT: { lat: 39.4, lng: -8.2 }, // Portugal
+  IT: { lat: 41.9, lng: 12.6 }, // Italie
+  CH: { lat: 46.8, lng: 8.2 }, // Suisse
+  AT: { lat: 47.5, lng: 14.6 }, // Autriche
+  SE: { lat: 60.1, lng: 18.6 }, // Suède
+  NO: { lat: 60.5, lng: 8.5 }, // Norvège
+  FI: { lat: 61.9, lng: 25.7 }, // Finlande
+  DK: { lat: 56.3, lng: 9.5 }, // Danemark
+  PL: { lat: 51.9, lng: 19.1 }, // Pologne
+  CZ: { lat: 49.8, lng: 15.5 }, // Tchéquie
+  SK: { lat: 48.7, lng: 19.7 }, // Slovaquie
+  HU: { lat: 47.2, lng: 19.5 }, // Hongrie
+  RO: { lat: 45.9, lng: 24.9 }, // Roumanie
+  BG: { lat: 42.7, lng: 25.5 }, // Bulgarie
+  GR: { lat: 39.1, lng: 21.8 }, // Grèce
+  UA: { lat: 48.4, lng: 31.2 }, // Ukraine
+  RU: { lat: 61.5, lng: 105.3 }, // Russie
+  TR: { lat: 38.9, lng: 35.2 }, // Turquie
+  IL: { lat: 31.0, lng: 34.9 }, // Israël
+  SA: { lat: 23.9, lng: 45.1 }, // Arabie saoudite
+  AE: { lat: 23.4, lng: 53.8 }, // Émirats arabes unis
+  IR: { lat: 32.4, lng: 53.7 }, // Iran
+  IN: { lat: 22.0, lng: 79.0 }, // Inde
+  PK: { lat: 30.4, lng: 69.3 }, // Pakistan
+  CN: { lat: 35.9, lng: 104.2 }, // Chine
+  HK: { lat: 22.3, lng: 114.2 }, // Hong Kong
+  TW: { lat: 23.7, lng: 121.0 }, // Taïwan
+  JP: { lat: 36.2, lng: 138.3 }, // Japon
+  KR: { lat: 35.9, lng: 127.8 }, // Corée du Sud
+  SG: { lat: 1.35, lng: 103.8 }, // Singapour
+  ID: { lat: -0.8, lng: 113.9 }, // Indonésie
+  TH: { lat: 15.9, lng: 100.99 }, // Thaïlande
+  VN: { lat: 14.1, lng: 108.3 }, // Viêt Nam
+  MY: { lat: 4.2, lng: 101.98 }, // Malaisie
+  AU: { lat: -25.3, lng: 133.8 }, // Australie
+  NZ: { lat: -40.9, lng: 174.9 }, // Nouvelle-Zélande
+  ZA: { lat: -30.6, lng: 22.9 }, // Afrique du Sud
+  EG: { lat: 26.8, lng: 30.8 }, // Égypte
+  NG: { lat: 9.1, lng: 8.7 }, // Nigéria
+};
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -224,6 +380,90 @@ function parseFirmsCsv(text: string): Wildfire[] {
 }
 
 /**
+ * Normalise la FeatureCollection GDELT GEO → GdeltEvent[]. Coordonnées depuis
+ * geometry.coordinates ([lng, lat] — ordre GeoJSON) ; libellé/intensité/URL
+ * depuis properties (lecture défensive : count peut arriver en string, tone
+ * idem). Ignore toute feature sans point exploitable. Plafonne à
+ * GDELT_MAX_POINTS. Dégradation douce : JSON invalide → couche vide.
+ */
+function parseGdelt(text: string): GdeltEvent[] {
+  let coll: GdeltCollection;
+  try {
+    coll = JSON.parse(text) as GdeltCollection;
+  } catch {
+    return []; // JSON invalide → couche vide (dégradation douce)
+  }
+  const features = Array.isArray(coll.features) ? coll.features : [];
+  const out: GdeltEvent[] = [];
+  for (const f of features) {
+    if (out.length >= GDELT_MAX_POINTS) break;
+    const coords = f.geometry?.coordinates;
+    if (!Array.isArray(coords) || coords.length < 2) continue;
+    const [lng, lat] = coords;
+    if (typeof lat !== 'number' || typeof lng !== 'number') continue;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    const p = f.properties ?? {};
+    // count : GDELT le fournit tantôt en nombre, tantôt en chaîne.
+    const countNum = typeof p.count === 'number' ? p.count : Number(p.count);
+    const toneNum = typeof p.tone === 'number' ? p.tone : Number(p.tone);
+    const name = typeof p.name === 'string' && p.name ? p.name : undefined;
+    out.push({
+      id: `${lat.toFixed(4)},${lng.toFixed(4)}${name ? `,${name}` : ''}`,
+      lat,
+      lng,
+      ...(name ? { name } : {}),
+      ...(Number.isFinite(countNum) ? { count: countNum } : {}),
+      // GDELT met souvent un extrait HTML dans properties.html : on l'expose
+      // comme titre indicatif (le câblage carte décidera de l'assainir/tronquer).
+      ...(typeof p.html === 'string' && p.html ? { title: p.html } : {}),
+      ...(typeof p.url === 'string' && p.url ? { url: p.url } : {}),
+      ...(Number.isFinite(toneNum) ? { tone: toneNum } : {}),
+    });
+  }
+  return out;
+}
+
+/**
+ * Normalise le blocklist JSON Feodo Tracker → CyberC2[]. La source ne donne pas
+ * de coordonnées : on géolocalise chaque C2 au centroïde de son pays (table
+ * COUNTRY_CENTROIDS). Un pays absent de la table OU une entrée sans IP → OMIS
+ * (dégradation douce). Déduplique par IP. Plafonne à CYBER_MAX_POINTS.
+ * Dégradation douce : JSON invalide/non-tableau → couche vide.
+ */
+function parseFeodo(text: string): CyberC2[] {
+  let rows: unknown;
+  try {
+    rows = JSON.parse(text);
+  } catch {
+    return []; // JSON invalide → couche vide
+  }
+  if (!Array.isArray(rows)) return []; // format inattendu → couche vide
+  const out: CyberC2[] = [];
+  const seen = new Set<string>();
+  for (const raw of rows as FeodoEntry[]) {
+    if (out.length >= CYBER_MAX_POINTS) break;
+    const ip = typeof raw?.ip_address === 'string' ? raw.ip_address.trim() : '';
+    if (!ip || seen.has(ip)) continue;
+    const cc = typeof raw?.country === 'string' ? raw.country.trim().toUpperCase() : '';
+    const centroid = cc ? COUNTRY_CENTROIDS[cc] : undefined;
+    if (!centroid) continue; // pas de pays connu → on omet le point
+    seen.add(ip);
+    out.push({
+      id: ip,
+      lat: centroid.lat,
+      lng: centroid.lng,
+      ip,
+      ...(typeof raw.malware === 'string' && raw.malware ? { malware: raw.malware } : {}),
+      ...(cc ? { country: cc } : {}),
+      ...(typeof raw.first_seen === 'string' && raw.first_seen
+        ? { first_seen: raw.first_seen }
+        : {}),
+    });
+  }
+  return out;
+}
+
+/**
  * ETag faible dérivé UNIQUEMENT du contenu (comptes + agrégats de position),
  * jamais de l'horloge — même principe que la route /fast. Deux réponses au même
  * état → même ETag → 304 possible. Hash entier bon-marché (FNV-ish 32 bits).
@@ -233,6 +473,8 @@ function computeETag(
   wf: Wildfire[],
   vo: Volcano[],
   sa: SatPosition[],
+  gd: GdeltEvent[],
+  cy: CyberC2[],
 ): string {
   let acc = 0;
   const mix = (n: number) => {
@@ -263,7 +505,21 @@ function computeETag(
     mix(s.lng * 100);
     mix(s.alt);
   }
-  return `W/"eq${eq.length}-wf${wf.length}-vo${vo.length}-sa${sa.length}-${acc.toString(36)}"`;
+  for (const g of gd) {
+    mix(g.lat * 100);
+    mix(g.lng * 100);
+    mix(g.count ?? 0);
+  }
+  for (const c of cy) {
+    mix(c.lat * 100);
+    mix(c.lng * 100);
+    // L'IP différencie deux C2 partageant le même centroïde pays : on replie
+    // un hash simple de la chaîne pour que l'ETag reflète la composition réelle.
+    let iph = 0;
+    for (let k = 0; k < c.ip.length; k++) iph = (iph * 31 + c.ip.charCodeAt(k)) >>> 0;
+    mix(iph % 1000000);
+  }
+  return `W/"eq${eq.length}-wf${wf.length}-vo${vo.length}-sa${sa.length}-gd${gd.length}-cy${cy.length}-${acc.toString(36)}"`;
 }
 
 // ── Handler ─────────────────────────────────────────────────────────────────
@@ -322,8 +578,23 @@ export async function GET(request: NextRequest) {
     satellites = []; // toute erreur inattendue → couche vide, la route tient
   }
 
+  // ── 5) GÉOPOLITIQUE — GDELT 2.0 GEO (GeoJSON, gratuit, sans clé) ──────────
+  //  Points chauds média mondiaux < 24 h pour GDELT_QUERY (configurable en tête
+  //  de fichier). Source KO / JSON invalide → couche vide, la route tient.
+  const gdeltUrl = GDELT_GEO_TMPL.replace('{QUERY}', encodeURIComponent(GDELT_QUERY));
+  const gdeltText = await fetchText(gdeltUrl);
+  const gdelt: GdeltEvent[] = gdeltText ? parseGdelt(gdeltText) : [];
+
+  // ── 6) CYBER — abuse.ch Feodo Tracker (JSON, gratuit, sans clé) ───────────
+  //  CADRE DÉFENSIF : indicateurs PUBLICS de menace (serveurs C2 de botnets),
+  //  destinés à la veille / au blocage / à la cartographie de la menace — JAMAIS
+  //  à une exploitation offensive. Pas de coordonnées dans la source → géoloc
+  //  par centroïde pays (COUNTRY_CENTROIDS). Source KO → couche vide.
+  const feodoText = await fetchText(FEODO_C2_JSON);
+  const cyber: CyberC2[] = feodoText ? parseFeodo(feodoText) : [];
+
   // ── ETag conditionnel : 304 si le client renvoie l'ETag courant ───────────
-  const etag = computeETag(earthquakes, wildfires, volcanoes, satellites);
+  const etag = computeETag(earthquakes, wildfires, volcanoes, satellites, gdelt, cyber);
   const ifNoneMatch = request.headers.get('if-none-match');
   if (ifNoneMatch && ifNoneMatch === etag) {
     return new NextResponse(null, {
@@ -333,7 +604,7 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(
-    { earthquakes, wildfires, volcanoes, satellites, ts: Date.now() },
+    { earthquakes, wildfires, volcanoes, satellites, gdelt, cyber, ts: Date.now() },
     {
       status: 200,
       headers: {

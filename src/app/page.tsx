@@ -8,7 +8,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { search, buildMapData, BASE_PATH, type SearchResponse, type PlotPoint } from '@/lib/api';
 import { useDataPolling, useInterpolation, deadReckon } from '@/lib/liveData';
 import { useDataKey } from '@/lib/store';
-import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint, SatellitePoint, ShipPoint, SensitiveData, SensitivePoint } from '@/components/OsirisMap';
+import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint, SatellitePoint, ShipPoint, SensitiveData, SensitivePoint, GeoEventPoint, CyberPoint } from '@/components/OsirisMap';
 import { OSIRIS_VERSION, OSIRIS_VERSION_LABEL } from '@/lib/version';
 import { useAlertToasts } from '@/lib/alerts';
 import AlertToasts from '@/components/AlertToasts';
@@ -41,6 +41,7 @@ const LoginGate = dynamic(() => import('@/components/LoginGate'), { ssr: false }
 const OsintPanel = dynamic(() => import('@/components/OsintPanel'), { ssr: false });
 const KeysPanel = dynamic(() => import('@/components/KeysPanel'), { ssr: false });
 const EntityGraphPanel = dynamic(() => import('@/components/EntityGraphPanel'), { ssr: false });
+const NewsPanel = dynamic(() => import('@/components/NewsPanel'), { ssr: false });
 import CockpitSidebar from '@/components/CockpitSidebar';
 
 // Couches FR (stub) — clés canoniques partagées avec LayerPanel + OsirisMap.
@@ -57,6 +58,8 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
   live_volcanoes: false,
   live_satellites: false,
   live_ships: false,
+  live_gdelt: false,
+  live_cyber: false,
   // Couches sensibles (forme 2) — jamais actives par défaut.
   sens_military_bases: false,
   sens_cctv: false,
@@ -67,7 +70,7 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
 };
 
 // Clés des couches temps réel « publiques » (forme 1) — gating du polling fast/slow.
-const LIVE_LAYER_KEYS = ['live_aircraft', 'live_earthquakes', 'live_wildfires', 'live_volcanoes', 'live_satellites', 'live_ships'];
+const LIVE_LAYER_KEYS = ['live_aircraft', 'live_earthquakes', 'live_wildfires', 'live_volcanoes', 'live_satellites', 'live_ships', 'live_gdelt', 'live_cyber'];
 // Clés des couches sensibles (forme 2) — gating du polling /live-feed/sensitive.
 const SENSITIVE_LAYER_KEYS = ['sens_military_bases', 'sens_cctv', 'sens_gps_jamming', 'sens_scanners', 'sens_sigint', 'sens_telegram_osint'];
 
@@ -113,6 +116,8 @@ const LIVE_OPTS: { key: string; label: string; title: string }[] = [
   { key: 'live_volcanoes', label: 'Volcans', title: 'Volcans — à brancher (Smithsonian GVP)' },
   { key: 'live_satellites', label: 'Satellites 🛰', title: 'Satellites notables (celestrak + calcul SGP4, public sans clé)' },
   { key: 'live_ships', label: 'Navires 🚢', title: 'Navires AIS — nécessite une source/clé AIS (AIS_REST_URL)' },
+  { key: 'live_gdelt', label: 'Géopolitique 🌍', title: 'Événements mondiaux géolocalisés — GDELT public, sans clé' },
+  { key: 'live_cyber', label: 'Cyber (C2) 🛡️', title: 'Serveurs C2 malware — abuse.ch public, sans clé (veille défensive)' },
 ];
 // Couches sensibles (forme 2 — enquêteur, opt-in + consentement, cadre ARPD).
 const SENSITIVE_OPTS: { key: string; label: string; title: string }[] = [
@@ -198,6 +203,8 @@ export default function Dashboard() {
   const volcanoes = useDataKey<VolcanoPoint[]>('volcanoes');
   const satellites = useDataKey<SatellitePoint[]>('satellites');
   const ships = useDataKey<ShipPoint[]>('ships');
+  const gdelt = useDataKey<GeoEventPoint[]>('gdelt');
+  const cyber = useDataKey<CyberPoint[]>('cyber');
 
   // ── Couches sensibles (forme 2) — polling séparé /live-feed/sensitive,
   // actif UNIQUEMENT en forme 2 ET si une couche sensible est allumée. ──
@@ -235,6 +242,7 @@ export default function Dashboard() {
   const [osintOpen, setOsintOpen] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
+  const [newsOpen, setNewsOpen] = useState(false);
 
   // ── Consentement forme 2 : au 1er toggle d'une couche sensible, si pas
   // encore consenti → modale. Sur accord → consentement + activation. ──
@@ -422,6 +430,7 @@ export default function Dashboard() {
           version={OSIRIS_VERSION}
           onOpenOsint={() => setOsintOpen(true)}
           onOpenGraph={() => setGraphOpen(true)}
+          onOpenNews={() => setNewsOpen(true)}
           onOpenKeys={() => setKeysOpen(true)}
         />
       )}
@@ -439,6 +448,8 @@ export default function Dashboard() {
           volcanoes={volcanoes}
           satellites={satellites}
           ships={ships}
+          gdelt={gdelt}
+          cyber={cyber}
           sensitive={sensitive}
           onAircraftClick={handleAircraftClick}
           onStreamClick={setActiveStream}
@@ -553,6 +564,13 @@ export default function Dashboard() {
       {graphOpen && (
         <ErrorBoundary name="Graphe d'entités">
           <EntityGraphPanel onClose={() => setGraphOpen(false)} />
+        </ErrorBoundary>
+      )}
+
+      {/* ── FIL D'ACTUALITÉ (News GDELT) ── */}
+      {newsOpen && (
+        <ErrorBoundary name="News">
+          <NewsPanel onClose={() => setNewsOpen(false)} isMobile={isMobile} />
         </ErrorBoundary>
       )}
 

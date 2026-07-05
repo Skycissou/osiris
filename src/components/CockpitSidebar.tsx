@@ -35,13 +35,16 @@ export interface CockpitSidebarProps {
   onOpenOsint?: () => void;
   /** Ouvre le graphe d'entités. */
   onOpenGraph?: () => void;
+  /** Ouvre le fil d'actualité (News). */
+  onOpenNews?: () => void;
 }
 
-function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph }: CockpitSidebarProps) {
+function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenNews }: CockpitSidebarProps) {
   /** Outils du cockpit (ouvrent un panneau). Édite librement : label + action. */
   const TOOLS: { label: string; onClick?: () => void }[] = [
     { label: '🔍 OSINT', onClick: onOpenOsint },
     { label: '🕸️ Graphe', onClick: onOpenGraph },
+    { label: '📰 News', onClick: onOpenNews },
     { label: '🔑 Clés API', onClick: onOpenKeys },
   ];
 
