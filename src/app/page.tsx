@@ -20,6 +20,12 @@ import RegionDossierPanel from '@/components/RegionDossierPanel';
 // le LoginGate V4 et, sur 401, on renvoie vers le login V3 à la racine (`/login`).
 const COCKPIT_MODE = BASE_PATH !== '';
 
+// URL de l'accueil (site V3). Le bouton « ← Accueil » du header pointe dessus.
+//  • Mode /cockpit (même domaine que la V3) : '/' (ou '/?q=' pour la continuité).
+//  • Staging/prod à la racine (V4 sur un sous-domaine dédié) : on renvoie vers la
+//    V3 via NEXT_PUBLIC_HOME_URL, défaut = V3 prod. Surchargeable au build.
+const HOME_URL = process.env.NEXT_PUBLIC_HOME_URL || 'https://osiris.cissouhub.cloud';
+
 const OsirisMap = dynamic(() => import('@/components/OsirisMap'), { ssr: false });
 const LayerPanel = dynamic(() => import('@/components/LayerPanel'));
 const SearchBar = dynamic(() => import('@/components/SearchBar'), { ssr: false });
@@ -381,15 +387,15 @@ export default function Dashboard() {
         <div className="flex items-center gap-3 w-fit">
           {/* Lien retour vers la V3 (racine du domaine) — visible seulement sous /cockpit.
               Anchor natif (pas next/link) → href '/' non préfixé par basePath = racine V3. */}
-          {COCKPIT_MODE && (
-            <a
-              href={lastQuery ? `/?q=${encodeURIComponent(lastQuery)}` : '/'}
-              className="glass-panel pointer-events-auto px-2.5 py-1 text-[10px] font-mono tracking-widest text-[var(--accent-bright)] hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-colors"
-              title="Retour à OSIRIS (V3) — la recherche suit"
-            >
-              ← OSIRIS
-            </a>
-          )}
+          {/* Bouton retour accueil — TOUJOURS visible. En mode /cockpit il garde
+              la continuité de recherche (?q=) ; sinon il renvoie vers la V3. */}
+          <a
+            href={COCKPIT_MODE ? (lastQuery ? `/?q=${encodeURIComponent(lastQuery)}` : '/') : HOME_URL}
+            className="glass-panel pointer-events-auto px-2.5 py-1 text-[10px] font-mono tracking-widest text-[var(--accent-bright)] hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-colors"
+            title="Retour à l'accueil OSIRIS"
+          >
+            ← Accueil
+          </a>
           <h1 className="text-lg md:text-xl font-bold tracking-[0.4em] text-[var(--accent)] font-mono">OSIRIS</h1>
           <span className="text-[8px] md:text-[9px] font-mono tracking-[0.2em] opacity-70 uppercase text-[var(--accent)]">
             {OSIRIS_VERSION_LABEL} · {OSIRIS_VERSION}
