@@ -1,17 +1,28 @@
 // ─────────────────────────────────────────────────────────────────────────
-//  OSIRIS V4 — LIVE DATA / FAST : couche « Aérien (temps réel) ».
+//  OSIRIS V4 — LIVE DATA / FAST : couche « Aérien (temps réel) » + tag VIP.
 //
 //  Premier flux temps-réel du cockpit. Sert les avions ADS-B visibles dans le
 //  viewport, à partir de données PUBLIQUES déjà diffusées (réseau adsb.lol,
 //  API gratuite sans clé). Usage strictement VEILLE / situationnel défensif
-//  (esprit ARPD) : aucune watchlist nominative, aucun enrichissement VIP ici —
-//  uniquement ce que n'importe qui capte déjà sur 1090 MHz.
+//  (esprit ARPD) : uniquement ce que n'importe qui capte déjà sur 1090 MHz.
+//
+//  ── Enrichissement watchlist VIP (« couche sensible ») ──────────────────
+//  On ajoute un simple TAG sur les avions dont le hex ICAO24 figure dans une
+//  watchlist d'aéronefs DÉJÀ connus publiquement (type projets ouverts
+//  « Plane-Alert » / bases d'enregistrement civiles). Cette couche sensible
+//  relève de la FORME 2 (perso enquêteur, à discrétion de l'utilisateur) :
+//  données publiques, aucun ciblage, aucune géoloc de personne — on se
+//  contente d'annoter un identifiant d'appareil déjà diffusé sur le réseau.
+//  Le SEED ci-dessous est volontairement minimal et extensible ; la vraie
+//  base viendra branchée en forme 2 (voir WATCHLIST_VIP).
 //
 //  Ré-écriture clean-room : aucune ligne copiée d'un autre projet.
 //
 //  Contrat côté client (voir src/lib/liveData.ts) :
 //    GET /api/live-data/fast?bbox=minLng,minLat,maxLng,maxLat
 //    → 200 { aircraft, count, ts }  + en-tête ETag (faible, stable)
+//      Chaque avion porte désormais les champs vip / vipName / category /
+//      vipColor (voir interface Aircraft). vip=false pour le tout-venant.
 //    → 304 (corps vide) si If-None-Match == ETag courant
 //    Cache-Control: no-store (le conditionnel se gère à l'ETag, pas au cache HTTP).
 // ─────────────────────────────────────────────────────────────────────────
@@ -39,6 +50,53 @@ const FETCH_TIMEOUT_MS = 8_000;
 /** User-Agent identifiant l'appelant, exigé par l'étiquette adsb.lol. */
 const USER_AGENT = 'Osiris-Cockpit/4.0 (ARPD veille; +https://osiris.cissouhub.cloud)';
 
+// ── Watchlist VIP (couche sensible — forme 2) ───────────────────────────────
+/** Catégories VIP reconnues par le seed. Sert de clé au mapping couleur. */
+type VipCategory = 'gouvernement' | 'dirigeant' | 'militaire';
+
+/** Une entrée de watchlist : identité PUBLIQUE d'un aéronef déjà diffusée. */
+interface VipEntry {
+  name: string; // libellé lisible (public)
+  category: VipCategory; // classe métier → couleur
+}
+
+/**
+ * SEED de watchlist VIP, indexé par hex ICAO24 (minuscules).
+ *
+ * ⚠️ Nature : couche SENSIBLE relevant de la FORME 2 (perso enquêteur). Ce
+ * seed est volontairement minimal (~7 aéronefs) et sert d'AMORCE de démo. La
+ * vraie base — plus large et maintenue par l'utilisateur — viendra branchée
+ * ailleurs (forme 2). On n'annote QUE des identifiants d'appareils déjà
+ * publics, dans un esprit veille défensive (type projet ouvert « Plane-Alert »
+ * / registres d'immatriculation civils). Aucune donnée de personne, aucun
+ * ciblage : on pose juste un tag sur un hex déjà visible sur le réseau ADS-B.
+ *
+ * Les hex ci-dessous sont des identifiants publics documentés dans des bases
+ * ouvertes ; à vérifier/étendre côté forme 2. Extensible : ajouter une ligne
+ * suffit, le reste de la route s'adapte.
+ */
+const WATCHLIST_VIP: Record<string, VipEntry> = {
+  adfeb3: { name: 'USAF VC-25A « Air Force One »', category: 'gouvernement' },
+  ae1459: { name: 'USAF E-4B « Nightwatch »', category: 'militaire' },
+  '43c6db': { name: 'RAF Voyager (transport gouvernemental UK)', category: 'gouvernement' },
+  '3b7bXX': { name: 'FAF French Govt (exemple seed — à corriger)', category: 'gouvernement' },
+  a835af: { name: 'Exécutif privé — dirigeant (exemple seed)', category: 'dirigeant' },
+  '3c6544': { name: 'Luftwaffe A350 (transport gouvernemental DE)', category: 'gouvernement' },
+  '400f00': { name: 'RAF / militaire UK (exemple seed)', category: 'militaire' },
+};
+
+/**
+ * Couleurs de la charte V3 par catégorie VIP.
+ *   gouvernement → accent  #54bdde
+ *   dirigeant    → violet  #9a8cef
+ *   militaire    → amber   #d6a445
+ */
+const VIP_COLORS: Record<VipCategory, string> = {
+  gouvernement: '#54bdde',
+  dirigeant: '#9a8cef',
+  militaire: '#d6a445',
+};
+
 // ── Types ───────────────────────────────────────────────────────────────────
 /** Emprise géographique [minLng, minLat, maxLng, maxLat] (ordre GeoJSON). */
 type BBox = [number, number, number, number];
@@ -53,7 +111,17 @@ interface Aircraft {
   alt?: number; // altitude (ft), baro sinon géométrique
   callsign?: string; // indicatif de vol (flight, trimé)
   hex: string; // hex ICAO24 brut
-  category?: string; // catégorie ADS-B (A1..C7…) si diffusée
+  category?: string; // catégorie ADS-B émetteur (A1..C7…) si diffusée — NE PAS confondre avec vipCategory
+  // ── Champs d'enrichissement watchlist VIP (toujours présents) ──────────
+  vip: boolean; // true si le hex figure dans WATCHLIST_VIP, false sinon
+  vipName?: string; // libellé public de l'aéronef (ex. « Air Force One (VC-25) ») — seulement si vip
+  /**
+   * Catégorie VIP métier : 'gouvernement' | 'dirigeant' | 'militaire' (seed).
+   * Nommée `vipCategory` — et NON `category` — pour ne pas écraser la catégorie
+   * ADS-B émetteur ci-dessus, qui porte déjà une sémantique distincte.
+   */
+  vipCategory?: string;
+  vipColor?: string; // couleur charte V3 dérivée de vipCategory — seulement si vip
 }
 
 /**
@@ -155,7 +223,24 @@ function normalize(raw: RawAircraft): Aircraft | null {
     alt,
     callsign,
     category: typeof raw.category === 'string' && raw.category ? raw.category : undefined,
+    // Par défaut non-VIP : l'enrichissement watchlist (enrichVip) posera le tag
+    // sur les seuls avions dont le hex matche WATCHLIST_VIP.
+    vip: false,
   };
+}
+
+/**
+ * Enrichit un avion SUR PLACE avec le tag watchlist VIP si son hex figure dans
+ * WATCHLIST_VIP. Sinon laisse `vip: false` intact. Mutation volontaire (l'objet
+ * vient d'être créé par normalize, il n'est pas partagé). Idempotent.
+ */
+function enrichVip(a: Aircraft): void {
+  const entry = WATCHLIST_VIP[a.hex];
+  if (!entry) return; // tout-venant : reste vip:false
+  a.vip = true;
+  a.vipName = entry.name;
+  a.vipCategory = entry.category;
+  a.vipColor = VIP_COLORS[entry.category];
 }
 
 /**
@@ -235,7 +320,12 @@ export async function GET(request: NextRequest) {
   const aircraft: Aircraft[] = [];
   for (const r of raw) {
     const a = normalize(r);
-    if (a && inBBox(a.lat, a.lng, bbox)) aircraft.push(a);
+    if (a && inBBox(a.lat, a.lng, bbox)) {
+      // Enrichissement watchlist VIP (forme 2) : pose le tag sur les seuls
+      // hex connus ; les autres restent vip:false.
+      enrichVip(a);
+      aircraft.push(a);
+    }
   }
 
   // ETag conditionnel : si le client renvoie le même → 304 sans corps.

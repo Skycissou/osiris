@@ -24,6 +24,41 @@ export interface AircraftPoint {
   callsign?: string;
   hex?: string;
   category?: string;
+  /** Marqueur watchlist VIP (forme 2, données publiques) — cf. route fast. */
+  vip?: boolean;
+  vipName?: string;
+  /** Catégorie VIP ('gouvernement'|'dirigeant'|'militaire') — champ dédié (≠ `category` ADS-B). */
+  vipCategory?: string;
+  vipColor?: string;
+}
+
+/** Séisme normalisé (source USGS GeoJSON, public). */
+export interface QuakePoint {
+  id: string;
+  lat: number;
+  lng: number;
+  mag: number;
+  depth?: number;
+  place?: string;
+  time?: number;
+}
+
+/** Foyer d'incendie (source NASA FIRMS, public). */
+export interface FirePoint {
+  id: string;
+  lat: number;
+  lng: number;
+  bright?: number;
+  time?: string | number;
+}
+
+/** Volcan (stub — piste Smithsonian GVP). */
+export interface VolcanoPoint {
+  id: string;
+  lat: number;
+  lng: number;
+  name?: string;
+  status?: string;
 }
 
 interface OsirisMapProps {
@@ -33,6 +68,12 @@ interface OsirisMapProps {
   activeLayers: Record<string, boolean>;
   /** Avions temps réel (adsb.lol) — rendus si activeLayers.live_aircraft. */
   aircraft?: AircraftPoint[];
+  /** Séismes (USGS) — rendus si activeLayers.live_earthquakes. */
+  earthquakes?: QuakePoint[];
+  /** Foyers d'incendie (NASA FIRMS) — rendus si activeLayers.live_wildfires. */
+  wildfires?: FirePoint[];
+  /** Volcans (stub) — rendus si activeLayers.live_volcanoes. */
+  volcanoes?: VolcanoPoint[];
   onEntityClick?: (entity: any) => void;
   onMouseCoords?: (coords: { lat: number; lng: number }) => void;
   onRightClick?: (coords: { lat: number; lng: number }) => void;
@@ -191,6 +232,9 @@ function OsirisMap({
   data = {},
   activeLayers,
   aircraft = [],
+  earthquakes = [],
+  wildfires = [],
+  volcanoes = [],
   onEntityClick,
   onMouseCoords,
   onRightClick,
@@ -376,6 +420,93 @@ function OsirisMap({
       });
       map.on('mouseenter', 'live-aircraft-symbols', () => { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', 'live-aircraft-symbols', () => { map.getCanvas().style.cursor = ''; });
+
+      // Halo VIP : cercle coloré SOUS le symbole avion pour les aéronefs taggés
+      // vip=true (forme 2). Couleur = vipColor (charte V3). Ajouté AVANT la
+      // couche symbole pour passer dessous ; alimenté par la même source filtrée.
+      map.addSource('live-aircraft-vip', { type: 'geojson', data: EMPTY_FC });
+      map.addLayer({
+        id: 'live-aircraft-vip-halo',
+        type: 'circle',
+        source: 'live-aircraft-vip',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 8, 10, 16],
+          'circle-color': ['coalesce', ['get', 'vipColor'], '#9a8cef'],
+          'circle-opacity': 0.28,
+          'circle-stroke-width': 1.5,
+          'circle-stroke-color': ['coalesce', ['get', 'vipColor'], '#9a8cef'],
+          'circle-stroke-opacity': 0.7,
+        },
+        layout: { visibility: 'none' },
+      }, 'live-aircraft-symbols');
+
+      // ─── COUCHE SÉISMES (USGS, public) ──────────────────────────────────
+      // Cercle dont le rayon croît avec la magnitude, couleur par magnitude
+      // (≥6 rouge, ≥5 ambre, sinon accent). Popup FR.
+      map.addSource('live-quakes', { type: 'geojson', data: EMPTY_FC });
+      map.addLayer({
+        id: 'live-quakes-dots',
+        type: 'circle',
+        source: 'live-quakes',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['get', 'mag'], 1, 3, 5, 10, 8, 24],
+          'circle-color': ['step', ['get', 'mag'], '#54bdde', 5, '#d6a445', 6, '#db6f78'],
+          'circle-opacity': 0.55,
+          'circle-stroke-width': 1,
+          'circle-stroke-color': '#070a0f',
+        },
+        layout: { visibility: 'none' },
+      });
+      map.on('click', 'live-quakes-dots', (e) => {
+        const f = e.features?.[0]; if (!f) return;
+        const p = f.properties || {};
+        const geom = f.geometry;
+        const coords = geom && geom.type === 'Point' ? (geom.coordinates as [number, number]) : [e.lngLat.lng, e.lngLat.lat];
+        const depth = p.depth != null && p.depth !== '' ? `${escapeHtml(p.depth)} km` : '—';
+        const html =
+          `<div style="${POPUP_STYLE}">` +
+          `<div style="color:#d6a445;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Séisme · temps réel</div>` +
+          `<div style="color:#fff;font-size:16px;font-weight:600;margin-bottom:4px;">M ${escapeHtml(p.mag)}</div>` +
+          `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">${escapeHtml(p.place || 'Lieu inconnu')}<br>Profondeur : ${depth}</div>` +
+          `<div style="color:#586475;font-size:10px;margin-top:8px;">source USGS (public)</div>` +
+          `</div>`;
+        popupRef.current?.remove();
+        popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '360px', offset: 14 })
+          .setLngLat(coords as maplibregl.LngLatLike).setHTML(html).addTo(map);
+      });
+      map.on('mouseenter', 'live-quakes-dots', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'live-quakes-dots', () => { map.getCanvas().style.cursor = ''; });
+
+      // ─── COUCHE FEUX (NASA FIRMS, public — vide sans clé FIRMS_MAP_KEY) ──
+      map.addSource('live-fires', { type: 'geojson', data: EMPTY_FC });
+      map.addLayer({
+        id: 'live-fires-dots',
+        type: 'circle',
+        source: 'live-fires',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 2.5, 10, 6],
+          'circle-color': '#db6f78',
+          'circle-opacity': 0.7,
+          'circle-blur': 0.3,
+        },
+        layout: { visibility: 'none' },
+      });
+
+      // ─── COUCHE VOLCANS (stub — violet) ─────────────────────────────────
+      map.addSource('live-volcanoes', { type: 'geojson', data: EMPTY_FC });
+      map.addLayer({
+        id: 'live-volcanoes-dots',
+        type: 'circle',
+        source: 'live-volcanoes',
+        paint: {
+          'circle-radius': 6,
+          'circle-color': '#9a8cef',
+          'circle-opacity': 0.8,
+          'circle-stroke-width': 1.5,
+          'circle-stroke-color': '#070a0f',
+        },
+        layout: { visibility: 'none' },
+      });
       // ──────────────────────────────────────────────────────────────────
 
       setMapReady(true);
@@ -473,7 +604,54 @@ function OsirisMap({
       }));
     setGeo('live-aircraft', features);
     setVis(['live-aircraft-symbols'], !!activeLayers?.live_aircraft);
+    // Halo VIP : sous-ensemble taggé vip=true (forme 2), affiché avec les avions.
+    const vipFeatures = rows
+      .filter((a) => a?.vip && typeof a?.lat === 'number' && typeof a?.lng === 'number')
+      .map((a) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [a.lng, a.lat] },
+        properties: { vipColor: a.vipColor ?? '#9a8cef', vipName: a.vipName ?? '' },
+      }));
+    setGeo('live-aircraft-vip', vipFeatures);
+    setVis(['live-aircraft-vip-halo'], !!activeLayers?.live_aircraft);
   }, [mapReady, aircraft, activeLayers, setGeo, setVis]);
+  // ─────────────────────────────────────────────────────────────────────
+
+  // ─── RENDU COUCHES GÉOPHYSIQUES (séismes / feux / volcans) ───────────
+  // Chaque couche = tableau de points normalisés (route slow) → FeatureCollection,
+  // affichée/masquée selon son toggle. Dégradation douce : tableau vide = rien.
+  useEffect(() => {
+    if (!mapReady) return;
+    const quakeFeats = (Array.isArray(earthquakes) ? earthquakes : [])
+      .filter((q) => typeof q?.lat === 'number' && typeof q?.lng === 'number')
+      .map((q) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [q.lng, q.lat] },
+        properties: { mag: typeof q.mag === 'number' ? q.mag : 0, place: q.place ?? '', depth: q.depth ?? '' },
+      }));
+    setGeo('live-quakes', quakeFeats);
+    setVis(['live-quakes-dots'], !!activeLayers?.live_earthquakes);
+
+    const fireFeats = (Array.isArray(wildfires) ? wildfires : [])
+      .filter((f) => typeof f?.lat === 'number' && typeof f?.lng === 'number')
+      .map((f) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [f.lng, f.lat] },
+        properties: { bright: f.bright ?? '' },
+      }));
+    setGeo('live-fires', fireFeats);
+    setVis(['live-fires-dots'], !!activeLayers?.live_wildfires);
+
+    const volcFeats = (Array.isArray(volcanoes) ? volcanoes : [])
+      .filter((v) => typeof v?.lat === 'number' && typeof v?.lng === 'number')
+      .map((v) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [v.lng, v.lat] },
+        properties: { name: v.name ?? '', status: v.status ?? '' },
+      }));
+    setGeo('live-volcanoes', volcFeats);
+    setVis(['live-volcanoes-dots'], !!activeLayers?.live_volcanoes);
+  }, [mapReady, earthquakes, wildfires, volcanoes, activeLayers, setGeo, setVis]);
   // ─────────────────────────────────────────────────────────────────────
 
   // ── Couche jour/nuit (affichage, conservée du châssis d'origine) ──

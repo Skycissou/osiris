@@ -8,7 +8,12 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { search, buildMapData, BASE_PATH, type SearchResponse, type PlotPoint } from '@/lib/api';
 import { useDataPolling } from '@/lib/liveData';
 import { useDataKey } from '@/lib/store';
-import type { AircraftPoint } from '@/components/OsirisMap';
+import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint } from '@/components/OsirisMap';
+import { OSIRIS_VERSION, OSIRIS_VERSION_LABEL } from '@/lib/version';
+import { useAlertToasts } from '@/lib/alerts';
+import AlertToasts from '@/components/AlertToasts';
+import { useRegionDossier } from '@/lib/regionDossier';
+import RegionDossierPanel from '@/components/RegionDossierPanel';
 
 // Cockpit servi sous basePath (/cockpit) → l'utilisateur arrive DÉJÀ loggué via la
 // V3 (cookie httponly même-domaine couvre /search). Dans ce mode on court-circuite
@@ -30,7 +35,13 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
   fr_rna: false,
   day_night: false,
   live_aircraft: false,
+  live_earthquakes: false,
+  live_wildfires: false,
+  live_volcanoes: false,
 };
+
+// Clés des couches temps réel — sert au gating du polling (actif si ≥1 est ON).
+const LIVE_LAYER_KEYS = ['live_aircraft', 'live_earthquakes', 'live_wildfires', 'live_volcanoes'];
 
 // ── Options du menu de couches (labels lisibles, ordre d'affichage) ──
 const BASEMAP_OPTS: { key: 'dark' | 'ign' | 'scan25' | 'ortho' | 'satellite'; label: string }[] = [
@@ -65,6 +76,13 @@ const OVERLAY_OPTS: { key: string; label: string }[] = [
   { key: 'pentes', label: 'Pentes' },
   { key: 'irc', label: 'Infrarouge' },
   { key: 'protected', label: 'Zones protégées' },
+];
+// Couches temps réel (checkboxes) — clé = clé activeLayers, title = infobulle FR.
+const LIVE_OPTS: { key: string; label: string; title: string }[] = [
+  { key: 'live_aircraft', label: 'Avions ✈ (adsb.lol)', title: 'Avions en vol — ADS-B public (adsb.lol), actualisé 15 s' },
+  { key: 'live_earthquakes', label: 'Séismes (USGS)', title: 'Séismes des dernières 24 h — USGS public, actualisé 120 s' },
+  { key: 'live_wildfires', label: 'Feux (FIRMS)', title: 'Foyers actifs — NASA FIRMS (nécessite une clé FIRMS_MAP_KEY)' },
+  { key: 'live_volcanoes', label: 'Volcans', title: 'Volcans — à brancher (Smithsonian GVP)' },
 ];
 
 function useIsMobile() {
@@ -129,12 +147,23 @@ export default function Dashboard() {
   const toggleOverlay = useCallback((k: string) => setOverlays((prev) => ({ ...prev, [k]: !prev[k] })), []);
   const [activeLayers, setActiveLayers] = useState<Record<string, boolean>>(DEFAULT_LAYERS);
 
-  // ── Couche temps réel : avions (adsb.lol, données publiques ADS-B) ──
-  // Le polling ne tourne QUE quand la couche est allumée (économie réseau +
-  // respect de la source gratuite). Le hook merge les avions dans le store
-  // par-clé ; on lit la clé 'aircraft' pour la passer à la carte.
-  useDataPolling({ enabled: !!activeLayers.live_aircraft });
+  // ── Couches temps réel (avions, séismes, feux, volcans) ──
+  // Le polling ne tourne QUE si AU MOINS une couche live est allumée (économie
+  // réseau + respect des sources gratuites). Le moteur interroge /fast (15 s :
+  // avions) et /slow (120 s : géophysique) et merge dans le store par-clé.
+  const anyLiveOn = LIVE_LAYER_KEYS.some((k) => activeLayers[k]);
+  useDataPolling({ enabled: anyLiveOn });
   const aircraft = useDataKey<AircraftPoint[]>('aircraft');
+  const earthquakes = useDataKey<QuakePoint[]>('earthquakes');
+  const wildfires = useDataKey<FirePoint[]>('wildfires');
+  const volcanoes = useDataKey<VolcanoPoint[]>('volcanoes');
+
+  // ── Alertes toasts (seuil séisme + apparition VIP) ──
+  // Le hook surveille le store et génère des alertes FR anti-doublon.
+  const { alerts, dismiss } = useAlertToasts();
+
+  // ── Dossier de zone au clic droit (Nominatim / restcountries / Wikidata) ──
+  const { dossier, loading: dossierLoading, error: dossierError, open: openDossier, close: closeDossier } = useRegionDossier();
 
   // ── Recherche cible (search-first) : appelle le backend puis plotte ──
   const runSearch = useCallback(async (q: string) => {
@@ -256,10 +285,11 @@ export default function Dashboard() {
     }, 3000);
   }, []);
 
-  // Clic droit sur la carte → réservé aux futurs dossiers de zone FR.
-  const handleRightClick = useCallback((_coords: { lat: number; lng: number }) => {
-    // TODO: appeler le backend FR (dossier de zone) via src/lib/api.ts.
-  }, []);
+  // Clic droit sur la carte → ouvre le dossier de zone (données publiques :
+  // géocodage inverse FR, pays, gouvernance Wikidata).
+  const handleRightClick = useCallback((coords: { lat: number; lng: number }) => {
+    openDossier(coords);
+  }, [openDossier]);
 
   // Écran d'accès tant que non authentifié (null = check en cours → rien).
   if (authed === null) return <main className="fixed inset-0 bg-[var(--bg)]" />;
@@ -273,6 +303,9 @@ export default function Dashboard() {
           data={data}
           activeLayers={activeLayers}
           aircraft={aircraft}
+          earthquakes={earthquakes}
+          wildfires={wildfires}
+          volcanoes={volcanoes}
           projection={mapProjection}
           mapStyle={mapStyle}
           timeLayer={timeLayer}
@@ -317,6 +350,26 @@ export default function Dashboard() {
         </ErrorBoundary>
       )}
 
+      {/* ── ALERTES (toasts temps réel : séismes, VIP) ── */}
+      <AlertToasts
+        alerts={alerts}
+        onDismiss={dismiss}
+        onFlyTo={({ lat, lng }) => setFlyToLocation({ lat, lng, ts: Date.now() })}
+      />
+
+      {/* ── DOSSIER DE ZONE (clic droit sur la carte) ── */}
+      {(dossier || dossierLoading) && (
+        <ErrorBoundary name="Dossier de zone">
+          <RegionDossierPanel
+            dossier={dossier}
+            loading={dossierLoading}
+            error={dossierError}
+            onClose={closeDossier}
+            isMobile={isMobile}
+          />
+        </ErrorBoundary>
+      )}
+
       {/* ── EN-TÊTE ── */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -339,7 +392,7 @@ export default function Dashboard() {
           )}
           <h1 className="text-lg md:text-xl font-bold tracking-[0.4em] text-[var(--accent)] font-mono">OSIRIS</h1>
           <span className="text-[8px] md:text-[9px] font-mono tracking-[0.2em] opacity-70 uppercase text-[var(--accent)]">
-            COCKPIT OSINT · V4
+            {OSIRIS_VERSION_LABEL} · {OSIRIS_VERSION}
           </span>
         </div>
       </motion.div>
@@ -453,18 +506,21 @@ export default function Dashboard() {
           <div className="mt-4">
             <div className="text-[9px] font-mono tracking-widest text-[var(--accent-bright)] uppercase mb-2 pb-1 border-b border-white/10">Temps réel</div>
             <div className="flex flex-col gap-1">
-              <button
-                onClick={() => setActiveLayers((prev) => ({ ...prev, live_aircraft: !prev.live_aircraft }))}
-                className="flex items-center gap-2.5 px-1.5 py-1 rounded hover:bg-white/5 transition-colors text-left"
-                title="Avions en vol (ADS-B public, adsb.lol) — actualisé toutes les 15 s"
-              >
-                <span
-                  className={`w-3 h-3 rounded-sm flex-shrink-0 border flex items-center justify-center ${activeLayers.live_aircraft ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-white/30'}`}
+              {LIVE_OPTS.map((o) => (
+                <button
+                  key={o.key}
+                  onClick={() => setActiveLayers((prev) => ({ ...prev, [o.key]: !prev[o.key] }))}
+                  className="flex items-center gap-2.5 px-1.5 py-1 rounded hover:bg-white/5 transition-colors text-left"
+                  title={o.title}
                 >
-                  {activeLayers.live_aircraft && <span className="w-1.5 h-1.5 bg-[var(--bg)] rounded-[1px]" />}
-                </span>
-                <span className={`text-[11px] font-mono ${activeLayers.live_aircraft ? 'text-white' : 'text-white/60'}`}>Avions ✈ (adsb.lol)</span>
-              </button>
+                  <span
+                    className={`w-3 h-3 rounded-sm flex-shrink-0 border flex items-center justify-center ${activeLayers[o.key] ? 'bg-[var(--accent)] border-[var(--accent)]' : 'border-white/30'}`}
+                  >
+                    {activeLayers[o.key] && <span className="w-1.5 h-1.5 bg-[var(--bg)] rounded-[1px]" />}
+                  </span>
+                  <span className={`text-[11px] font-mono ${activeLayers[o.key] ? 'text-white' : 'text-white/60'}`}>{o.label}</span>
+                </button>
+              ))}
             </div>
           </div>
         </motion.div>
@@ -489,7 +545,7 @@ export default function Dashboard() {
         </button>
         <button
           onClick={() => setLayersOpen((v) => !v)}
-          className={`glass-panel px-3 py-2.5 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors flex items-center gap-2 text-[9px] font-mono tracking-widest ${layersOpen || timeLayer !== 'none' || mapStyle !== 'dark' || Object.values(overlays).some(Boolean) || activeLayers.live_aircraft ? 'text-[var(--accent)] border-[var(--accent)]/50' : 'text-[var(--accent-bright)]'}`}
+          className={`glass-panel px-3 py-2.5 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors flex items-center gap-2 text-[9px] font-mono tracking-widest ${layersOpen || timeLayer !== 'none' || mapStyle !== 'dark' || Object.values(overlays).some(Boolean) || anyLiveOn ? 'text-[var(--accent)] border-[var(--accent)]/50' : 'text-[var(--accent-bright)]'}`}
           title="Menu des couches (fonds, remonter le temps, surcouches)"
         >
           <Layers className="w-4 h-4" />
