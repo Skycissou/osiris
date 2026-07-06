@@ -154,12 +154,13 @@ export const API_KEY_SERVICES: readonly ApiKeyServiceMeta[] = [
   },
   {
     service: 'ais_url',
-    label: 'Source AIS — gabarit URL (navires)',
+    label: 'Source AIS — gabarit URL (⚠️ au déploiement, pas ici)',
     env: 'AIS_REST_URL',
-    purpose: 'URL de la source REST fournissant les positions de navires (AIS).',
+    purpose:
+      'URL de la source REST des navires (AIS). Pour raison de sécurité (SSRF), le gabarit d’URL se définit UNIQUEMENT côté serveur via la variable d’environnement AIS_REST_URL, PAS dans l’app. Seule la clé AIS se saisit ici.',
     url: '', // fournisseur AIS variable — pas de lien canonique
     howTo:
-      'Colle ici le gabarit d’URL REST de ton fournisseur AIS (variable selon le service souscrit).',
+      'Ne se renseigne PAS ici : pose AIS_REST_URL dans l’environnement du conteneur au déploiement (gabarit REST de ton fournisseur). La clé AIS, elle, reste saisissable dans l’app.',
     cost: 'variable',
     form: 1,
   },

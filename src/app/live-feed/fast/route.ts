@@ -395,11 +395,14 @@ function extractShipArray(payload: unknown): unknown[] {
  */
 async function fetchShips(request: NextRequest, bbox: BBox): Promise<Ship[]> {
   // Clé AIS effective : en-tête user `x-osiris-key-ais_key` OU env AIS_REST_KEY
-  // (voir keyOf), avec repli historique sur AISSTREAM_KEY. Gabarit d'URL REST :
-  // en-tête user `x-osiris-key-ais_url` OU env AIS_REST_URL. Ainsi Cissou peut
-  // fournir source + clé depuis l'app sans redéployer.
+  // (voir keyOf), avec repli historique sur AISSTREAM_KEY.
   const key = keyOf(request, 'ais_key', 'AIS_REST_KEY') || process.env.AISSTREAM_KEY || '';
-  const template = keyOf(request, 'ais_url', 'AIS_REST_URL');
+  // ⚠️ SÉCURITÉ (SSRF) : le GABARIT D'URL est lu UNIQUEMENT depuis l'env, JAMAIS
+  //    depuis un en-tête de requête. Un en-tête est fourni par le client → le lire
+  //    laisserait un attaquant choisir l'hôte cible (open-proxy + DNS-rebinding
+  //    vers les services internes du VPS). La clé (identifiant) reste, elle,
+  //    saisissable in-app car elle ne contrôle qu'un paramètre, pas l'hôte.
+  const template = process.env.AIS_REST_URL || '';
   // Sans clé : on n'appelle rien (règle d'or). Sans gabarit REST non plus :
   // aisstream.io est un flux WebSocket, non pollable ici (voir en-tête AIS).
   if (!key || !template) return [];
