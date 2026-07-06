@@ -253,6 +253,20 @@ export default function Dashboard() {
   const [graphOpen, setGraphOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
 
+  // ── Deep-link « ?panel=… » depuis la sidebar de l'accueil ──────────────────
+  // Les boutons Outils vivent sur l'accueil (leur vraie place, pas sur la
+  // carte) ; ils ouvrent le cockpit directement sur le bon panneau, plein
+  // écran. Ex. /cockpit?panel=osint → panneau OSINT ouvert au montage.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const panel = new URLSearchParams(window.location.search).get('panel');
+    if (!panel) return;
+    if (panel === 'osint') setOsintOpen(true);
+    else if (panel === 'graph') setGraphOpen(true);
+    else if (panel === 'news') setNewsOpen(true);
+    else if (panel === 'keys') setKeysOpen(true);
+  }, []);
+
   // ── Filtres d'attributs (filtrer DANS une couche affichée) ──
   const [filters, setFilters] = useState<LayerFilters>(DEFAULT_FILTERS);
   const [filterOpen, setFilterOpen] = useState(false);
