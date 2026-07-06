@@ -765,7 +765,10 @@ function OsirisMap({
         const p = f.properties || {};
         const geom = f.geometry;
         const coords = geom && geom.type === 'Point' ? (geom.coordinates as [number, number]) : [e.lngLat.lng, e.lngLat.lat];
-        const link = p.url ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener" style="color:#54bdde;">ouvrir la source ↗</a>` : '';
+        // 🔒 Sécurité : n'accepter que http(s) pour le href (escapeHtml ne bloque
+        //    pas le schéma → un `javascript:` survivrait). URL non http(s) → pas de lien.
+        const safeUrl = typeof p.url === 'string' && /^https?:\/\//i.test(p.url) ? p.url : '';
+        const link = safeUrl ? `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener" style="color:#54bdde;">ouvrir la source ↗</a>` : '';
         const html =
           `<div style="${POPUP_STYLE}">` +
           `<div style="color:#d6a445;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Événement · GDELT</div>` +

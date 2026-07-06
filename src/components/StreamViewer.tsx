@@ -144,7 +144,14 @@ const TIMEOUT_CONNEXION_MS = 10_000;
 
 // ── Composant ────────────────────────────────────────────────────────────────
 function StreamViewer({ source, onClose, onFlyTo, isMobile }: StreamViewerProps) {
-  const { label, streamUrl, lat, lng } = source;
+  const { label, streamUrl: rawStreamUrl, lat, lng } = source;
+  // 🔒 Garde-fou schéma : seuls http(s) sont acceptés comme `src` (bloque
+  //    javascript:/data:/blob: au cas où une future source cctv fournirait une
+  //    URL hostile). Toute autre valeur → chaîne vide (flux « indisponible »).
+  const streamUrl =
+    typeof rawStreamUrl === 'string' && /^https?:\/\//i.test(rawStreamUrl.trim())
+      ? rawStreamUrl
+      : '';
 
   // Type effectif : explicite si fourni, sinon détecté depuis l'URL.
   const type = useMemo<StreamType>(
