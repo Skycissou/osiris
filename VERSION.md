@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.032-dev — 2026-07-07 — 🧪 Bouton « Tester » par clé API
+- **Demande Cissou** (« quand j'enregistre ça dit OK mais je vois pas si c'est bien connecté »).
+- Route **`GET /cockpit/keys/test?service=<id>`** : fait un **vrai appel minimal** à la source avec la clé (en-tête client ou env) → `{ ok, status, message }`. Bouton **« Tester »** sur chaque carte de la page Clés API → **✅ Connecté** ou **❌ + raison** (401 clé invalide, quota, etc.).
+- Sources couvertes : FIRMS, OpenSky (jeton OAuth), Shodan, HIBP, AbuseIPDB, GitHub, OpenSanctions, AIS. Forme 2 (source variable) → « test non disponible ».
+- Sécurité : la clé n'est **jamais renvoyée** au client ; tous les appels via `safeFetch` (garde SSRF).
+
 ### V4.031-dev — 2026-07-07 — 🔑 Diag : vérifier la barrière d'environnement (clés .env)
 - **Demande Cissou** (« si je te colle le diag, tu peux contrôler que le .env est bien enregistré ? — pas envie de rechercher mes clés »).
 - `GET /cockpit/live-feed/diag` renvoie désormais un bloc **`env`** : pour chaque clé attendue dans `/docker/osiris-v4/.env` (FIRMS, OpenSky id/secret, AIS, Shodan, HIBP, AbuseIPDB, GitHub, OpenSanctions, sources forme 2, LLM), **`present` (bool) + `len` (longueur)** — **JAMAIS la valeur** (sécurité). + compteur `configured/total`.
