@@ -134,11 +134,20 @@ export function useDataPolling(opts: DataPollingOptions = {}): DataPollingHandle
   //  Options figées dans des refs pour un fetch stable sans re-déclencher l'effet.
   const cfgRef = useRef({ fastUrl, slowUrl, criticalUrl, basePath, denseEndpoints });
   cfgRef.current = { fastUrl, slowUrl, criticalUrl, basePath, denseEndpoints };
+  //  ANTI-COURSE (07/07) : numéro de séquence + AbortController PAR endpoint.
+  //  Sans ça, une VIEILLE réponse lente (ancienne emprise) arrivait APRÈS une
+  //  récente et écrasait le store → couches qui apparaissent/disparaissent,
+  //  zoom inutilisable. Règle (celle des apps de référence) : une seule
+  //  requête vivante par endpoint, et seule la plus RÉCENTE a le droit d'écrire.
+  const reqSeq = useRef<Map<string, number>>(new Map());
+  const reqCtrl = useRef<Map<string, AbortController>>(new Map());
 
   /**
    * Fetch conditionnel d'un endpoint : pose If-None-Match si un ETag est
    * connu, lit l'ETag de la réponse sur 200 et merge le corps ; no-op sur 304.
    * `useBBox` indique si l'endpoint est scopé par la bbox courante.
+   * Les réponses PÉRIMÉES (une requête plus récente est partie depuis) sont
+   * JETÉES sans merge ; la requête précédente est annulée (abort).
    */
   async function fetchEndpoint(path: string, useBBox: boolean): Promise<void> {
     const bbox = useBBox ? bboxRef.current : undefined;
@@ -150,13 +159,23 @@ export function useDataPolling(opts: DataPollingOptions = {}): DataPollingHandle
     const prev = etags.current.get(etagKey);
     if (prev) headers['If-None-Match'] = prev;
 
+    // Prend le jeton « je suis la requête la plus récente » et annule l'ancienne.
+    const seq = (reqSeq.current.get(path) ?? 0) + 1;
+    reqSeq.current.set(path, seq);
+    reqCtrl.current.get(path)?.abort();
+    const controller = new AbortController();
+    reqCtrl.current.set(path, controller);
+
     try {
       const res = await fetch(url, {
         method: 'GET',
         credentials: 'include',
         cache: 'no-store',
         headers,
+        signal: controller.signal,
       });
+      // Une requête plus récente est partie pendant qu'on attendait → on jette.
+      if (reqSeq.current.get(path) !== seq) return;
       // 304 Not Modified → rien n'a changé côté serveur : on ne re-merge pas.
       if (res.status === 304) return;
       if (!res.ok) {
@@ -166,9 +185,13 @@ export function useDataPolling(opts: DataPollingOptions = {}): DataPollingHandle
       const etag = res.headers.get('ETag');
       if (etag) etags.current.set(etagKey, etag);
       const body = (await res.json()) as Partial<StoreData>;
+      // Re-vérifie APRÈS la lecture du corps (elle peut être lente aussi).
+      if (reqSeq.current.get(path) !== seq) return;
       // Le backend renvoie déjà un objet clé→valeur (couche→données) : merge direct.
       if (body && typeof body === 'object') mergeData(body);
     } catch (e) {
+      // Abandon volontaire (nouvelle requête partie) → silence total.
+      if (e instanceof Error && e.name === 'AbortError') return;
       console.warn('[OSIRIS live] fetch échoué:', e instanceof Error ? e.message : e);
     }
   }

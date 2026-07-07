@@ -356,18 +356,21 @@ async function refreshTile(
 }
 
 /**
- * Donnée d'une tuile : cache frais → direct ; cache périmé (< 2 min) → servi
- * immédiatement pendant qu'un refresh tourne en fond ; rien d'utilisable →
- * on attend le refresh (premier affichage). null = amont KO sans cache.
+ * Donnée d'une tuile — RÉPONSE TOUJOURS IMMÉDIATE (07/07, anti-course) :
+ * cache frais → direct ; cache périmé (< 5 min) → servi pendant qu'un refresh
+ * tourne en fond ; RIEN → on déclenche le refresh et on renvoie null SANS
+ * attendre (avant, on bloquait jusqu'à 45 s → réponses dans le désordre côté
+ * client → couches qui apparaissaient/disparaissaient). Le prochain tick
+ * (15 s) récoltera le cache rempli.
  */
-async function fetchAdsbTile(pt: { lat: number; lng: number; radiusNm: number }): Promise<RawAircraft[] | null> {
+function fetchAdsbTile(pt: { lat: number; lng: number; radiusNm: number }): RawAircraft[] | null {
   const key = tileKey(pt);
   const hit = tileCache.get(key);
   const age = hit ? Date.now() - hit.ts : Number.POSITIVE_INFINITY;
   if (hit && age < TILE_FRESH_MS) return hit.ac;
   if (!tileInflight.has(key)) tileInflight.set(key, refreshTile(key, pt));
   if (hit && age < TILE_STALE_MAX_MS) return hit.ac; // stable d'abord, frais ensuite
-  return tileInflight.get(key)!;
+  return null; // chauffe en fond — pas de mise à jour ce tick
 }
 
 /** Un point (lat,lng) est-il dans la bbox ? */
@@ -631,7 +634,16 @@ export async function GET(request: NextRequest) {
     const oskySecret =
       request.headers.get('x-osiris-key-opensky_secret') || process.env.OPENSKY_CLIENT_SECRET || '';
     if (oskyId && oskySecret) {
-      const global = await getGlobalAircraft(oskyId, oskySecret);
+      const global = getGlobalAircraft(oskyId, oskySecret);
+      if (global === 'warming') {
+        // Instantané en téléchargement : PAS de mise à jour ce tick (on omet
+        // `aircraft` → le client garde l'affichage) plutôt que des disques
+        // adsb.lol incohérents le temps de la chauffe.
+        return NextResponse.json(
+          { ships, ts: Date.now(), note: 'vue monde en chauffe (OpenSky)' },
+          { status: 200, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
       if (global) {
         const aircraft: Aircraft[] = [];
         for (const a of global) {
@@ -652,10 +664,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // adsb.lol /v2/point — 1 disque (vue proche) ou grille 2×2 (dézoom), en
-  // parallèle. Une tuile qui échoue est ignorée ; tout échoué → couche vide.
+  // adsb.lol /v2/point — 1 disque (vue proche) ou grille 2×2 (dézoom).
+  // Lecture synchrone du cache par tuile (les refreshes tournent en fond).
   const points = bboxToPoints(bbox);
-  const tiles = await Promise.all(points.map((pt) => fetchAdsbTile(pt)));
+  const tiles = points.map((pt) => fetchAdsbTile(pt));
   const okTiles = tiles.filter((t): t is RawAircraft[] => t !== null);
   if (okTiles.length === 0) {
     // Amont en panne / rate-limit : on OMET volontairement la clé `aircraft`

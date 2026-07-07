@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.026-dev — 2026-07-07 — 🏁 ANTI-COURSE : la vraie cause du chaos d'affichage
+- **Diagnostic à froid (retour Cissou : « tuiles qui apparaissent/disparaissent France-Europe-USA, zoom inutilisable »)** : les requêtes du client n'étaient **ni annulées ni ordonnées**. Avec un serveur qui pouvait bloquer jusqu'à 45 s (attente d'un téléchargement), une **VIEILLE réponse** (ancienne emprise, ex. France) arrivait APRÈS une récente (ex. monde) et **écrasait le store** → l'affichage sautait d'une emprise à l'autre en boucle. Aucun des patchs précédents n'attaquait ce point.
+- **Client (`liveData.ts`) — la recette des apps de référence** : ① la nouvelle requête **annule** la précédente (AbortController par endpoint) ; ② numéro de **séquence** par endpoint — seule la réponse de la requête la plus récente a le droit d'écrire dans le store, re-vérifié APRÈS lecture du corps ; ③ AbortError silencieux.
+- **Serveur (`fast/route.ts`) — réponse TOUJOURS immédiate** : `fetchAdsbTile` ne bloque plus jamais sur un téléchargement (fini l'attente 45 s) — cache frais/périmé servi tel quel, sinon « pas de mise à jour ce tick » (clé `aircraft` omise) pendant que la tuile chauffe en fond. Le tick suivant (15 s) récolte.
+- **OpenSky** : `getGlobalAircraft` devient synchrone avec état `'warming'` — la vue monde « chauffe » sans bloquer ni afficher des disques incohérents pendant le premier téléchargement.
+
 ### V4.025-dev — 2026-07-07 — 🛫 Rendu avions façon « app de référence »
 - **Diagnostic (screenshot Cissou : nuée de micro-tirets « confettis » sur l'Europe, icônes seulement par endroits)** : on dessinait la traînée de TOUS les avions vus dans les 10 dernières minutes — y compris ceux sortis du flux — soit des centaines de segments courts illisibles ; et une tuile expirant à 2 min faisait disparaître SA région entière quand 2-3 refreshes rataient.
 - **Traînée = avion SÉLECTIONNÉ uniquement (+ VIP)** — comme Flightradar24 & co : la carte reste propre, et comme l'**historique est enregistré pour tous**, cliquer n'importe quel avion révèle instantanément sa route passée (jusqu'à 10 min). Les VIP gardent leur traînée en permanence (c'est l'intérêt du tag).

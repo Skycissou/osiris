@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.025-dev';
+export const OSIRIS_VERSION = 'V4.026-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.026-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F3C1} ANTI-COURSE (la vraie cause du chaos d'affichage) : les r\u00e9ponses " +
+      "arrivaient dans le d\u00c9SORDRE (une vieille emprise \u00e9crasait la r\u00e9cente). " +
+      "Client : 1 seule requ\u00eate vivante/endpoint (abort + s\u00e9quence, seule la plus " +
+      "r\u00e9cente \u00e9crit) \u2014 la recette des apps de r\u00e9f\u00e9rence. Serveur : r\u00e9ponse " +
+      "TOUJOURS imm\u00e9diate (fini l'attente 45 s), t\u00e9l\u00e9chargements en fond, " +
+      "OpenSky 'warming' sans bloquer.",
+  },
   {
     version: 'V4.025-dev',
     date: '2026-07-07',

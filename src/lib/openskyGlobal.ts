@@ -143,19 +143,20 @@ async function refresh(clientId: string, clientSecret: string): Promise<GlobalAi
 }
 
 /**
- * Instantané mondial : cache frais → direct ; périmé (< 10 min) → servi pendant
- * qu'un refresh tourne en fond ; rien → on attend le refresh. null = pas
- * d'identifiants exploitables ou amont KO sans cache (l'appelant retombe sur
- * le tuilage adsb.lol).
+ * Instantané mondial — RÉPONSE TOUJOURS IMMÉDIATE (anti-course 07/07) :
+ *  • cache frais → direct ; périmé (< 10 min) → servi pendant qu'un refresh
+ *    tourne en fond ;
+ *  • rien en cache → on DÉCLENCHE le refresh et on renvoie 'warming' SANS
+ *    attendre (bloquer ~30 s créait des réponses dans le désordre côté client) ;
+ *  • null = pas d'identifiants (l'appelant retombe sur le tuilage adsb.lol).
  */
-export async function getGlobalAircraft(
-  clientId: string,
-  clientSecret: string,
-): Promise<GlobalAircraft[] | null> {
+export type GlobalAircraftResult = GlobalAircraft[] | 'warming' | null;
+
+export function getGlobalAircraft(clientId: string, clientSecret: string): GlobalAircraftResult {
   if (!clientId || !clientSecret) return null;
   const age = snapshot ? Date.now() - snapshot.ts : Number.POSITIVE_INFINITY;
   if (snapshot && age < SNAPSHOT_TTL_MS) return snapshot.aircraft;
   if (!inflight) inflight = refresh(clientId, clientSecret);
   if (snapshot && age < SNAPSHOT_STALE_MAX_MS) return snapshot.aircraft;
-  return inflight;
+  return 'warming'; // instantané en cours de téléchargement — prochain tick
 }
