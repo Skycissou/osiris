@@ -42,7 +42,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { safeFetch } from '@/lib/ssrf-guard';
-import { getGlobalAircraft } from '@/lib/openskyGlobal';
+import {
+  ensureCollector,
+  registerInterest,
+  registerGlobalInterest,
+  getAircraftInBBox,
+  collectorHealth,
+} from '@/lib/aircraftCollector';
 
 // Toujours dynamique : données temps-réel, jamais de pré-rendu / cache statique.
 export const dynamic = 'force-dynamic';
@@ -296,6 +302,10 @@ function bboxToPoints(bbox: BBox): { lat: number; lng: number; radiusNm: number 
   return quadrants.slice(0, MAX_TILES).map((q) => quantizePoint(bboxToPoint(q)));
 }
 
+// ── ⏸️ ARCHIVÉ le 07/07 (réécriture collecteur) ──────────────────────────────
+//  Tout le bloc « cache par tuile » ci-dessous n'est PLUS UTILISÉ : la collecte
+//  vit désormais dans lib/aircraftCollector.ts (boucle permanente, 1 téléchar-
+//  gement à la fois, la route ne fait que lire l'état). Conservé en référence.
 // ── Cache PAR TUILE + rafraîchissement en fond (anti-scintillement) ──────────
 //  Diagnostic 07/07 (screenshot Cissou : avions qui clignotent, ronds qui
 //  sautent, parfois en pleine mer) : le VPS télécharge adsb.lol LENTEMENT
@@ -616,85 +626,31 @@ export async function GET(request: NextRequest) {
 
   // Couche NAVIRES (AIS) : indépendante des avions. Sans clé configurée elle
   // renvoie [] immédiatement (aucun fetch), donc zéro latence sur le cas démo.
-  // Calculée d'abord pour être présente dans TOUTES les réponses, y compris les
-  // dégradations avions ci-dessous.
   const ships = await fetchShips(request, bbox);
 
-  // ── VUE MONDE (OpenSky, option A validée par Cissou 07/07) ────────────────
-  //  Vue trop large pour adsb.lol + identifiants OpenSky présents → instantané
-  //  global (~2 min de fraîcheur, cache serveur). Échec/absence d'identifiants
-  //  → on retombe sur le tuilage adsb.lol ci-dessous (dégradation douce).
+  // ── AVIONS : ARCHITECTURE COLLECTEUR (réécriture 07/07, décision Cissou) ──
+  //  La requête ne déclenche PLUS AUCUN téléchargement : elle déclare ses
+  //  zones d'intérêt, puis LIT l'état monde entretenu en continu par le
+  //  collecteur (lib/aircraftCollector — 1 téléchargement à la fois, en fond).
+  //  → réponse toujours instantanée, affichage stable par construction.
+  ensureCollector();
+  registerInterest(bboxToPoints(bbox));
   const [minLng2, minLat2, maxLng2, maxLat2] = bbox;
   const neededNm =
     haversineMeters((minLat2 + maxLat2) / 2, (minLng2 + maxLng2) / 2, maxLat2, maxLng2) /
     NM_IN_METERS;
   if (neededNm > GLOBAL_VIEW_NM) {
-    const oskyId =
-      request.headers.get('x-osiris-key-opensky_id') || process.env.OPENSKY_CLIENT_ID || '';
-    const oskySecret =
-      request.headers.get('x-osiris-key-opensky_secret') || process.env.OPENSKY_CLIENT_SECRET || '';
-    if (oskyId && oskySecret) {
-      const global = getGlobalAircraft(oskyId, oskySecret);
-      if (global === 'warming') {
-        // Instantané en téléchargement : PAS de mise à jour ce tick (on omet
-        // `aircraft` → le client garde l'affichage) plutôt que des disques
-        // adsb.lol incohérents le temps de la chauffe.
-        return NextResponse.json(
-          { ships, ts: Date.now(), note: 'vue monde en chauffe (OpenSky)' },
-          { status: 200, headers: { 'Cache-Control': 'no-store' } },
-        );
-      }
-      if (global) {
-        const aircraft: Aircraft[] = [];
-        for (const a of global) {
-          if (!inBBox(a.lat, a.lng, bbox)) continue;
-          enrichVip(a);
-          aircraft.push(a);
-          if (aircraft.length >= MAX_GLOBAL_POINTS) break;
-        }
-        const etag = computeETag(aircraft, ships);
-        if (request.headers.get('if-none-match') === etag) {
-          return new NextResponse(null, { status: 304, headers: { ETag: etag, 'Cache-Control': 'no-store' } });
-        }
-        return NextResponse.json(
-          { aircraft, ships, count: aircraft.length, ts: Date.now(), source: 'opensky' },
-          { status: 200, headers: { ETag: etag, 'Cache-Control': 'no-store' } },
-        );
-      }
-    }
-  }
-
-  // adsb.lol /v2/point — 1 disque (vue proche) ou grille 2×2 (dézoom).
-  // Lecture synchrone du cache par tuile (les refreshes tournent en fond).
-  const points = bboxToPoints(bbox);
-  const tiles = points.map((pt) => fetchAdsbTile(pt));
-  const okTiles = tiles.filter((t): t is RawAircraft[] => t !== null);
-  if (okTiles.length === 0) {
-    // Amont en panne / rate-limit : on OMET volontairement la clé `aircraft`
-    // (07/07, anti-scintillement) → le store client NE TOUCHE PAS aux avions
-    // affichés (mergeData n'écrase que les clés présentes). Avant, on envoyait
-    // `aircraft: []` → tout disparaissait à chaque échec puis réapparaissait.
-    return NextResponse.json(
-      { ships, ts: Date.now(), error: 'amont adsb.lol indisponible (avions conservés côté client)' },
-      { status: 200, headers: { 'Cache-Control': 'no-store' } },
+    // Vue large : demande l'instantané monde (OpenSky) au collecteur.
+    registerGlobalInterest(
+      request.headers.get('x-osiris-key-opensky_id') || process.env.OPENSKY_CLIENT_ID || '',
+      request.headers.get('x-osiris-key-opensky_secret') || process.env.OPENSKY_CLIENT_SECRET || '',
     );
   }
 
-  // Normalise + DÉDUPLIQUE par hex (les disques des tuiles se recouvrent) +
-  // filtre sur la bbox RÉELLE (l'API renvoie des disques).
-  const seen = new Set<string>();
-  const aircraft: Aircraft[] = [];
-  for (const raw of okTiles) {
-    for (const r of raw) {
-      const a = normalize(r);
-      if (!a || !inBBox(a.lat, a.lng, bbox) || seen.has(a.hex)) continue;
-      seen.add(a.hex);
-      // Enrichissement watchlist VIP (forme 2) : pose le tag sur les seuls
-      // hex connus ; les autres restent vip:false.
-      enrichVip(a);
-      aircraft.push(a);
-    }
-  }
+  const aircraft: Aircraft[] = getAircraftInBBox(bbox, MAX_GLOBAL_POINTS);
+  // Enrichissement watchlist VIP (forme 2) : pose le tag sur les seuls hex
+  // connus ; les autres restent vip:false.
+  for (const a of aircraft) enrichVip(a);
 
   // ETag conditionnel : si le client renvoie le même → 304 sans corps.
   // Couvre avions ET navires (un mouvement de l'un ou l'autre change l'ETag).
@@ -709,7 +665,8 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json(
     // `count` reste le nombre d'AVIONS (rétro-compat) ; navires sous `ships`.
-    { aircraft, ships, count: aircraft.length, ts: Date.now() },
+    // `collector` = état de santé du collecteur (debug : suivi/zone/monde).
+    { aircraft, ships, count: aircraft.length, ts: Date.now(), collector: collectorHealth() },
     {
       status: 200,
       headers: {

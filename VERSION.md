@@ -29,6 +29,14 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.027-dev — 2026-07-07 — 🔄 COUCHE AVIONS RÉÉCRITE À ZÉRO (architecture collecteur)
+- **Décision Cissou** (« reprendre cette couche-là à zéro, voir ce que l'app d'origine applique ») : on adopte le modèle des apps fluides (FR24, tar1090…) — **l'affichage ne déclenche JAMAIS de téléchargement**.
+- **`lib/aircraftCollector.ts`** : boucle permanente côté serveur (1 tick / 8 s, **UN téléchargement à la fois**, jamais de parallélisme) qui entretient un **état monde en mémoire** (avions + fraîcheur). Les vues déclarent leurs « zones d'intérêt » (disques quantifiés, round-robin, expiration 10 min) ; OpenSky monde rafraîchi ~2 min quand une vue large l'a demandé. Avion non revu : hors affichage à 5 min, hors mémoire à 10 min.
+- **La route `/live-feed/fast` ne fait plus que LIRE** : `registerInterest(bbox)` + `getAircraftInBBox(bbox)` → réponse < 10 ms, TOUJOURS, quel que soit l'état de l'amont. Fini les réponses qui variaient de 0,1 s à 45 s (source des courses et du chaos).
+- **Bonus débit** : fini les 4 téléchargements parallèles qui s'étranglaient mutuellement sur le lien lent du VPS (le « 300 Ko en 25 s » mesuré était en partie auto-infligé) — en séquentiel, chaque téléchargement va plus vite.
+- **Debug embarqué** : la réponse contient `collector: { tracked, zones, lastGlobalAgeS }` → dans l'onglet Network on voit d'un coup d'œil si le collecteur suit des avions. Ancien mécanisme « cache par tuile » archivé dans la route (plus référencé).
+- Conservés : anti-course client (V4.026), quantification des disques (V4.024), icône + traînée sélection (V4.021/025), interpolation 2 s.
+
 ### V4.026-dev — 2026-07-07 — 🏁 ANTI-COURSE : la vraie cause du chaos d'affichage
 - **Diagnostic à froid (retour Cissou : « tuiles qui apparaissent/disparaissent France-Europe-USA, zoom inutilisable »)** : les requêtes du client n'étaient **ni annulées ni ordonnées**. Avec un serveur qui pouvait bloquer jusqu'à 45 s (attente d'un téléchargement), une **VIEILLE réponse** (ancienne emprise, ex. France) arrivait APRÈS une récente (ex. monde) et **écrasait le store** → l'affichage sautait d'une emprise à l'autre en boucle. Aucun des patchs précédents n'attaquait ce point.
 - **Client (`liveData.ts`) — la recette des apps de référence** : ① la nouvelle requête **annule** la précédente (AbortController par endpoint) ; ② numéro de **séquence** par endpoint — seule la réponse de la requête la plus récente a le droit d'écrire dans le store, re-vérifié APRÈS lecture du corps ; ③ AbortError silencieux.

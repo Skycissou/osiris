@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.026-dev';
+export const OSIRIS_VERSION = 'V4.027-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.027-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F504} COUCHE AVIONS R\u00c9\u00c9CRITE \u00c0 Z\u00c9RO (mod\u00e8le des apps d'origine) : un " +
+      "COLLECTEUR permanent c\u00f4t\u00e9 serveur (lib/aircraftCollector) entretient l'\u00e9tat " +
+      "monde en m\u00e9moire \u2014 1 t\u00e9l\u00e9chargement \u00e0 la fois, round-robin des zones vues, " +
+      "OpenSky monde ~2 min. Les requ\u00eates carte ne t\u00e9l\u00e9chargent PLUS RIEN : elles " +
+      "lisent l'\u00e9tat (< 10 ms). Champ debug `collector` dans la r\u00e9ponse.",
+  },
   {
     version: 'V4.026-dev',
     date: '2026-07-07',
