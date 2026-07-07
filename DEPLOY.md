@@ -21,7 +21,7 @@
 # 1. METTRE À JOUR LE CODE SOURCE (obligatoire — sinon rebuild = vieux code)
 cd /docker/osiris-v4
 git fetch origin
-git reset --hard origin/claude/v4-opus-switch-points-m91ofq
+git reset --hard origin/master
 git log --oneline -1          # vérifier le commit attendu
 
 # 2. (garde-fou) s'assurer que le doublon est bien arrêté
