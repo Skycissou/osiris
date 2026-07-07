@@ -42,6 +42,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { safeFetch } from '@/lib/ssrf-guard';
+import { getGlobalAircraft } from '@/lib/openskyGlobal';
 
 // Toujours dynamique : données temps-réel, jamais de pré-rendu / cache statique.
 export const dynamic = 'force-dynamic';
@@ -579,6 +580,15 @@ function computeETag(list: Aircraft[], ships: Ship[]): string {
 
 // ── Handler ─────────────────────────────────────────────────────────────────
 
+/**
+ * Seuil « vue monde » : au-delà de ce rayon nécessaire (NM), même la grille
+ * 2×2 d'adsb.lol ne couvre plus la vue → on préfère l'instantané global
+ * OpenSky si des identifiants sont fournis (page Clés API ou env).
+ */
+const GLOBAL_VIEW_NM = 700;
+/** Plafond d'avions renvoyés en vue monde (protège le client). */
+const MAX_GLOBAL_POINTS = 4000;
+
 export async function GET(request: NextRequest) {
   const bbox = parseBBox(request.nextUrl.searchParams.get('bbox'));
 
@@ -587,6 +597,41 @@ export async function GET(request: NextRequest) {
   // Calculée d'abord pour être présente dans TOUTES les réponses, y compris les
   // dégradations avions ci-dessous.
   const ships = await fetchShips(request, bbox);
+
+  // ── VUE MONDE (OpenSky, option A validée par Cissou 07/07) ────────────────
+  //  Vue trop large pour adsb.lol + identifiants OpenSky présents → instantané
+  //  global (~2 min de fraîcheur, cache serveur). Échec/absence d'identifiants
+  //  → on retombe sur le tuilage adsb.lol ci-dessous (dégradation douce).
+  const [minLng2, minLat2, maxLng2, maxLat2] = bbox;
+  const neededNm =
+    haversineMeters((minLat2 + maxLat2) / 2, (minLng2 + maxLng2) / 2, maxLat2, maxLng2) /
+    NM_IN_METERS;
+  if (neededNm > GLOBAL_VIEW_NM) {
+    const oskyId =
+      request.headers.get('x-osiris-key-opensky_id') || process.env.OPENSKY_CLIENT_ID || '';
+    const oskySecret =
+      request.headers.get('x-osiris-key-opensky_secret') || process.env.OPENSKY_CLIENT_SECRET || '';
+    if (oskyId && oskySecret) {
+      const global = await getGlobalAircraft(oskyId, oskySecret);
+      if (global) {
+        const aircraft: Aircraft[] = [];
+        for (const a of global) {
+          if (!inBBox(a.lat, a.lng, bbox)) continue;
+          enrichVip(a);
+          aircraft.push(a);
+          if (aircraft.length >= MAX_GLOBAL_POINTS) break;
+        }
+        const etag = computeETag(aircraft, ships);
+        if (request.headers.get('if-none-match') === etag) {
+          return new NextResponse(null, { status: 304, headers: { ETag: etag, 'Cache-Control': 'no-store' } });
+        }
+        return NextResponse.json(
+          { aircraft, ships, count: aircraft.length, ts: Date.now(), source: 'opensky' },
+          { status: 200, headers: { ETag: etag, 'Cache-Control': 'no-store' } },
+        );
+      }
+    }
+  }
 
   // adsb.lol /v2/point — 1 disque (vue proche) ou grille 2×2 (dézoom), en
   // parallèle. Une tuile qui échoue est ignorée ; tout échoué → couche vide.

@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.022-dev';
+export const OSIRIS_VERSION = 'V4.023-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.023-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F310} Vue MONDE des avions via OpenSky Network (compte gratuit, OAuth2, " +
+      "instantan\u00e9 global ~2 min) quand la vue d\u00e9passe la port\u00e9e adsb.lol \u2014 2 nouveaux " +
+      "services page Cl\u00e9s API (opensky_id/secret) + env. News : PLAN B automatique " +
+      "Google Actualit\u00e9s RSS quand GDELT est en quota/panne. Feux (audit sous-agent) : " +
+      "timeout 10\u219230 s + log si r\u00e9ponse FIRMS non-CSV (cl\u00e9 invalide visible).",
+  },
   {
     version: 'V4.022-dev',
     date: '2026-07-07',

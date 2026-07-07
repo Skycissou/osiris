@@ -45,6 +45,8 @@ export type ApiKeyService =
   | 'opensanctions' // OpenSanctions — quota listes de sanctions
   | 'ais_url' // Source AIS REST — gabarit d'URL (navires)
   | 'ais_key' // Source AIS REST — clé (navires)
+  | 'opensky_id' // OpenSky Network — client_id OAuth2 (avions vue MONDE)
+  | 'opensky_secret' // OpenSky Network — client_secret OAuth2 (avions vue MONDE)
   | 'cctv' // Caméras publiques — source OSINT (forme 2)
   | 'gpsjam' // Brouillage GPS — source OSINT (forme 2)
   | 'scanner' // Scanners radio — agrégateur (forme 2)
@@ -173,6 +175,30 @@ export const API_KEY_SERVICES: readonly ApiKeyServiceMeta[] = [
     howTo:
       'Récupère la clé auprès de ton fournisseur AIS REST et colle-la ici (même service que le gabarit d’URL).',
     cost: 'variable',
+    form: 1,
+  },
+  {
+    service: 'opensky_id',
+    label: 'OpenSky — identifiant client (avions vue MONDE)',
+    env: 'OPENSKY_CLIENT_ID',
+    purpose:
+      'Vue MONDIALE des avions en dézoom (photo globale ~2 min via OpenSky Network). Sans ces 2 champs, le dézoom reste limité aux disques adsb.lol (250 NM).',
+    url: 'https://opensky-network.org',
+    howTo:
+      'Crée un compte gratuit sur opensky-network.org → connecte-toi → « Account » → « API Client » → crée un client API → copie le « client_id » ici (et le « client_secret » dans le champ suivant).',
+    cost: 'gratuit (quota)',
+    form: 1,
+  },
+  {
+    service: 'opensky_secret',
+    label: 'OpenSky — secret client (avions vue MONDE)',
+    env: 'OPENSKY_CLIENT_SECRET',
+    purpose:
+      'Seconde moitié de l’accès OpenSky : le « client_secret » du client API (va de pair avec l’identifiant ci-dessus).',
+    url: 'https://opensky-network.org',
+    howTo:
+      'Sur la même page « API Client » d’OpenSky, copie le « client_secret » et colle-le ici. Les deux champs sont nécessaires.',
+    cost: 'gratuit (quota)',
     form: 1,
   },
   // ── Sources sensibles (forme 2 — câblage variable) ────────────────────────

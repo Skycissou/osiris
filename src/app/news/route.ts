@@ -34,6 +34,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { gdeltFetch } from '@/lib/gdeltGate';
+import { safeFetch } from '@/lib/ssrf-guard';
 
 // Toujours dynamique : fil d'actu à la demande, jamais de pré-rendu / cache statique.
 export const dynamic = 'force-dynamic';
@@ -78,6 +79,91 @@ function softError(message: string): NextResponse {
     { articles: [], error: message } satisfies NewsResult,
     { status: 200, headers: { 'Cache-Control': 'no-store' } },
   );
+}
+
+// ── PLAN B : Google Actualités RSS (ajouté 07/07) ────────────────────────────
+//  GDELT rate-limite fort les IP insistantes (pénalités constatées sur le VPS)
+//  → quand GDELT échoue (quota/timeout/injoignable), on retombe sur le flux
+//  RSS public de Google Actualités : gratuit, sans clé, stable. Mêmes champs
+//  NewsArticle → le panneau ne voit pas la différence.
+
+/** Timeout du fallback RSS (Google répond vite). */
+const RSS_TIMEOUT_MS = 9_000;
+
+/** Décode les entités XML/HTML courantes d'un titre RSS. */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .trim();
+}
+
+/** Extrait le contenu d'une balise simple dans un bloc <item>. */
+function tag(block: string, name: string): string | undefined {
+  const m = block.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, 'i'));
+  return m ? decodeEntities(m[1]) : undefined;
+}
+
+/**
+ * Fil Google Actualités RSS pour un thème + langue. Renvoie null si le flux
+ * est injoignable/illisible (l'appelant garde alors l'erreur GDELT d'origine).
+ */
+async function fetchGoogleNewsRss(theme: string, lang: 'fr' | 'en' | null): Promise<NewsArticle[] | null> {
+  const q = theme || 'géopolitique OR cybersécurité OR conflit';
+  const locale = lang === 'en'
+    ? 'hl=en-US&gl=US&ceid=US:en'
+    : 'hl=fr&gl=FR&ceid=FR:fr'; // défaut FR (public OSIRIS)
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&${locale}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), RSS_TIMEOUT_MS);
+  try {
+    const res = await safeFetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { Accept: 'application/rss+xml, application/xml, text/xml', 'User-Agent': USER_AGENT },
+      maxRedirects: 3,
+    });
+    if (!res.ok) return null;
+    const xml = await res.text();
+    const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? [];
+    const articles: NewsArticle[] = [];
+    for (const block of items) {
+      const title = tag(block, 'title');
+      const url2 = tag(block, 'link');
+      if (!title || !url2) continue;
+      const source = tag(block, 'source');
+      articles.push({
+        title,
+        url: url2,
+        ...(source ? { domain: source } : {}),
+        ...(tag(block, 'pubDate') ? { seendate: tag(block, 'pubDate') } : {}),
+        language: lang === 'en' ? 'English' : 'French',
+      });
+      if (articles.length >= MAX_RECORDS) break;
+    }
+    return articles.length ? articles : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/** GDELT KO → tente le RSS ; s'il répond, on le sert, sinon l'erreur d'origine. */
+async function gdeltDownFallback(theme: string, lang: 'fr' | 'en' | null, originalError: string): Promise<NextResponse> {
+  const rss = await fetchGoogleNewsRss(theme, lang);
+  if (rss) {
+    return NextResponse.json(
+      { articles: rss } satisfies NewsResult,
+      { status: 200, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+  return softError(originalError);
 }
 
 /**
@@ -140,10 +226,11 @@ export async function GET(request: NextRequest) {
     // Tout appel GDELT passe par le PORTIER (quota 1 req/5,5 s partagé avec la
     // couche géopolitique, cache 5 min, stale-on-error, timeout 20 s).
     const gate = await gdeltFetch(upstream, USER_AGENT);
-    if (!gate) return softError('GDELT injoignable, réessaie dans un moment');
+    // GDELT KO (injoignable/quota/erreur) → PLAN B Google Actualités RSS.
+    if (!gate) return gdeltDownFallback(theme, lang, 'GDELT injoignable, réessaie dans un moment');
     if (!gate.stale) {
-      if (gate.status === 429) return softError('quota GDELT atteint, réessaie dans un moment');
-      if (gate.status < 200 || gate.status >= 300) return softError(`amont GDELT ${gate.status}`);
+      if (gate.status === 429) return gdeltDownFallback(theme, lang, 'quota GDELT atteint, réessaie dans un moment');
+      if (gate.status < 200 || gate.status >= 300) return gdeltDownFallback(theme, lang, `amont GDELT ${gate.status}`);
     }
 
     // GDELT renvoie parfois du texte (message d'erreur, requête trop large…)
@@ -155,7 +242,7 @@ export async function GET(request: NextRequest) {
     } catch {
       // Corps non-JSON = message GDELT (souvent « requête trop courte/large »).
       const hint = text.trim().slice(0, 140);
-      return softError(hint ? `GDELT : ${hint}` : 'réponse GDELT illisible');
+      return gdeltDownFallback(theme, lang, hint ? `GDELT : ${hint}` : 'réponse GDELT illisible');
     }
 
     const raw = Array.isArray(payload.articles) ? payload.articles : [];
@@ -185,6 +272,6 @@ export async function GET(request: NextRequest) {
     );
   } catch {
     // Le portier gère timeout/quota en interne — ici : erreur inattendue.
-    return softError('échec réseau GDELT');
+    return gdeltDownFallback(theme, lang, 'échec réseau GDELT');
   }
 }

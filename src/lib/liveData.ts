@@ -19,7 +19,7 @@ import { keyHeaders } from './apiKeys';
 // Clés des couches à source payante/restreinte (FIRMS, AIS, sensibles form-2).
 // Envoyées en en-tête x-osiris-key-* si configurées via le module Clés API ;
 // le serveur retombe sur l'env si absentes.
-const LIVE_KEY_SERVICES = ['firms', 'ais_url', 'ais_key', 'cctv', 'gpsjam', 'scanner', 'sigint', 'telegram'] as const;
+const LIVE_KEY_SERVICES = ['firms', 'ais_url', 'ais_key', 'opensky_id', 'opensky_secret', 'cctv', 'gpsjam', 'scanner', 'sigint', 'telegram'] as const;
 
 // ── basePath ───────────────────────────────────────────────────────────
 //  Le cockpit tourne sous /cockpit : les routes /api internes DOIVENT être

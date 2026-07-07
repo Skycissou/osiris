@@ -69,7 +69,7 @@ const CATEGORIES: Categorie[] = [
 ];
 
 /** Services rattachés aux « couches carto » (forme 1 mais non-OSINT). */
-const COUCHES_SERVICES = new Set<ApiKeyService>(['firms', 'ais_url', 'ais_key']);
+const COUCHES_SERVICES = new Set<ApiKeyService>(['firms', 'ais_url', 'ais_key', 'opensky_id', 'opensky_secret']);
 
 /** Détermine la catégorie d'un service à partir de ses métadonnées. */
 function categorieDe(meta: ApiKeyServiceMeta): string {

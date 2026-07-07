@@ -104,8 +104,10 @@ const FEODO_C2_JSON =
   'https://feodotracker.abuse.ch/downloads/ipblocklist.json';
 /** Plafond de points cyber retenus. */
 const CYBER_MAX_POINTS = 500;
-/** Timeout réseau par source (ms). */
-const FETCH_TIMEOUT_MS = 10_000;
+/** Timeout réseau par source (ms). 10 s → 30 s le 07/07 : le CSV FIRMS monde
+ *  (VIIRS world/1) est volumineux et le débit VPS↔sources peut être lent —
+ *  10 s coupait le téléchargement → couche feux silencieusement vide. */
+const FETCH_TIMEOUT_MS = 30_000;
 /** User-Agent identifiant l'appelant (étiquette réseau, cohérent avec /fast). */
 const USER_AGENT = 'Osiris-Cockpit/4.0 (ARPD veille; +https://osiris.cissouhub.cloud)';
 
@@ -355,7 +357,13 @@ function parseFirmsCsv(text: string): Wildfire[] {
   const iBright = header.indexOf('bright_ti4') !== -1 ? header.indexOf('bright_ti4') : header.indexOf('brightness');
   const iDate = header.indexOf('acq_date');
   const iTime = header.indexOf('acq_time');
-  if (iLat === -1 || iLng === -1) return []; // format inattendu → couche vide
+  if (iLat === -1 || iLng === -1) {
+    // Format inattendu = souvent un MESSAGE FIRMS en HTTP 200 (clé invalide,
+    // quota). Avant le 07/07 c'était 100 % silencieux → intraçable. On loggue
+    // le début du texte pour que `docker logs osiris-v4-cockpit` dise pourquoi.
+    console.warn('[OSIRIS feux] réponse FIRMS non-CSV (clé invalide/quota ?):', text.trim().slice(0, 160));
+    return []; // couche vide (dégradation douce)
+  }
 
   const out: Wildfire[] = [];
   for (let i = 1; i < lines.length && out.length < FIRMS_MAX_POINTS; i++) {
