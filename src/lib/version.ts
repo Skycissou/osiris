@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.019-dev';
+export const OSIRIS_VERSION = 'V4.020-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.020-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F30D} Couche g\u00e9opolitique RESSUSCIT\u00c9E : l'API GEO interactive de GDELT est " +
+      "morte (vrai 404 \u2014 la couche n'a jamais rien affich\u00e9). Nouvelle source : fichiers " +
+      "export 15-min de data.gdeltproject.org (lib/gdeltEvents, unzip fflate, filtre " +
+      "conflits/manifestations, top 300, cache 15 min + stale-on-error). Carte inchang\u00e9e.",
+  },
   {
     version: 'V4.019-dev',
     date: '2026-07-07',

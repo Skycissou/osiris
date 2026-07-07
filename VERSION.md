@@ -29,6 +29,14 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.020-dev — 2026-07-07 — 🌍 Couche géopolitique ressuscitée (fichiers export GDELT)
+- **Constat (matrice de curls VPS)** : l'API GEO interactive (`api.gdeltproject.org/api/v2/geo/geo`) renvoie un **vrai 404 serveur** quelle que soit la requête → morte/retirée. La couche géopolitique n'a donc **jamais rien affiché** depuis V4.012 (échec silencieux, `gdelt:0`).
+- **Nouvelle source (GO Cissou, option A)** : les **fichiers export 15-min** de `data.gdeltproject.org` (`lastupdate.txt` → `.export.CSV.zip`, table « GDELT 2.0 Event Database », 61 colonnes) — autre hôte, **pas de rate-limit interactif**, gratuit sans clé.
+- **`lib/gdeltEvents.ts`** : lastupdate → zip → unzip (**fflate**, nouvelle dépendance ~8 Ko) → TSV → filtre points chauds (QuadClass 3/4 = conflits, ou racine CAMEO 14 = manifestations) → dédup par point (garde le + couvert) → **top 300 par nb d'articles** → même forme `GdeltEvent` (id/lat/lng/name/count/url/tone) → **zéro changement côté carte** (popups + filtre tonalité intacts).
+- **Cache 15 min** (rythme de publication GDELT) + **stale-on-error** + garde-fou 30 Mo + un seul téléchargement concurrent. L'ancien chemin GEO (GDELT_GEO_TMPL/parseGdelt) reste archivé dans la route.
+- Script test-couches : la ligne « GDELT geo » (API morte) devient « GDELT files » (lastupdate.txt).
+- Le portier `gdeltGate` (V4.019) reste en service pour `/news` (API DOC, elle, vivante mais rate-limitée).
+
 ### V4.019-dev — 2026-07-07 — 🚪 Portier GDELT (fin des « timeout GDELT »)
 - **Diagnostic (script test-couches sur le VPS)** : GDELT répond **429** avec le message « limit requests to one every 5 seconds » — `/news` et la couche géopolitique (`/live-feed/slow`, toutes les 120 s) + les refresh du panneau se marchaient dessus depuis la même IP → GDELT ralentissait/refusait → « timeout GDELT ».
 - **Fix : `lib/gdeltGate.ts`**, portier UNIQUE pour tout appel GDELT : ① file sérialisée, **1 requête / 5,5 s** max (leur règle + marge) ② **cache mémoire 5 min** par URL ③ **stale-on-error** (amont en panne → on sert la dernière réponse connue plutôt qu'un panneau vide) ④ timeout **20 s** (GDELT dépasse souvent 9 s en pointe). `/news` et la couche géo branchés dessus.

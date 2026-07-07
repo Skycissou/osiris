@@ -48,7 +48,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { safeFetch } from '@/lib/ssrf-guard';
-import { gdeltFetch } from '@/lib/gdeltGate';
+import { getGdeltEvents } from '@/lib/gdeltEvents';
 import { computeSatellites, SATS_SUIVIS, type SatPosition } from '@/lib/satellites';
 
 // Toujours dynamique : données temps quasi-réel, jamais de pré-rendu statique.
@@ -582,15 +582,12 @@ export async function GET(request: NextRequest) {
   // ── 5) GÉOPOLITIQUE — GDELT 2.0 GEO (GeoJSON, gratuit, sans clé) ──────────
   //  Points chauds média mondiaux < 24 h pour GDELT_QUERY (configurable en tête
   //  de fichier). Source KO / JSON invalide → couche vide, la route tient.
-  //  ⚠️ Via le PORTIER gdeltGate (quota GDELT 1 req/5,5 s PARTAGÉ avec /news,
-  //  cache 5 min, stale-on-error) — les appels directs se faisaient 429.
-  const gdeltUrl = GDELT_GEO_TMPL.replace('{QUERY}', encodeURIComponent(GDELT_QUERY));
-  const gdeltGateRes = await gdeltFetch(gdeltUrl, USER_AGENT).catch(() => null);
-  const gdeltText =
-    gdeltGateRes && gdeltGateRes.status >= 200 && gdeltGateRes.status < 300
-      ? gdeltGateRes.text
-      : null;
-  const gdelt: GdeltEvent[] = gdeltText ? parseGdelt(gdeltText) : [];
+  //  ⚠️ SOURCE CHANGÉE le 07/07 (V4.020, GO Cissou) : l'API GEO interactive de
+  //  GDELT renvoie un vrai 404 (morte/retirée — la couche n'a jamais affiché).
+  //  → FICHIERS export 15-min de data.gdeltproject.org via lib/gdeltEvents
+  //  (cache 15 min + stale-on-error, même forme GdeltEvent — carte inchangée).
+  //  L'ancien chemin (GDELT_GEO_TMPL/GDELT_QUERY/parseGdelt) reste archivé ici.
+  const gdelt: GdeltEvent[] = await getGdeltEvents().catch(() => []);
 
   // ── 6) CYBER — abuse.ch Feodo Tracker (JSON, gratuit, sans clé) ───────────
   //  CADRE DÉFENSIF : indicateurs PUBLICS de menace (serveurs C2 de botnets),

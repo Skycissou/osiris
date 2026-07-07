@@ -43,9 +43,10 @@ check "Séismes (USGS)"           'd=json.load(sys.stdin);print(len(d.get("featu
   "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"
 check "Satellites (celestrak)"   'print(1 if "1 " in sys.stdin.read() else 0)' \
   "https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=tle"
-# Requête géo = EXACTEMENT celle de l'app (GDELT_QUERY de slow/route.ts).
-check "Géopolitique (GDELT geo)" 'd=json.load(sys.stdin);print(len(d.get("features") or []))' \
-  "https://api.gdeltproject.org/api/v2/geo/geo?query=%28protest%20OR%20conflict%20OR%20attack%20OR%20unrest%20OR%20election%29&format=GeoJSON&timespan=24h"
+# Géopolitique : depuis V4.020 la source = FICHIERS export 15-min de GDELT
+# (l'API GEO interactive est morte — vrai 404 constaté le 07/07).
+check "Géopolitique (GDELT files)" 'print(1 if ".export.CSV.zip" in sys.stdin.read() else 0)' \
+  "https://data.gdeltproject.org/gdeltv2/lastupdate.txt"
 check "Cyber C2 (abuse.ch)"      'd=json.load(sys.stdin);print(len(d) if isinstance(d,list) else 0)' \
   "https://feodotracker.abuse.ch/downloads/ipblocklist.json"
 # GDELT limite à 1 req/5 s par IP → pause avant le 2ᵉ appel GDELT du script.
