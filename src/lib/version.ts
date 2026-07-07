@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.036-dev';
+export const OSIRIS_VERSION = 'V4.037-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.037-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F4F0} News figées (retour Cissou : « 8 h que ce n'est pas à jour ») : le portier " +
+      "GDELT resservait le cache périmé SANS limite d'âge quand GDELT ramait → news gelées " +
+      "des heures. Corrigé : (1) stale-on-error BORNÉ à 30 min (au-delà le portier rend null) ; " +
+      "(2) la route /news, dès qu'elle reçoit du périmé, bascule d'ABORD sur Google Actualités " +
+      "RSS (frais) et ne sert le périmé qu'en dernier recours. Audit données OpenSky livré au " +
+      "brain (8/17 champs consommés ; category+squawk jetés = avions monde bleus).",
+  },
   {
     version: 'V4.036-dev',
     date: '2026-07-07',

@@ -24,6 +24,14 @@ import { recordCall } from '@/lib/telemetry';
 
 /** Durée de fraîcheur d'une réponse en cache. */
 const TTL_MS = 5 * 60_000;
+/**
+ * Âge MAXIMUM d'une réponse périmée encore servie en stale-on-error. Au-delà,
+ * le cache est jugé inutilisable → gdeltFetch renvoie null pour que l'appelant
+ * bascule sur son plan B (ex. Google Actualités RSS). Sans ce plafond, une panne
+ * GDELT prolongée gèle les news sur le dernier cache pendant des heures
+ * (constat Cissou 07/07 : « 8 h que ce n'est pas à jour »).
+ */
+const MAX_STALE_MS = 30 * 60_000;
 /** Espacement minimal entre deux requêtes GDELT (règle amont 5 s + marge). */
 const MIN_INTERVAL_MS = 5_500;
 /** Timeout réseau par requête (GDELT dépasse souvent 9 s en pointe). */
@@ -104,6 +112,10 @@ export async function gdeltFetch(url: string, userAgent: string): Promise<GdeltR
   }));
 
   if (fresh) return { status: (fresh as GateEntry).status, text: (fresh as GateEntry).text, stale: false };
-  if (hit) return { status: hit.status, text: hit.text, stale: true };
+  // Stale-on-error BORNÉ : on ne ressert le périmé que s'il est < MAX_STALE_MS.
+  // Trop vieux → null, l'appelant bascule sur son plan B (fini le gel 8 h).
+  if (hit && Date.now() - hit.ts < MAX_STALE_MS) {
+    return { status: hit.status, text: hit.text, stale: true };
+  }
   return null;
 }

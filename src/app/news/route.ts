@@ -226,9 +226,21 @@ export async function GET(request: NextRequest) {
     // Tout appel GDELT passe par le PORTIER (quota 1 req/5,5 s partagé avec la
     // couche géopolitique, cache 5 min, stale-on-error, timeout 20 s).
     const gate = await gdeltFetch(upstream, USER_AGENT);
-    // GDELT KO (injoignable/quota/erreur) → PLAN B Google Actualités RSS.
+    // GDELT KO (injoignable/quota/erreur, ou périmé trop vieux) → PLAN B RSS.
     if (!gate) return gdeltDownFallback(theme, lang, 'GDELT injoignable, réessaie dans un moment');
-    if (!gate.stale) {
+    // GDELT sert du PÉRIMÉ (stale-on-error) → on préfère des news FRAÎCHES via
+    // Google Actualités RSS ; le périmé n'est servi qu'en dernier recours (RSS KO).
+    // Sinon un cache figé masquait des news vieilles de plusieurs heures (07/07).
+    if (gate.stale) {
+      const rss = await fetchGoogleNewsRss(theme, lang);
+      if (rss) {
+        return NextResponse.json(
+          { articles: rss } satisfies NewsResult,
+          { status: 200, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      // RSS indisponible aussi → on tombera sur le parse du périmé ci-dessous.
+    } else {
       if (gate.status === 429) return gdeltDownFallback(theme, lang, 'quota GDELT atteint, réessaie dans un moment');
       if (gate.status < 200 || gate.status >= 300) return gdeltDownFallback(theme, lang, `amont GDELT ${gate.status}`);
     }

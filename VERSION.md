@@ -29,6 +29,14 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.037-dev — 2026-07-07 — 📰 News figées (stale-on-error sans limite) + audit données OpenSky
+**Retour Cissou** : « pour les news ça fait 8 h que ce n'est pas à jour, y a un problème de live ».
+- **Cause** : le portier `gdeltGate` servait le **cache périmé sans limite d'âge** (`stale-on-error`). Quand GDELT rame (fréquent), il resservait indéfiniment le dernier cache → news gelées des heures. Et la route `/news`, en recevant du périmé (`gate.stale`), **ne basculait pas** sur le plan B Google RSS.
+- **Fix 1 (`gdeltGate.ts`)** : `stale-on-error` **borné à 30 min** (`MAX_STALE_MS`). Au-delà, le portier renvoie `null` → l'appelant bascule sur son plan B.
+- **Fix 2 (`news/route.ts`)** : dès que GDELT sert du **périmé**, on tente **d'abord** Google Actualités RSS (frais, sans clé) ; le périmé n'est servi qu'en **dernier recours** (RSS KO aussi).
+- **Shodan** (« j'ai rentré Shodan et je ne vois rien ») : **normal** — Shodan est un **outil OSINT** (IP → ports/services/CVE), pas une couche carto. Il produit un résultat **uniquement** via le panneau OSINT sur une **IP**. Bien branché (cibles IP). Bouton « Tester » pour valider la clé.
+- **Audit données OpenSky** livré au brain (`notes/osiris/audit-sources-donnees.md`) : on consomme **8 des 17 champs** du state-vector ; on **jette `category` (idx 17) et `squawk` (idx 14)** → c'est pourquoi les avions en **vue monde** sont tous bleus et sans détection d'urgence (≠ adsb.lol régional). #1 manque à combler (chantier proposé).
+
 ### V4.036-dev — 2026-07-07 — 🔑 OpenSky : identifiant client affiché en clair (fin de la confusion des 2 champs)
 **Retour Cissou** : « je vois 1 seul champ OpenSky » alors que le registre en déclare deux depuis V4.023 (`opensky_id` + `opensky_secret`). Diagnostic : les deux cartes existaient bien mais **se ressemblaient trop** (deux champs masqués identiques) → lues comme une seule.
 - **Correctif** : l'**identifiant client OAuth2 n'est PAS un secret**. Nouveau flag `secret?: boolean` dans `ApiKeyServiceMeta` ; `opensky_id` passe à `secret: false` → rendu **en clair** (champ texte, bordure/badge **vert** « identifiant · pas un secret · visible »), visuellement **distinct** du secret masqué.
