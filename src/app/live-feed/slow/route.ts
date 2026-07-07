@@ -136,6 +136,12 @@ interface Earthquake {
   depth: number | null; // profondeur (km, + = sous la surface)
   place: string; // libellé humain (« 12 km NE de … »)
   time: number; // epoch ms (properties.time)
+  alert?: string; // PAGER (green/yellow/orange/red) — impact humain officiel
+  tsunami?: boolean; // alerte tsunami possible
+  sig?: number; // « significance » (0-1000) — importance globale
+  type?: string; // earthquake / explosion / quarry blast (≠ séisme = signal !)
+  magType?: string; // type de magnitude (mb, mw, ml…)
+  url?: string; // fiche USGS (traçabilité/preuve)
 }
 
 /** Feu actif normalisé (FIRMS). */
@@ -185,12 +191,28 @@ interface CyberC2 {
   malware?: string; // famille de malware associée (ex. « Emotet », « QakBot »)
   country?: string; // code pays ISO2 fourni par la source
   first_seen?: string; // date de première observation (chaîne source telle quelle)
+  port?: number; // port du C2 (IOC actionnable)
+  status?: string; // online / offline
+  asn?: number; // ASN hébergeur
+  asName?: string; // nom hébergeur
+  hostname?: string; // nom d'hôte du C2
+  lastOnline?: string; // dernière activité observée
 }
 
 // ── Types bruts USGS (sous-ensemble utile) ──────────────────────────────────
 interface UsgsFeature {
   id?: string;
-  properties?: { mag?: number | null; place?: string | null; time?: number | null };
+  properties?: {
+    mag?: number | null;
+    place?: string | null;
+    time?: number | null;
+    alert?: string | null; // niveau PAGER (green/yellow/orange/red)
+    tsunami?: number | null; // 1 = alerte tsunami possible
+    sig?: number | null; // « significance » 0-1000
+    type?: string | null; // earthquake / explosion / quarry blast…
+    magType?: string | null; // mb, mw, ml…
+    url?: string | null; // fiche USGS
+  };
   geometry?: { coordinates?: [number, number, number] }; // [lng, lat, depth]
 }
 interface UsgsFeed {
@@ -222,6 +244,12 @@ interface FeodoEntry {
   country?: string | null;
   malware?: string | null;
   first_seen?: string | null;
+  port?: number | null; // port du C2 — IOC actionnable (blocage)
+  status?: string | null; // online / offline
+  as_number?: number | null; // ASN hébergeur
+  as_name?: string | null; // nom hébergeur (bulletproof récurrents)
+  hostname?: string | null; // nom d'hôte du C2 (pivot domaine)
+  last_online?: string | null; // dernière activité
 }
 
 // ── Table de centroïdes pays (ISO2 → {lat,lng}) ──────────────────────────────
@@ -352,6 +380,8 @@ function parseUsgs(text: string): Earthquake[] {
     if (typeof lat !== 'number' || typeof lng !== 'number') continue;
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
     const p = f.properties ?? {};
+    const alert = typeof p.alert === 'string' && p.alert ? p.alert.toLowerCase() : undefined;
+    const type = typeof p.type === 'string' && p.type ? p.type : undefined;
     out.push({
       id: typeof f.id === 'string' && f.id ? f.id : `${lat},${lng},${p.time ?? ''}`,
       lat,
@@ -360,6 +390,12 @@ function parseUsgs(text: string): Earthquake[] {
       depth: typeof depth === 'number' && Number.isFinite(depth) ? depth : null,
       place: typeof p.place === 'string' ? p.place : '',
       time: typeof p.time === 'number' && Number.isFinite(p.time) ? p.time : 0,
+      alert,
+      tsunami: p.tsunami === 1 ? true : undefined,
+      sig: typeof p.sig === 'number' && Number.isFinite(p.sig) ? p.sig : undefined,
+      type,
+      magType: typeof p.magType === 'string' && p.magType ? p.magType : undefined,
+      url: typeof p.url === 'string' && p.url ? p.url : undefined,
     });
   }
   return out;
@@ -523,6 +559,12 @@ function parseFeodo(text: string): CyberC2[] {
       ...(typeof raw.first_seen === 'string' && raw.first_seen
         ? { first_seen: raw.first_seen }
         : {}),
+      ...(typeof raw.port === 'number' && Number.isFinite(raw.port) ? { port: raw.port } : {}),
+      ...(typeof raw.status === 'string' && raw.status ? { status: raw.status } : {}),
+      ...(typeof raw.as_number === 'number' && Number.isFinite(raw.as_number) ? { asn: raw.as_number } : {}),
+      ...(typeof raw.as_name === 'string' && raw.as_name ? { asName: raw.as_name } : {}),
+      ...(typeof raw.hostname === 'string' && raw.hostname ? { hostname: raw.hostname } : {}),
+      ...(typeof raw.last_online === 'string' && raw.last_online ? { lastOnline: raw.last_online } : {}),
     });
   }
   return out;

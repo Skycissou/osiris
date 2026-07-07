@@ -29,6 +29,11 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.042-dev — 2026-07-07 — 🌍 Séismes + Cyber C2 enrichis (lot « gratuit » de l'audit, suite)
+Même logique que les feux (V4.041) : on lisait ~4 champs sur 25 (USGS) et 4/10 (Feodo).
+- **Séismes (USGS)** : ajout de **`alert`** (PAGER green/yellow/orange/red — impact humain officiel, coloré dans le popup), **🌊 `tsunami`** (alerte possible), **`sig`** (importance 0-1000), **`type`** et surtout — un « séisme » de type **explosion / tir de carrière / essai** est un **signal ARPD** (bandeau rouge « pas un séisme naturel »), **`magType`**, + **lien fiche USGS** (traçabilité). Popup au clic enrichi.
+- **Cyber C2 (abuse.ch)** : ajout de **`port`** (affiché en `IP:port` — l'IOC actionnable pour blocage), **`status`** (● en ligne / ○ hors ligne), **hébergeur** (`as_name` + `AS<number>` — les bulletproof récurrents), **`hostname`**, **`last_online`**. Fini le point IP muet.
+
 ### V4.041-dev — 2026-07-07 — 🔥 Feux enrichis : FRP + confiance + jour/nuit + popup (fini le point muet)
 **Retour Cissou** : « pour les feux j'ai juste un point rouge, aucune info ». C'est le manque #1 des feux dans l'audit (5 colonnes FIRMS lues sur 14).
 - **Parsing** (`slow/route.ts`) : ajout de **`frp`** (Fire Radiative Power, MW — la VRAIE puissance du feu), **`confidence`** (faible/nominale/haute ou %), **`daynight`** (jour/nuit), **`satellite`** (S-NPP / NOAA-20…).

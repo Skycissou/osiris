@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.041-dev';
+export const OSIRIS_VERSION = 'V4.042-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.042-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F30D} Couches séismes + cyber enrichies (lot « gratuit » de l'audit, suite). SÉISMES : " +
+      "alerte PAGER (impact humain), \u{1F30A} alerte tsunami, IMPORTANCE, et surtout TYPE — un " +
+      "« séisme » marqué explosion/tir près d'un site sensible = signal ARPD (bandeau rouge), " +
+      "+ lien fiche USGS. CYBER C2 : port (IOC), statut en ligne/hors ligne, HÉBERGEUR (AS), " +
+      "hôte, dernière activité — fini le point IP muet. Popups au clic enrichis.",
+  },
   {
     version: 'V4.041-dev',
     date: '2026-07-07',

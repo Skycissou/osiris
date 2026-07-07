@@ -53,6 +53,12 @@ export interface QuakePoint {
   depth?: number;
   place?: string;
   time?: number;
+  alert?: string; // PAGER (green/yellow/orange/red) — impact humain
+  tsunami?: boolean; // alerte tsunami possible
+  sig?: number; // importance (0-1000)
+  type?: string; // earthquake / explosion / quarry blast
+  magType?: string; // type de magnitude
+  url?: string; // fiche USGS
 }
 
 /** Foyer d'incendie (source NASA FIRMS, public). */
@@ -107,6 +113,12 @@ export interface CyberPoint {
   malware?: string;
   country?: string;
   first_seen?: string;
+  port?: number; // port du C2 (IOC actionnable)
+  status?: string; // online / offline
+  asn?: number; // ASN hébergeur
+  asName?: string; // nom hébergeur
+  hostname?: string; // nom d'hôte du C2
+  lastOnline?: string; // dernière activité
 }
 
 /** Navire (source AIS, clé requise — cf. route fast). */
@@ -612,12 +624,29 @@ function OsirisMap({
         const geom = f.geometry;
         const coords = geom && geom.type === 'Point' ? (geom.coordinates as [number, number]) : [e.lngLat.lng, e.lngLat.lat];
         const depth = p.depth != null && p.depth !== '' ? `${escapeHtml(p.depth)} km` : '—';
+        // Type ≠ « earthquake » = signal fort (explosion, tir de carrière…).
+        const qtype = typeof p.qtype === 'string' ? p.qtype : '';
+        const isNotQuake = qtype && qtype !== 'earthquake';
+        const typeLabel: Record<string, string> = {
+          explosion: 'EXPLOSION', 'quarry blast': 'tir de carrière',
+          'nuclear explosion': 'ESSAI NUCLÉAIRE', 'mining explosion': 'tir de mine',
+        };
+        const bandeau = isNotQuake
+          ? `<div style="color:#ff6b74;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;">⚠️ ${escapeHtml(typeLabel[qtype] || qtype)} (pas un séisme naturel)</div>`
+          : `<div style="color:#d6a445;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Séisme · temps réel</div>`;
+        const alertColors: Record<string, string> = { green: '#7cffb2', yellow: '#ffd24a', orange: '#ff9f43', red: '#ff6b74' };
+        const alert = typeof p.alert === 'string' && p.alert
+          ? `<span style="color:${alertColors[p.alert] || '#c2cbd8'};">alerte ${escapeHtml(p.alert.toUpperCase())}</span><br>` : '';
+        const tsunami = p.tsunami === '1' ? `<span style="color:#ff6b74;font-weight:600;">🌊 alerte tsunami possible</span><br>` : '';
+        const sig = p.sig != null && p.sig !== '' ? `Importance : ${escapeHtml(p.sig)}/1000<br>` : '';
+        const fiche = typeof p.url === 'string' && p.url
+          ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener noreferrer" style="color:#54bdde;">fiche USGS ↗</a>` : 'source USGS (public)';
         const html =
           `<div style="${POPUP_STYLE}">` +
-          `<div style="color:#d6a445;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Séisme · temps réel</div>` +
-          `<div style="color:#fff;font-size:16px;font-weight:600;margin-bottom:4px;">M ${escapeHtml(p.mag)}</div>` +
-          `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">${escapeHtml(p.place || 'Lieu inconnu')}<br>Profondeur : ${depth}</div>` +
-          `<div style="color:#586475;font-size:10px;margin-top:8px;">source USGS (public)</div>` +
+          bandeau +
+          `<div style="color:#fff;font-size:16px;font-weight:600;margin-bottom:4px;">M ${escapeHtml(p.mag)}${p.magType ? ` <span style="font-size:11px;color:#8a94a3;">${escapeHtml(p.magType)}</span>` : ''}</div>` +
+          `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">${escapeHtml(p.place || 'Lieu inconnu')}<br>${alert}${tsunami}Profondeur : ${depth}<br>${sig}</div>` +
+          `<div style="color:#586475;font-size:10px;margin-top:8px;">${fiche}</div>` +
           `</div>`;
         popupRef.current?.remove();
         popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '360px', offset: 14 })
@@ -882,11 +911,29 @@ function OsirisMap({
         const p = f.properties || {};
         const geom = f.geometry;
         const coords = geom && geom.type === 'Point' ? (geom.coordinates as [number, number]) : [e.lngLat.lng, e.lngLat.lat];
+        const line = (label: string, val: unknown) =>
+          val != null && val !== '' ? `${label} : ${escapeHtml(val)}<br>` : '';
+        const st = typeof p.status === 'string' ? p.status.toLowerCase() : '';
+        const statusBadge = st
+          ? `<span style="color:${st === 'online' ? '#ff6b74' : '#7f8da1'};font-weight:600;">${st === 'online' ? '● en ligne' : '○ hors ligne'}</span><br>`
+          : '';
+        // IP:port = l'IOC actionnable (blocage).
+        const ipPort = p.port != null && p.port !== '' ? `${escapeHtml(p.ip || '—')}:${escapeHtml(p.port)}` : escapeHtml(p.ip || '—');
+        const hebergeur = p.asName || p.asn
+          ? `Hébergeur : ${escapeHtml(p.asName || '')}${p.asn ? ` (AS${escapeHtml(p.asn)})` : ''}<br>` : '';
         const html =
           `<div style="${POPUP_STYLE}">` +
           `<div style="color:#db6f78;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Serveur C2 · menace</div>` +
-          `<div style="color:#fff;font-size:14px;font-weight:600;margin-bottom:4px;">${escapeHtml(p.ip || '—')}</div>` +
-          `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">Malware : ${escapeHtml(p.malware || '—')}<br>Pays : ${escapeHtml(p.country || '—')}</div>` +
+          `<div style="color:#fff;font-size:14px;font-weight:600;margin-bottom:4px;">${ipPort}</div>` +
+          `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">` +
+          statusBadge +
+          line('Malware', p.malware) +
+          hebergeur +
+          line('Hôte', p.hostname) +
+          line('Pays', p.country) +
+          line('Vu depuis', p.firstSeen) +
+          line('Dernière activité', p.lastOnline) +
+          `</div>` +
           `<div style="color:#586475;font-size:10px;margin-top:8px;">source abuse.ch (public) · veille défensive</div>` +
           `</div>`;
         popupRef.current?.remove();
@@ -1066,7 +1113,18 @@ function OsirisMap({
       .map((q) => ({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: [q.lng, q.lat] },
-        properties: { mag: typeof q.mag === 'number' ? q.mag : 0, place: q.place ?? '', depth: q.depth ?? '' },
+        properties: {
+          mag: typeof q.mag === 'number' ? q.mag : 0,
+          place: q.place ?? '',
+          depth: q.depth ?? '',
+          alert: q.alert ?? '',
+          tsunami: q.tsunami ? '1' : '',
+          sig: q.sig ?? '',
+          qtype: q.type ?? '',
+          magType: q.magType ?? '',
+          url: q.url ?? '',
+          time: q.time ?? '',
+        },
       }));
     setGeo('live-quakes', quakeFeats);
     setVis(['live-quakes-dots'], !!activeLayers?.live_earthquakes);
@@ -1123,7 +1181,12 @@ function OsirisMap({
       .map((c) => ({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: [c.lng, c.lat] },
-        properties: { ip: c.ip ?? '', malware: c.malware ?? '', country: c.country ?? '' },
+        properties: {
+          ip: c.ip ?? '', malware: c.malware ?? '', country: c.country ?? '',
+          port: c.port ?? '', status: c.status ?? '', asn: c.asn ?? '',
+          asName: c.asName ?? '', hostname: c.hostname ?? '',
+          lastOnline: c.lastOnline ?? '', firstSeen: c.first_seen ?? '',
+        },
       }));
     setGeo('live-cyber', cyberFeats);
     setVis(['live-cyber-dots'], !!activeLayers?.live_cyber);
