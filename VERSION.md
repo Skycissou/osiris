@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.017-dev — 2026-07-07 — Page Clés API : scroll + PERSISTANCE des clés entre versions
+- **Scroll réparé** sur `/cockpit/cles-api` : `html/body` sont en `overflow:hidden` (nécessaire à la carte plein écran) → la page porte désormais **son propre conteneur de scroll** (`h-screen overflow-y-auto`).
+- **Clés saisies UNE fois, valables pour TOUTES les versions** (demande Cissou) : le compose staging charge **`env_file: /docker/osiris-v4/.env`** sur le service cockpit. Ce fichier vit sur le VPS, **hors git** (`.env` gitignoré) → il survit aux `git pull` et aux `up -d --build` de chaque palier. Création une seule fois : `cp .env.example .env` + renseigner. Priorité côté routes : clé saisie dans l'app (en-tête navigateur) → sinon cet env.
+- **`.env.example` nettoyé** : mentions du nom de projet interdit retirées (→ `docs/PARITE-FONCTIONNELLE.md`) + note persistance ajoutée.
+- Rappel : les clés saisies **dans l'app** (localStorage) survivent déjà aux redéploiements (elles vivent dans le navigateur) — l'env serveur couvre en plus tout navigateur/poste et les couches server-side.
+
 ### V4.016-dev — 2026-07-07 — Clés API : page dédiée (fini le panneau sur la carte)
 - **Nouvelle page `/cockpit/cles-api`** (demande Cissou : « l'onglet API mérite une page dédiée ») : plein écran, **compteur « X / 13 clés configurées »**, note de sécurité, boutons retour Cockpit/Accueil, badge version. Route sous le basePath `/cockpit` (**jamais `/api/*`** — Traefik).
 - **Refactor sans duplication** : le cœur du module (cartes de services par catégorie, statut ✔/○, champ masqué, Enregistrer/Effacer, lien + procédure) est extrait dans **`KeysManager.tsx`** — source unique consommée par la page ET l'ancien panneau.

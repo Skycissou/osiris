@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.016-dev';
+export const OSIRIS_VERSION = 'V4.017-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.017-dev',
+    date: '2026-07-07',
+    resume:
+      "Page Clés API : scroll réparé (html/body overflow:hidden → la page porte son " +
+      "propre conteneur h-screen overflow-y-auto). Clés PERSISTANTES entre versions : " +
+      "env_file /docker/osiris-v4/.env (gitignoré, hors versions) chargé par le compose " +
+      "staging — saisie UNE fois, survit aux pulls/rebuilds. .env.example nettoyé.",
+  },
   {
     version: 'V4.016-dev',
     date: '2026-07-07',

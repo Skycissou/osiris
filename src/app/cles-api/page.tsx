@@ -28,7 +28,9 @@ export default function ClesApiPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[var(--bg,#070a0f)] text-white styled-scrollbar">
+    // h-screen + overflow-y-auto : html/body sont en overflow:hidden (nécessaire
+    // à la carte plein écran) → la page porte SON propre conteneur de scroll.
+    <main className="h-screen overflow-y-auto bg-[var(--bg,#070a0f)] text-white styled-scrollbar">
       <div className="mx-auto max-w-[860px] px-5 py-8 md:py-12">
         {/* ── Fil de retour ── */}
         <div className="flex items-center gap-3 mb-8">
