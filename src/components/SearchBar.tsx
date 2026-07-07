@@ -16,9 +16,11 @@ interface SearchBarProps {
   error?: string | null;
   resultCount?: number | null;
   isMobile?: boolean;
+  /** Largeur de la sidebar (navW) — la barre se décale pour ne JAMAIS la chevaucher. */
+  leftOffset?: number;
 }
 
-function SearchBar({ onSubmit, loading, error, resultCount, isMobile }: SearchBarProps) {
+function SearchBar({ onSubmit, loading, error, resultCount, isMobile, leftOffset }: SearchBarProps) {
   const [value, setValue] = useState('');
 
   const submit = (e: React.FormEvent) => {
@@ -30,7 +32,7 @@ function SearchBar({ onSubmit, loading, error, resultCount, isMobile }: SearchBa
   return (
     <div
       className="absolute top-16 z-[210] pointer-events-none flex flex-col gap-1.5"
-      style={{ left: isMobile ? '16px' : '100px', right: '16px', maxWidth: isMobile ? undefined : '520px' }}
+      style={{ left: isMobile ? '16px' : `${Math.max((leftOffset ?? 0) + 24, 100)}px`, right: '16px', maxWidth: isMobile ? undefined : '520px' }}
     >
       <form
         onSubmit={submit}

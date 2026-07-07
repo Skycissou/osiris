@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.014-dev';
+export const OSIRIS_VERSION = 'V4.015-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.015-dev',
+    date: '2026-07-07',
+    resume:
+      "Finitions sidebar (retours Cissou V4.014) : version sous le mot OSIRIS " +
+      "(colonne, plus jamais tronquée) sur accueil ET cockpit ; barre de recherche " +
+      "décalée de navW (fini le chevauchement) ; bouton flottant « ← Accueil » " +
+      "desktop archivé (doublon sidebar) ; emojis retirés des groupes Outils/Doc ; " +
+      "Prototype + Garde-fous déplacés dans Doc ; groupe Doc ajouté à la sidebar " +
+      "cockpit (miroir accueil).",
+  },
   {
     version: 'V4.014-dev',
     date: '2026-07-07',

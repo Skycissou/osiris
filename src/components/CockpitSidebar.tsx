@@ -12,15 +12,20 @@
 //  (`.ck-sidenav`, `.ck-navlink`, etc.). Rien d'autre à toucher.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { BASE_PATH } from '@/lib/api';
 
 /** Liens de navigation → onglets de l'accueil (racine du domaine, hors basePath).
- *  `active: true` = page courante (le cockpit). Édite librement cette liste. */
+ *  `active: true` = page courante (le cockpit). Édite librement cette liste.
+ *  MÊME structure que la sidebar de l'accueil : la doc est regroupée (DOC_LINKS). */
 const NAV_LINKS: { label: string; href?: string; active?: boolean }[] = [
   { label: 'Accueil', href: '/' },
   { label: 'Chercher', href: '/#chercher' },
   { label: 'Cockpit carte', active: true },
+];
+
+/** Groupe « Doc » (repliable) — miroir du groupe Doc de la sidebar accueil. */
+const DOC_LINKS: { label: string; href: string }[] = [
   { label: 'Sources', href: '/#sources' },
   { label: 'Recettes', href: '/#recettes' },
   { label: 'Glossaire', href: '/#glossaire' },
@@ -45,26 +50,34 @@ export interface CockpitSidebarProps {
 
 function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenNews, onCollapse }: CockpitSidebarProps) {
   /** Outils du cockpit (ouvrent un panneau). Édite librement : label + action.
-   *  (⏸️ « 🧠 Briefing IA » retiré le 05/07 à la demande de Cissou — code dormant.) */
+   *  (⏸️ « Briefing IA » retiré le 05/07 à la demande de Cissou — code dormant.
+   *   Emojis retirés le 07/07 à la demande de Cissou.) */
   const TOOLS: { label: string; onClick?: () => void }[] = [
-    { label: '🔍 OSINT', onClick: onOpenOsint },
-    { label: '🕸️ Graphe', onClick: onOpenGraph },
-    { label: '📰 News', onClick: onOpenNews },
-    { label: '🔑 Clés API', onClick: onOpenKeys },
+    { label: 'OSINT', onClick: onOpenOsint },
+    { label: 'Graphe', onClick: onOpenGraph },
+    { label: 'News', onClick: onOpenNews },
+    { label: 'Clés API', onClick: onOpenKeys },
   ];
+
+  // Groupe Doc repliable (fermé par défaut, comme le <details> de l'accueil).
+  const [docOpen, setDocOpen] = useState(false);
 
   return (
     <nav className="ck-sidenav">
       {/* Marque = MÊMES IMAGES que l'accueil (œil + mot OSIRIS métallique), servies
-          par le cockpit sous BASE_PATH (/cockpit/assets/...). La version part dans
-          le pied pour ne PAS déborder de la barre. Bouton « = replier. */}
+          par le cockpit sous BASE_PATH (/cockpit/assets/...). Version SOUS le mot
+          OSIRIS (colonne) = jamais de débordement, homogène avec l'accueil.
+          Bouton « = replier. */}
       <div className="ck-brand">
         <span className="ck-logo-mark">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`${BASE_PATH}/assets/logo-cut.png`} alt="OSIRIS" />
         </span>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="ck-wordmark-img" src={`${BASE_PATH}/assets/osiris-cut.png`} alt="OSIRIS" />
+        <span className="ck-wordmark">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="ck-wordmark-img" src={`${BASE_PATH}/assets/osiris-cut.png`} alt="OSIRIS" />
+          <span className="ck-wordmark-v">{version}</span>
+        </span>
         {onCollapse && (
           <button type="button" className="ck-collapse" onClick={onCollapse} title="Replier le menu" aria-label="Replier le menu">«</button>
         )}
@@ -79,6 +92,13 @@ function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenN
             <a key={l.label} className="ck-navlink" href={l.href}>{l.label}</a>
           ),
         )}
+        {/* Groupe Doc repliable — miroir du groupe de l'accueil */}
+        <button type="button" className="ck-navlink ck-group" onClick={() => setDocOpen((v) => !v)} aria-expanded={docOpen}>
+          <span className={`ck-group-chev${docOpen ? ' open' : ''}`}>›</span> Doc
+        </button>
+        {docOpen && DOC_LINKS.map((l) => (
+          <a key={l.label} className="ck-navlink ck-sub" href={l.href}>{l.label}</a>
+        ))}
       </div>
 
       <div className="ck-navlabel">Outils</div>
@@ -99,7 +119,8 @@ function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenN
         💬 Feedback / Questions
       </a>
       <a className="ck-navlogout" href="/logout">⏻ Se déconnecter</a>
-      <div className="ck-navfoot"><span className="dot" /> {version} · Données publiques FR</div>
+      {/* La version vit dans la marque (ck-wordmark-v) — plus de doublon ici. */}
+      <div className="ck-navfoot"><span className="dot" /> Données publiques FR</div>
     </nav>
   );
 }

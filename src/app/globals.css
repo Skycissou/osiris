@@ -149,13 +149,21 @@ html, body {
 }
 /* Marque : reprise EXACTE de l'accueil = IMAGES (logo œil + mot OSIRIS métallique),
    pas du CSS/texte. Assets copiés depuis open-radar-fr → public/assets/. */
-.ck-brand { display: flex; align-items: center; gap: 11px; white-space: nowrap; padding: 6px 8px 2px; overflow: hidden; }
+.ck-brand { display: flex; align-items: center; gap: 11px; padding: 6px 8px 2px; }
 /* Logo = assets/logo-cut.png (œil), calque de .logo-mark de l'accueil. */
 .ck-logo-mark { width: 34px; height: 34px; flex: none; display: grid; place-items: center; overflow: hidden; }
 .ck-logo-mark img { width: 34px; height: 34px; object-fit: contain; display: block; mix-blend-mode: screen; filter: saturate(1.12) brightness(1.12); }
-/* Mot « OSIRIS » = assets/osiris-cut.png (métallique) — largeur bornée pour ne
-   JAMAIS déborder de la barre (232 px). La version vit dans le pied. */
-.ck-wordmark-img { height: 24px; width: auto; max-width: 116px; object-fit: contain; display: block; filter: drop-shadow(0 0 8px rgba(106, 228, 255, 0.28)); }
+/* Mot « OSIRIS » + version DESSOUS (colonne) : l'image se réduit (max-width + ratio
+   préservé via max-height) au lieu d'être coupée → jamais de débordement ni de
+   troncature. Même layout que .wordmark de l'accueil (homogénéité). */
+.ck-wordmark { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.ck-wordmark-img { max-height: 24px; max-width: 100%; width: auto; height: auto; display: block; filter: drop-shadow(0 0 8px rgba(106, 228, 255, 0.28)); }
+.ck-wordmark-v { font-family: var(--font-hud); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: #6ae4ff; opacity: 0.85; white-space: nowrap; }
+/* Groupe repliable « Doc » (miroir du <details> de l'accueil) */
+.ck-navlink.ck-group::before { display: none; }
+.ck-group-chev { display: inline-block; width: 8px; font-size: 15px; line-height: 1; opacity: 0.55; transition: transform 0.15s; }
+.ck-group-chev.open { transform: rotate(90deg); }
+.ck-navlink.ck-sub { margin-left: 14px; width: calc(100% - 14px); font-size: 12.5px; }
 /* Bouton replier « (calque de .nav-collapse de l'accueil), poussé à droite. */
 .ck-collapse { margin-left: auto; flex: none; width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid var(--line-2); border-radius: var(--r-1); color: var(--muted); background: none; font-family: var(--font-hud); font-size: 14px; line-height: 1; cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s; }
 .ck-collapse:hover { color: var(--ink); border-color: var(--line-3); background: rgba(255, 255, 255, 0.05); }

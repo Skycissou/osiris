@@ -528,8 +528,9 @@ export default function Dashboard() {
         />
       </ErrorBoundary>
 
-      {/* ── BOUTON RETOUR ACCUEIL (desktop) — réintégré à la demande de Cissou,
-          en plus du lien Accueil de la sidebar (accès rapide flottant). ── */}
+      {/* ── BOUTON RETOUR ACCUEIL (desktop) — ARCHIVÉ le 07/07 à la demande de
+          Cissou : doublon du lien « Accueil » de la sidebar + chevauchait la
+          barre. On garde le code au cas où (réactiver = décommenter).
       {!isMobile && (
         <a
           href={lastQuery ? `/?q=${encodeURIComponent(lastQuery)}` : '/'}
@@ -540,6 +541,7 @@ export default function Dashboard() {
           ← Accueil
         </a>
       )}
+      ── */}
 
       {/* ── PANNEAU COUCHES (desktop) ── */}
       {!isMobile && (
@@ -556,6 +558,7 @@ export default function Dashboard() {
           error={searchError}
           resultCount={plottedCount}
           isMobile={isMobile}
+          leftOffset={navW}
         />
       </ErrorBoundary>
 

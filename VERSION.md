@@ -29,6 +29,13 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.015-dev — 2026-07-07 — Finitions sidebar (retours Cissou sur V4.014)
+- **Version jamais tronquée** : le badge version passe **SOUS le mot OSIRIS** (layout colonne) sur l'accueil **et** le cockpit — l'image OSIRIS se réduit proprement (`max-width` + ratio préservé) au lieu d'être coupée. Le cockpit affiche à nouveau la version dans la marque (elle était reléguée au pied, invisible) ; retirée du pied (doublon).
+- **Chevauchements réglés** : la barre de recherche du cockpit se décale de la largeur de la sidebar (`leftOffset={navW}` → `SearchBar`), fini le passage sous la barre.
+- **Bouton flottant « ← Accueil » (desktop) ARCHIVÉ** : doublon du lien Accueil de la sidebar + chevauchait — code conservé en commentaire dans `page.tsx` (réactivable). La version mobile reste (pas de sidebar sur mobile).
+- **Emojis retirés** des groupes Outils/Doc (accueil + cockpit), demande Cissou.
+- **Prototype + Garde-fous déplacés dans le groupe Doc** (accueil), et le **groupe Doc ajouté à la sidebar cockpit** (`DOC_LINKS` repliable) — sidebar identique partout.
+
 ### V4.014-dev — 2026-07-07 — Réorg sidebar accueil (outils rapatriés + doc regroupée + version affichée)
 - **Outils rapatriés sur l'accueil** (demande Cissou : « sur la carte c'est pas facile à utiliser ») : nouveau groupe repliable **« 🧰 Outils »** dans la sidebar de l'**accueil** (OSINT/Graphe/News/Clés API). Chaque bouton pointe vers **`/cockpit?panel=osint|graph|news|keys`** ; le cockpit lit `?panel` au montage (`useEffect` dans `src/app/page.tsx`) et **ouvre le panneau plein écran** — plus collé sur la carte. Helper `goCockpitPanel()` côté accueil (`app.js`). **1 seul code** (les outils restent en React dans le cockpit, aucune duplication).
 - **Doc regroupée** : `Sources · Recettes · Glossaire` → 1 seul groupe repliable **« 📚 Doc »** dans la sidebar accueil (gain de place). `<details>`/`<summary>` natif, sans JS, + adaptation mobile. Prototype & Garde-fous restent séparés (pas de la doc).
