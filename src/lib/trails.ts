@@ -238,8 +238,13 @@ export function buildTrails(
 
 /**
  * Fabrique une feature LineString estompée. `ageRatio` est dérivé du point le
- * plus ANCIEN encore vivant de l'entité (pas seulement du segment) : la
- * traînée entière vieillit d'un bloc, cohérent visuellement avec un fondu.
+ * plus RÉCENT de l'entité : une entité qui ÉMET ENCORE garde ratio ≈ 0 → sa
+ * traînée reste pleinement visible ; le fondu ne démarre que quand elle cesse
+ * d'émettre (disparue du flux) et s'achève à maxAgeMs.
+ *
+ * 🐛 Corrigé le 07/07 (retour Cissou « on ne voit pas les routes ») : l'ancien
+ * calcul partait du point le plus ANCIEN → dès ~10 min de suivi, ratio ≈ 1 →
+ * opacité ≈ 0 → TOUTES les traînées d'avions actifs devenaient invisibles.
  */
 function makeFeature(
   id: string,
@@ -248,8 +253,8 @@ function makeFeature(
   now: number,
   maxAgeMs: number,
 ): GeoJSON.Feature<GeoJSON.LineString, { id: string; ageRatio: number }> {
-  const oldest = allPoints[0].t;
-  const age = now - oldest;
+  const newest = allPoints[allPoints.length - 1].t;
+  const age = now - newest;
   // Clamp dans [0, 1] : 0 = tout frais, 1 = au bord de l'expiration.
   const ageRatio = maxAgeMs > 0 ? Math.max(0, Math.min(1, age / maxAgeMs)) : 0;
   return {

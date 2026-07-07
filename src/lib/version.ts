@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.020-dev';
+export const OSIRIS_VERSION = 'V4.021-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.021-dev',
+    date: '2026-07-07',
+    resume:
+      "\u2708\ufe0f Avions \u00d73 (retours Cissou) : \u2460 vraie silhouette d'avion de ligne " +
+      "(Path2D 2\u00d7 anticr\u00e9nel\u00e9e, liser\u00e9 sombre + halo \u2014 fini l'Atari) \u2461 tra\u00een\u00e9es " +
+      "enfin VISIBLES (le fondu partait du point le plus ancien \u2192 opacit\u00e9 0 apr\u00e8s 10 min " +
+      "de suivi ; il part maintenant du plus r\u00e9cent) \u2462 d\u00e9zoom : grille 2\u00d72 de requ\u00eates " +
+      "adsb.lol (max 4) \u2192 couverture continent au lieu d'un seul disque de 250 NM.",
+  },
   {
     version: 'V4.020-dev',
     date: '2026-07-07',

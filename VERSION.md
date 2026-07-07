@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.021-dev — 2026-07-07 — ✈️ Avions ×3 : icône digne, traînées visibles, couverture dézoom
+- **Icône refaite** (retour Cissou « années 80 Atari ») : vraie silhouette d'avion de ligne vue de dessus (fuselage effilé + ailes en flèche + empennage), tracée en `Path2D`, rendue **2×** (`pixelRatio`) → anticrénelée, liseré sombre (lisible sur satellite) + léger halo. Tracé clean-room.
+- **🐛 Traînées invisibles** (retour « on ne voit pas les routes ») : le fondu (`ageRatio`) partait du point **le plus ANCIEN** → un avion suivi 10 min avait ratio ≈ 1 → opacité ≈ 0 → toutes les routes des avions actifs disparaissaient. Il part maintenant du **plus RÉCENT** : traînée pleinement visible tant que l'avion émet, fondu seulement après sa disparition du flux. Trait épaissi (1,4→2,4 px selon zoom).
+- **Couverture en dézoom** (retour « que la France et 1 état USA ») : quand la vue dépasse un disque de 250 NM (limite `/v2/point` d'adsb.lol), la bbox est découpée en **grille 2×2** (max 4 requêtes parallèles, politesse envers la source gratuite), tuiles fusionnées + dédupliquées par hex → couverture continent. La vue MONDE entière reste partielle — limite assumée de la source gratuite.
+- News : rien à corriger côté code — « quota GDELT atteint » = pénalité temporaire de l'IP chez GDELT (laisser refroidir, le portier V4.019 protège).
+
 ### V4.020-dev — 2026-07-07 — 🌍 Couche géopolitique ressuscitée (fichiers export GDELT)
 - **Constat (matrice de curls VPS)** : l'API GEO interactive (`api.gdeltproject.org/api/v2/geo/geo`) renvoie un **vrai 404 serveur** quelle que soit la requête → morte/retirée. La couche géopolitique n'a donc **jamais rien affiché** depuis V4.012 (échec silencieux, `gdelt:0`).
 - **Nouvelle source (GO Cissou, option A)** : les **fichiers export 15-min** de `data.gdeltproject.org` (`lastupdate.txt` → `.export.CSV.zip`, table « GDELT 2.0 Event Database », 61 colonnes) — autre hôte, **pas de rate-limit interactif**, gratuit sans clé.

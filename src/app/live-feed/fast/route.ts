@@ -249,6 +249,63 @@ function bboxToPoint(bbox: BBox): { lat: number; lng: number; radiusNm: number }
   return { lat, lng, radiusNm };
 }
 
+/**
+ * Nb max de requêtes adsb.lol par tick — politesse envers la source gratuite.
+ * (2×2 tuiles : couvre un continent en dézoom ; la vue monde reste partielle,
+ * c'est la limite assumée du /v2/point à 250 NM.)
+ */
+const MAX_TILES = 4;
+
+/**
+ * Découpe la bbox en 1 ou 4 disques de requête (retour Cissou 07/07 : « les
+ * avions sont toujours que sur la France et 1 état USA » en dézoom).
+ * • bbox couverte par UN disque ≤ 250 NM → 1 requête (comportement historique) ;
+ * • sinon → grille 2×2, chaque quadrant interrogé sur son propre disque
+ *   circonscrit (plafonné) → couverture ×4, avions répartis sur toute la vue.
+ */
+function bboxToPoints(bbox: BBox): { lat: number; lng: number; radiusNm: number }[] {
+  const [minLng, minLat, maxLng, maxLat] = bbox;
+  const midLat = (minLat + maxLat) / 2;
+  const midLng = (minLng + maxLng) / 2;
+  // Rayon NON plafonné qu'il faudrait pour couvrir la bbox d'un seul disque.
+  const neededNm = haversineMeters(midLat, midLng, maxLat, maxLng) / NM_IN_METERS;
+  if (neededNm <= MAX_RADIUS_NM) return [bboxToPoint(bbox)];
+  const quadrants: BBox[] = [
+    [minLng, minLat, midLng, midLat],
+    [midLng, minLat, maxLng, midLat],
+    [minLng, midLat, midLng, maxLat],
+    [midLng, midLat, maxLng, maxLat],
+  ];
+  return quadrants.slice(0, MAX_TILES).map(bboxToPoint);
+}
+
+/**
+ * Interroge adsb.lol /v2/point pour UN disque. Renvoie la liste brute, ou
+ * null si l'amont échoue (timeout/erreur) — l'appelant fusionne les tuiles
+ * qui ont répondu (dégradation douce par tuile, pas tout-ou-rien).
+ */
+async function fetchAdsbTile(pt: { lat: number; lng: number; radiusNm: number }): Promise<RawAircraft[] | null> {
+  const upstream = `https://api.adsb.lol/v2/point/${pt.lat.toFixed(4)}/${pt.lng.toFixed(4)}/${pt.radiusNm}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    // safeFetch : garde SSRF (valide l'hôte, re-valide chaque redirection).
+    const res = await safeFetch(upstream, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
+      maxRedirects: 2,
+    });
+    if (!res.ok) return null;
+    const payload = (await res.json()) as { ac?: RawAircraft[] };
+    return Array.isArray(payload.ac) ? payload.ac : [];
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /** Un point (lat,lng) est-il dans la bbox ? */
 function inBBox(lat: number, lng: number, bbox: BBox): boolean {
   const [minLng, minLat, maxLng, maxLat] = bbox;
@@ -480,7 +537,6 @@ function computeETag(list: Aircraft[], ships: Ship[]): string {
 
 export async function GET(request: NextRequest) {
   const bbox = parseBBox(request.nextUrl.searchParams.get('bbox'));
-  const { lat, lng, radiusNm } = bboxToPoint(bbox);
 
   // Couche NAVIRES (AIS) : indépendante des avions. Sans clé configurée elle
   // renvoie [] immédiatement (aucun fetch), donc zéro latence sur le cas démo.
@@ -488,55 +544,30 @@ export async function GET(request: NextRequest) {
   // dégradations avions ci-dessous.
   const ships = await fetchShips(request, bbox);
 
-  // adsb.lol /v2/point/{lat}/{lon}/{radius_nm} — données publiques, pas de clé.
-  const upstream = `https://api.adsb.lol/v2/point/${lat.toFixed(4)}/${lng.toFixed(4)}/${radiusNm}`;
-
-  let payload: { ac?: RawAircraft[] } | null = null;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    // safeFetch : garde SSRF (valide l'hôte, re-valide chaque redirection).
-    const res = await safeFetch(upstream, {
-      method: 'GET',
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': USER_AGENT,
-      },
-      maxRedirects: 2,
-    });
-    if (!res.ok) {
-      // Amont en panne / rate-limit : dégradation douce. Le client attend un
-      // JSON mergeable ; on renvoie une couche vide plutôt que de casser le
-      // polling. On la marque no-store et non conditionnable (pas d'ETag).
-      return NextResponse.json(
-        { aircraft: [], ships, count: 0, ts: Date.now(), error: `amont adsb.lol ${res.status}` },
-        { status: 200, headers: { 'Cache-Control': 'no-store' } },
-      );
-    }
-    payload = (await res.json()) as { ac?: RawAircraft[] };
-  } catch (err) {
-    const aborted = err instanceof Error && err.name === 'AbortError';
+  // adsb.lol /v2/point — 1 disque (vue proche) ou grille 2×2 (dézoom), en
+  // parallèle. Une tuile qui échoue est ignorée ; tout échoué → couche vide.
+  const points = bboxToPoints(bbox);
+  const tiles = await Promise.all(points.map((pt) => fetchAdsbTile(pt)));
+  const okTiles = tiles.filter((t): t is RawAircraft[] => t !== null);
+  if (okTiles.length === 0) {
+    // Amont en panne / rate-limit : dégradation douce. Le client attend un
+    // JSON mergeable ; on renvoie une couche vide plutôt que de casser le
+    // polling. On la marque no-store et non conditionnable (pas d'ETag).
     return NextResponse.json(
-      {
-        aircraft: [],
-        ships,
-        count: 0,
-        ts: Date.now(),
-        error: aborted ? 'timeout adsb.lol' : 'échec réseau adsb.lol',
-      },
+      { aircraft: [], ships, count: 0, ts: Date.now(), error: 'amont adsb.lol indisponible' },
       { status: 200, headers: { 'Cache-Control': 'no-store' } },
     );
-  } finally {
-    clearTimeout(timeout);
   }
 
-  // Normalise + filtre sur la bbox RÉELLE (l'API renvoie un disque).
-  const raw = Array.isArray(payload?.ac) ? payload!.ac : [];
+  // Normalise + DÉDUPLIQUE par hex (les disques des tuiles se recouvrent) +
+  // filtre sur la bbox RÉELLE (l'API renvoie des disques).
+  const seen = new Set<string>();
   const aircraft: Aircraft[] = [];
-  for (const r of raw) {
-    const a = normalize(r);
-    if (a && inBBox(a.lat, a.lng, bbox)) {
+  for (const raw of okTiles) {
+    for (const r of raw) {
+      const a = normalize(r);
+      if (!a || !inBBox(a.lat, a.lng, bbox) || seen.has(a.hex)) continue;
+      seen.add(a.hex);
       // Enrichissement watchlist VIP (forme 2) : pose le tag sur les seuls
       // hex connus ; les autres restent vip:false.
       enrichVip(a);

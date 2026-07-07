@@ -360,27 +360,39 @@ function OsirisMap({
   useEffect(() => { onStreamClickRef.current = onStreamClick; }, [onStreamClick]);
 
   // ── Générateur d'icône "avion" sur canvas (gabarit symbole WebGL) ──
+  //  Refaite le 07/07 (retour Cissou « logos Atari ») : vraie silhouette
+  //  d'avion de ligne vue de dessus (fuselage effilé + ailes en flèche +
+  //  empennage), tracée en Path2D, rendue en 2× (pixelRatio) → anticrénelée,
+  //  avec liseré sombre (lisible sur fond satellite clair) + léger halo.
   const createIcon = useCallback((map: maplibregl.Map, id: string, color: string, size: number) => {
     if (map.hasImage(id)) return;
+    const scale = 2; // rendu 2× → net sur écrans denses
+    const px = size * scale;
     const canvas = document.createElement('canvas');
-    canvas.width = size; canvas.height = size;
+    canvas.width = px; canvas.height = px;
     const ctx = canvas.getContext('2d')!;
-    const cx = size / 2, cy = size / 2;
+    // Silhouette dessinée dans un espace 64×64 (nez vers le haut), remise à
+    // l'échelle du canvas. Tracé clean-room (aucun glyphe copié).
+    const p = new Path2D(
+      'M32 3 C34 3 35.4 5.2 35.8 8.6 L36.3 21.5 L60.5 33.5 L60.5 38.2 L36.4 31.2 ' +
+      'L35.8 45.6 L44.2 52 L44.2 55.6 L32 52.4 L19.8 55.6 L19.8 52 L28.2 45.6 ' +
+      'L27.6 31.2 L3.5 38.2 L3.5 33.5 L27.7 21.5 L28.2 8.6 C28.6 5.2 30 3 32 3 Z',
+    );
+    ctx.setTransform(px / 64, 0, 0, px / 64, 0, 0);
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 5;
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#0a1016';
+    ctx.lineWidth = 2.5;
+    ctx.stroke(p);
     ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - size * 0.4);
-    ctx.lineTo(cx - size * 0.12, cy + size * 0.1);
-    ctx.lineTo(cx - size * 0.4, cy + size * 0.2);
-    ctx.lineTo(cx - size * 0.4, cy + size * 0.3);
-    ctx.lineTo(cx - size * 0.12, cy + size * 0.15);
-    ctx.lineTo(cx, cy + size * 0.35);
-    ctx.lineTo(cx + size * 0.12, cy + size * 0.15);
-    ctx.lineTo(cx + size * 0.4, cy + size * 0.3);
-    ctx.lineTo(cx + size * 0.4, cy + size * 0.2);
-    ctx.lineTo(cx + size * 0.12, cy + size * 0.1);
-    ctx.closePath();
-    ctx.fill();
-    map.addImage(id, { width: size, height: size, data: new Uint8Array(ctx.getImageData(0, 0, size, size).data) });
+    ctx.fill(p);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    map.addImage(
+      id,
+      { width: px, height: px, data: new Uint8Array(ctx.getImageData(0, 0, px, px).data) },
+      { pixelRatio: scale },
+    );
   }, []);
 
   // ── Générateur de pastille ronde sur canvas ──
@@ -430,7 +442,7 @@ function OsirisMap({
       map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-right');
 
       // Icônes/pastilles de base réutilisables par les futures couches FR.
-      createIcon(map, 'plane', '#9bdcf0', 24);
+      createIcon(map, 'plane', '#9bdcf0', 26);
       createDot(map, 'dot-gold', '#54bdde', 8);
 
       // Source jour/nuit (couche d'affichage optionnelle conservée).
@@ -664,8 +676,10 @@ function OsirisMap({
           layout: { 'line-cap': 'round', 'line-join': 'round', visibility: 'none' },
           paint: {
             'line-color': k === 'aircraft' ? '#9bdcf0' : '#54bdde',
-            'line-width': 1.5,
-            'line-opacity': ['interpolate', ['linear'], ['coalesce', ['get', 'ageRatio'], 0], 0, 0.85, 1, 0.0],
+            'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.4, 10, 2.4],
+            // ageRatio ≈ 0 tant que l'entité émet (cf. trails.ts) → traînée
+            // visible en continu ; fondu seulement après disparition du flux.
+            'line-opacity': ['interpolate', ['linear'], ['coalesce', ['get', 'ageRatio'], 0], 0, 0.75, 1, 0.0],
           },
         });
       });
