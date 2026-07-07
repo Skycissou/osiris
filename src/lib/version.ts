@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.030-dev';
+export const OSIRIS_VERSION = 'V4.031-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.031-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F511} /live-feed/diag : bloc `env` \u2014 pour chaque cl\u00e9 attendue (.env VPS), " +
+      "pr\u00e9sence + longueur (JAMAIS la valeur). Permet de v\u00e9rifier que la barri\u00e8re " +
+      "d'environnement est bien charg\u00e9e sans re-chercher ses cl\u00e9s ni d\u00e9clencher les couches " +
+      "(demande Cissou).",
+  },
   {
     version: 'V4.030-dev',
     date: '2026-07-07',
