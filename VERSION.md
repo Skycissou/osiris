@@ -29,6 +29,11 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.025-dev — 2026-07-07 — 🛫 Rendu avions façon « app de référence »
+- **Diagnostic (screenshot Cissou : nuée de micro-tirets « confettis » sur l'Europe, icônes seulement par endroits)** : on dessinait la traînée de TOUS les avions vus dans les 10 dernières minutes — y compris ceux sortis du flux — soit des centaines de segments courts illisibles ; et une tuile expirant à 2 min faisait disparaître SA région entière quand 2-3 refreshes rataient.
+- **Traînée = avion SÉLECTIONNÉ uniquement (+ VIP)** — comme Flightradar24 & co : la carte reste propre, et comme l'**historique est enregistré pour tous**, cliquer n'importe quel avion révèle instantanément sa route passée (jusqu'à 10 min). Les VIP gardent leur traînée en permanence (c'est l'intérêt du tag).
+- **Mémoire des tuiles 2 → 5 min** : une région ne se vide plus quand l'amont rame ; au pire la position a ~40 NM de retard, l'interpolation lisse le reste.
+
 ### V4.024-dev — 2026-07-07 — 🧲 Anti-scintillement avions au zoom/dézoom
 - **Diagnostic (retour Cissou : « je peux pas zoomer/dézoomer sinon tout disparaît »)** : le cache V4.022 était indexé sur la géométrie EXACTE des disques (centre à 4 décimales, rayon au NM) → le moindre zoom/pan changeait la clé → cache vide → re-téléchargement 25-40 s pendant lequel la couche se vidait.
 - **Fix 1 — disques QUANTIFIÉS** : centre arrondi au degré, rayon au palier de 50 NM supérieur (+45 NM de marge pour couvrir le décalage) → des vues voisines (zoom in/out, petits pans) frappent les MÊMES disques → cache réutilisé → affichage stable.

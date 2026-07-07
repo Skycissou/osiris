@@ -160,6 +160,9 @@ interface OsirisMapProps {
   sensitive?: SensitiveData;
   /** Clic sur un avion → ouvre la carte-fiche riche (photo + détails). */
   onAircraftClick?: (a: AircraftPoint) => void;
+  /** Hex de l'avion sélectionné : SA traînée est dessinée (+ celles des VIP).
+   *  null = seules les traînées VIP (politique « app de référence »). */
+  selectedAircraftHex?: string | null;
   /** Clic sur une caméra/webcam (cctv) portant un streamUrl → ouvre le lecteur de flux. */
   onStreamClick?: (s: { label: string; streamUrl: string; lat?: number; lng?: number }) => void;
   onEntityClick?: (entity: any) => void;
@@ -333,6 +336,7 @@ function OsirisMap({
   cyber = [],
   sensitive = {},
   onAircraftClick,
+  selectedAircraftHex = null,
   onStreamClick,
   onEntityClick,
   onMouseCoords,
@@ -958,15 +962,23 @@ function OsirisMap({
       }));
     setGeo('live-aircraft', features);
     setVis(['live-aircraft-symbols'], !!activeLayers?.live_aircraft);
-    // Traînées (routes tracées) : on enregistre les positions et on redessine.
+    // Traînées : on ENREGISTRE l'historique de tous les avions, mais on ne
+    // DESSINE que la route de l'avion SÉLECTIONNÉ (+ les VIP) — comme les apps
+    // de référence (FR24…). Tout tracer = des centaines de micro-tirets
+    // illisibles (retour Cissou 07/07, « confettis » sur l'Europe).
+    // ⚠️ PAS de pruneEntities (07/07) : un tick raté effaçait l'historique.
+    // L'élagage par ÂGE de recordPositions/buildTrails (10 min) suffit.
     const now = Date.now();
     const alive = rows.filter((a) => typeof a?.lat === 'number' && typeof a?.lng === 'number');
     recordPositions('aircraft', alive.map((a) => ({ id: String(a.hex ?? a.id ?? ''), lat: a.lat, lng: a.lng })), now);
-    // ⚠️ PAS de pruneEntities ici (retiré 07/07) : le flux amont peut rater un
-    // tick (tuile lente/timeout) — élaguer sur « absent du dernier tick »
-    // effaçait l'historique et les traînées ne se construisaient JAMAIS.
-    // L'élagage par ÂGE de recordPositions/buildTrails (10 min) suffit.
-    setGeo('aircraft-trails', buildTrails('aircraft', now).features);
+    const wantedTrails = new Set<string>(
+      rows.filter((a) => a?.vip).map((a) => String(a.hex ?? a.id ?? '')),
+    );
+    if (selectedAircraftHex) wantedTrails.add(String(selectedAircraftHex));
+    const trailFeats = buildTrails('aircraft', now).features.filter((f) =>
+      wantedTrails.has(String(f.properties?.id ?? '')),
+    );
+    setGeo('aircraft-trails', trailFeats);
     setVis(['aircraft-trails-line'], !!activeLayers?.live_aircraft);
     // Halo VIP : sous-ensemble taggé vip=true (forme 2), affiché avec les avions.
     const vipFeatures = rows
@@ -978,7 +990,7 @@ function OsirisMap({
       }));
     setGeo('live-aircraft-vip', vipFeatures);
     setVis(['live-aircraft-vip-halo'], !!activeLayers?.live_aircraft);
-  }, [mapReady, aircraft, activeLayers, setGeo, setVis]);
+  }, [mapReady, aircraft, activeLayers, selectedAircraftHex, setGeo, setVis]);
   // ─────────────────────────────────────────────────────────────────────
 
   // ─── RENDU COUCHES GÉOPHYSIQUES (séismes / feux / volcans) ───────────

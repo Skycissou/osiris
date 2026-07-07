@@ -525,6 +525,7 @@ export default function Dashboard() {
           cyber={fCyber}
           sensitive={sensitive}
           onAircraftClick={handleAircraftClick}
+          selectedAircraftHex={selectedEntity?.hex ?? null}
           onStreamClick={setActiveStream}
           projection={mapProjection}
           mapStyle={mapStyle}

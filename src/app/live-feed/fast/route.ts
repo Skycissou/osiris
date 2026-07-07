@@ -309,7 +309,10 @@ function bboxToPoints(bbox: BBox): { lat: number; lng: number; radiusNm: number 
 //    • UN SEUL téléchargement en cours par tuile (inflight), timeout 45 s,
 //      qui remplit le cache en fond — le rythme réel s'adapte au débit amont.
 const TILE_FRESH_MS = 12_000; // < cadence client (15 s) → au mieux 1 fetch/tuile/tick
-const TILE_STALE_MAX_MS = 120_000; // au-delà : donnée trop vieille pour être montrée
+// 2 min → 5 min le 07/07 : avec un débit amont lent, une tuile qui rate 2-3
+// refreshes voyait SA RÉGION se vider d'un coup (retour Cissou). 5 min de
+// stale = position au pire ~40 NM en retard, mais l'affichage reste continu.
+const TILE_STALE_MAX_MS = 300_000;
 const TILE_FETCH_TIMEOUT_MS = 45_000; // débit adsb.lol↔VPS lent : laisser finir
 
 interface TileEntry {

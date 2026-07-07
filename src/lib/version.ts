@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.024-dev';
+export const OSIRIS_VERSION = 'V4.025-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.025-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F6EB} Rendu avions fa\u00e7on app de r\u00e9f\u00e9rence : tra\u00een\u00e9e dessin\u00e9e UNIQUEMENT pour " +
+      "l'avion s\u00e9lectionn\u00e9 (+ VIP) au lieu des centaines de micro-tirets (confettis) ; " +
+      "m\u00e9moire des tuiles 2 \u2192 5 min pour qu'une r\u00e9gion ne se vide plus quand un " +
+      "refresh amont rate (l'historique reste enregistr\u00e9 pour tous \u2192 cliquer un avion " +
+      "r\u00e9v\u00e8le sa route pass\u00e9e).",
+  },
   {
     version: 'V4.024-dev',
     date: '2026-07-07',
