@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.032-dev';
+export const OSIRIS_VERSION = 'V4.033-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.033-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F41B} Plus aucun avion depuis la cl\u00e9 OpenSky : le collecteur affamait adsb.lol " +
+      "quand OpenSky ne r\u00e9pondait pas \u2192 adsb.lol collect\u00e9 EN PERMANENCE, OpenSky bonus " +
+      "non-bloquant. OpenSky doc v\u00e9rifi\u00e9e (OAuth2 id+secret) \u2192 howTo pr\u00e9cis\u00e9 (client_id " +
+      "+ client_secret obligatoires, secret affich\u00e9 1 fois). Version accueil ASSUJETTIE au " +
+      "cockpit : endpoint /cockpit/version lu par l'accueil (fini le lockstep manuel).",
+  },
   {
     version: 'V4.032-dev',
     date: '2026-07-07',

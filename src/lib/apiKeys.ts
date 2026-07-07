@@ -179,26 +179,26 @@ export const API_KEY_SERVICES: readonly ApiKeyServiceMeta[] = [
   },
   {
     service: 'opensky_id',
-    label: 'OpenSky — identifiant client (avions vue MONDE)',
+    label: 'OpenSky — 1/2 · identifiant client (avions vue MONDE)',
     env: 'OPENSKY_CLIENT_ID',
     purpose:
-      'Vue MONDIALE des avions en dézoom (photo globale ~2 min via OpenSky Network). Sans ces 2 champs, le dézoom reste limité aux disques adsb.lol (250 NM).',
-    url: 'https://opensky-network.org',
+      'Vue MONDIALE des avions en dézoom (instantané global ~2 min via OpenSky Network). OpenSky utilise OAuth2 : il faut LES DEUX valeurs (identifiant + secret). Sans elles, le dézoom reste limité aux disques adsb.lol (250 NM).',
+    url: 'https://opensky-network.org/my-opensky/account',
     howTo:
-      'Crée un compte gratuit sur opensky-network.org → connecte-toi → « Account » → « API Client » → crée un client API → copie le « client_id » ici (et le « client_secret » dans le champ suivant).',
-    cost: 'gratuit (quota)',
+      'opensky-network.org → connecte-toi → menu « Account » → onglet « API Client » → « New API Client ». Deux valeurs s’affichent : un client_id (ex. ton-email-api-client) ET un client_secret. Colle le client_id ICI, le client_secret dans le champ suivant.',
+    cost: 'gratuit (quota crédits)',
     form: 1,
   },
   {
     service: 'opensky_secret',
-    label: 'OpenSky — secret client (avions vue MONDE)',
+    label: 'OpenSky — 2/2 · secret client (avions vue MONDE)',
     env: 'OPENSKY_CLIENT_SECRET',
     purpose:
-      'Seconde moitié de l’accès OpenSky : le « client_secret » du client API (va de pair avec l’identifiant ci-dessus).',
-    url: 'https://opensky-network.org',
+      'Seconde moitié OBLIGATOIRE de l’accès OpenSky : le « client_secret » (chaîne longue). Va de pair avec l’identifiant ci-dessus.',
+    url: 'https://opensky-network.org/my-opensky/account',
     howTo:
-      'Sur la même page « API Client » d’OpenSky, copie le « client_secret » et colle-le ici. Les deux champs sont nécessaires.',
-    cost: 'gratuit (quota)',
+      'ATTENTION : le client_secret n’est affiché QU’UNE SEULE FOIS, au moment où tu crées le API Client (page Account → API Client). Copie-le tout de suite et colle-le ici. Perdu ? Recrée un client API pour en obtenir un nouveau.',
+    cost: 'gratuit (quota crédits)',
     form: 1,
   },
   // ── Sources sensibles (forme 2 — câblage variable) ────────────────────────

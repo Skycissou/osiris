@@ -245,23 +245,26 @@ async function tick(): Promise<void> {
     const now = Date.now();
     pruneAll(now);
 
-    // 1) Priorité : instantané MONDE (si demandé récemment + identifiants + dû).
+    // 1) MONDE (OpenSky) — BONUS NON-BLOQUANT (corrigé 07/07 : avant, un
+    //    return ici affamait la collecte adsb.lol quand OpenSky ne répondait
+    //    pas → « plus aucun avion depuis que j'ai mis la clé OpenSky »).
+    //    getGlobalAircraft est SYNCHRONE (le téléchargement réel se fait en
+    //    fond) → on le lit sans bloquer, puis on collecte TOUJOURS un disque.
     const wantGlobal =
       now - C.globalInterestTs < INTEREST_TTL_MS &&
       C.openskyId !== '' &&
       C.openskySecret !== '' &&
       now - C.lastGlobalAt > GLOBAL_REFRESH_MS;
     if (wantGlobal) {
+      C.lastGlobalAt = now; // throttle : 1 tentative / 2 min, succès OU échec
       const global = getGlobalAircraft(C.openskyId, C.openskySecret);
-      if (Array.isArray(global)) {
-        mergeAircraft(global, now);
-        C.lastGlobalAt = now;
-      }
-      // 'warming' → openskyGlobal télécharge déjà en fond ; on retentera.
-      return; // une seule opération par tick
+      if (Array.isArray(global)) mergeAircraft(global, now);
+      // 'warming'/null → OpenSky télécharge (ou échoue) en fond ; on NE bloque
+      // PAS la collecte adsb.lol ci-dessous.
     }
 
-    // 2) Sinon : UN disque d'intérêt (round-robin).
+    // 2) adsb.lol — TOUJOURS : UN disque d'intérêt (round-robin). C'est le socle
+    //    de la couche ; OpenSky ne fait que l'enrichir en vue monde.
     const discs = [...C.interests.values()];
     if (discs.length === 0) return;
     const target = discs[C.rrIndex % discs.length];
