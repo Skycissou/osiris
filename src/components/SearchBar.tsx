@@ -2,6 +2,7 @@
 
 import { memo, useState } from 'react';
 import { Search, Loader2 } from 'lucide-react';
+import { track } from '@/lib/uiTelemetry';
 
 // ─────────────────────────────────────────────────────────────────────────
 //  SearchBar — cockpit SEARCH-first (OSIRIS V4 LEAN).
@@ -26,7 +27,10 @@ function SearchBar({ onSubmit, loading, error, resultCount, isMobile, leftOffset
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const q = value.trim();
-    if (q && !loading) onSubmit(q);
+    if (q && !loading) {
+      track('search', { q, kind: 'target' });
+      onSubmit(q);
+    }
   };
 
   return (

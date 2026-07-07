@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.034-dev';
+export const OSIRIS_VERSION = 'V4.035-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,19 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.035-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F4E1} TÉLÉMÉTRIE UI (option B, spec Claude) : traçage anonyme de TOUTES les " +
+      "actions in-app (couches, recherches, OSINT, clics news, sauvegarde de clé — " +
+      "JAMAIS la valeur, seulement le service —, déplacements carte) + captures auto " +
+      "(page, fetch applicatif, erreurs JS/promesses). Ingest same-origin, rate-limité, " +
+      "kill-switch OSIRIS_UI_TELEMETRY=off ; stockage JSONL purgé à 7 j (ni IP ni " +
+      "user-agent). Page /cockpit/diag (token OSIRIS_DIAG_TOKEN) : timeline FUSIONNÉE " +
+      "action UI → fetch → appel amont → erreur, par session → on voit où ça casse. " +
+      "SECURITY.md + scripts/test-telemetrie.sh.",
+  },
   {
     version: 'V4.034-dev',
     date: '2026-07-07',

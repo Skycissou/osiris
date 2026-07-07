@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import ErrorBoundary from '@/components/ErrorBoundary';
+import TelemetryInit from '@/components/TelemetryInit';
 import "./globals.css";
 
 const SITE_NAME = "OSIRIS";
@@ -40,6 +41,7 @@ export default function RootLayout({
   return (
     <html lang="fr" dir="ltr">
       <body className="antialiased">
+        <TelemetryInit />
         <ErrorBoundary name="OSIRIS Core">
           {children}
         </ErrorBoundary>

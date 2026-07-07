@@ -3,6 +3,7 @@
 import { memo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Building2, Scale, Home, MapPin, Users, Sun } from 'lucide-react';
+import { track } from '@/lib/uiTelemetry';
 
 interface LayerPanelProps {
   data: Record<string, any>;
@@ -80,7 +81,12 @@ const LAYER_GROUPS = [
 function LayerPanel({ data, activeLayers, setActiveLayers, isMobile, leftOffset = 0 }: LayerPanelProps) {
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
 
-  const toggle = (key: string) => setActiveLayers((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggle = (key: string) =>
+    setActiveLayers((prev) => {
+      const on = !prev[key];
+      track('layer_toggle', { layer: key, on });
+      return { ...prev, [key]: on };
+    });
 
   const getCount = (dk: string): number | null => {
     if (!dk) return null;

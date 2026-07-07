@@ -73,6 +73,7 @@ import {
   type OsintLookupResult,
   type TargetDetection,
 } from '@/lib/osintClient';
+import { track } from '@/lib/uiTelemetry';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface OsintPanelProps {
@@ -503,6 +504,7 @@ function OsintPanel({ onClose, isMobile }: OsintPanelProps) {
 
     // Repli : si aucune détection (ne devrait pas arriver, pseudo par défaut).
     const tools = det.tools.length ? det.tools : (['whois', 'dns'] as OsintTool[]);
+    track('osint_lookup', { tool: det.kind || 'auto', q }); // q tronqué serveur-side
 
     // Toutes les fiches démarrent en chargement.
     setStates(tools.map((tool) => ({ status: 'loading', tool })));

@@ -29,6 +29,22 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.035-dev — 2026-07-07 — 📡 Télémétrie UI (option B — traçage des actions in-app + timeline fusionnée)
+**Demande Cissou** : « tracker toutes les actions de l'app pour voir si tout est fait, détecter les bugs, savoir où est l'erreur. » Spec écrite par Claude (brain `notes/ops/2026-07-07-osiris-telemetrie-ui-spec.md`). **Complète** la télémétrie serveur (V4.029) : côté serveur = « la source amont a-t-elle répondu ? » ; côté UI = « qu'a fait l'utilisateur, dans quel ordre, et où ça a cassé ? ».
+
+**Ce qui est tracé** (anonyme, 1 session = 1 onglet, `sid` aléatoire dans `sessionStorage`) :
+- Actions explicites : `layer_toggle` (couches), `search`, `osint_lookup`, `apikey_save` (**JAMAIS la valeur — uniquement le nom du service**), `map_move` (throttlé 5 s).
+- Captures automatiques : `page`, `fetch` applicatif (chemin, statut, latence, ok/ko), `js_error`, `promise_reject` (dédup 30 s).
+
+**Sécurité / minimisation** (posture ARPD) :
+- Ingest `POST /cockpit/telemetry/ui` : **same-origin obligatoire** (403 sinon), payload ≤ 32 Ko, **rate-limit 120/min/session**, whitelist stricte des types (rejet silencieux du reste), troncature serveur de chaque champ.
+- **Ni IP ni user-agent** stockés. **Kill-switch** runtime `OSIRIS_UI_TELEMETRY=off` (204, sans rebuild).
+- Stockage **JSONL** local (`data/ui-telemetry/AAAA-MM-JJ.jsonl`, gitignoré), **purge > 7 jours** (au boot + 1×/24 h).
+
+**Lecture** : page **`/cockpit/diag`** (protégée par **`OSIRIS_DIAG_TOKEN`**, `?token=…`) — liste des sessions du jour (nb events, nb erreurs) + **timeline FUSIONNÉE** par session : action UI → fetch → **appel amont** (greffé depuis le ring serveur `telemetry`) → erreur, triée par heure, filtre « erreurs seulement ». On voit d'un coup d'œil la chaîne complète et où elle rompt.
+
+Fichiers : `lib/uiTelemetryTypes.ts` (contrat partagé) · `lib/uiTelemetry.ts` (tracker client fail-safe) · `lib/uiTelemetryStore.ts` (JSONL + purge) · `app/telemetry/ui/route.ts` (ingest) · `lib/diagAuth.ts` (garde token) · `app/live-feed/diag/{sessions,session}/route.ts` · `app/diag/page.tsx` (lecteur) · `components/TelemetryInit.tsx` (montage). Doc : `SECURITY.md`. Test : `scripts/test-telemetrie.sh`. **Compose staging (repo brain)** : env `OSIRIS_DIAG_TOKEN` + `OSIRIS_UI_TELEMETRY` + volume de persistance.
+
 ### V4.033-dev — 2026-07-07 — 🐛 Avions revenus (OpenSky n'affame plus adsb.lol) + doc OpenSky + versions couplées
 - **Bug « plus aucun avion depuis la clé OpenSky »** : dans le collecteur, dès qu'OpenSky était demandé, un `return` sautait la collecte adsb.lol ; si OpenSky ne répondait pas (clé incomplète), la carte se vidait PARTOUT. Corrigé : adsb.lol est collecté **à chaque tick** (socle), OpenSky est un **bonus non-bloquant** (throttle 1 tentative/2 min, succès ou échec). Les avions reviennent même sans OpenSky valide.
 - **OpenSky : intégration vérifiée sur la VRAIE doc** (openskynetwork.github.io + web) : OAuth2 client_credentials, token `auth.opensky-network.org/.../token`, `GET /api/states/all` Bearer — mon code était correct. Le blocage venait du **client_secret manquant** (OpenSky = 2 valeurs : client_id + client_secret). howTo des 2 champs précisé (id = `email-api-client`, secret affiché une seule fois à la création).

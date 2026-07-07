@@ -43,6 +43,7 @@ import {
   type ApiKeyServiceMeta,
 } from '@/lib/apiKeys';
 import { BASE_PATH } from '@/lib/api';
+import { track } from '@/lib/uiTelemetry';
 
 // ── Catégories d'affichage ────────────────────────────────────────────────────
 //  3 blocs lisibles, déduits du registre : forme 2 → « Sensibles » ; FIRMS/AIS →
@@ -137,6 +138,7 @@ const ServiceRow = memo(function ServiceRow({ meta, onChanged }: ServiceRowProps
     setStored(v);
     setValue(v);
     setFlash('saved');
+    track('apikey_save', { service: meta.service }); // ⚠️ jamais la valeur, que le service
     onChanged?.();
   }, [meta.service, value, onChanged]);
 

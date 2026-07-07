@@ -40,11 +40,15 @@ scanner/
 # Data files
 threatfox.json
 
+# Télémétrie UI (JSONL runtime, purge 7 j) — jamais versionnée
+/data/
+
 # Dev scripts (one-time migration helpers) — mais les outils DURABLES sont
 # versionnés via exceptions ! (piège : « scripts/ » masquait silencieusement
 # tout ajout, leçon du 07/07 avec test-couches.sh)
 scripts/*
 !scripts/test-couches.sh
+!scripts/test-telemetrie.sh
 
 # AI agent config files
 # CLAUDE.md est VERSIONNÉ (garde-fou topologie/déploiement lu auto par Claude

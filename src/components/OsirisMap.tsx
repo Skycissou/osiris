@@ -8,6 +8,7 @@ import { BASE_PATH } from '@/lib/api';
 import { recordPositions, buildTrails } from '@/lib/trails';
 // Couleur des avions par catégorie — logique PURE et testée dans aircraftCategory.ts.
 import { AIRCRAFT_CAT_COLORS, aircraftCatKey } from '@/lib/aircraftCategory';
+import { trackMapMove } from '@/lib/uiTelemetry';
 // Ré-export pour la légende (page.tsx).
 export { AIRCRAFT_CAT_COLORS, AIRCRAFT_CAT_LABELS, AIRCRAFT_CAT_ORDER } from '@/lib/aircraftCategory';
 
@@ -893,6 +894,7 @@ function OsirisMap({
     map.on('moveend', () => {
       const c = map.getCenter();
       onViewStateChange?.({ zoom: map.getZoom(), latitude: c.lat });
+      trackMapMove(map.getZoom()); // throttlé 5 s côté tracker
       emitBounds();
     });
 
