@@ -47,7 +47,8 @@ scripts/*
 !scripts/test-couches.sh
 
 # AI agent config files
-CLAUDE.md
+# CLAUDE.md est VERSIONNÉ (garde-fou topologie/déploiement lu auto par Claude
+# Code — plan assainissement 07/07). Ne pas l'ignorer.
 AGENTS.md
 
 # Internal dev notes
