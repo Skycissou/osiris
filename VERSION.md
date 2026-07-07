@@ -29,6 +29,11 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.039-dev — 2026-07-07 — 🔑 Diag clarifié : `.env` serveur vs clés navigateur (+ OpenSky vue monde)
+**Retour Cissou** : « FIRMS je vois bien les feux sur la carte, et OpenSky j'ai bien rentré les identifiants » — alors que le diag affichait `present:false` pour les deux. **J'avais mal lu le diag.**
+- Le bloc `env` du diag ne reflète **QUE le `.env` serveur**. Les clés saisies **dans l'app** (navigateur/localStorage) voyagent en **en-tête par requête** et **n'apparaissent pas** ici → `present:false` ≠ « pas de clé ». C'est pour ça que FIRMS marche (clé navigateur, couche à la demande). **Note explicite ajoutée** au bloc `env`.
+- **OpenSky est l'exception qui explique la vue monde absente** : son **collecteur d'avions tourne en permanence côté serveur** (sans requête) → il ne reçoit la clé navigateur que **transitoirement** (au dézoom large) et la **perd au redémarrage**. Le diag le prouve : `aircraftCollector.lastGlobalAgeS: null` = instantané monde **jamais récupéré**. **Solution** : mettre les identifiants OpenSky dans le **`.env` serveur** via le bouton **« Copier pour le .env »** (V4.034) → le collecteur les a dès le boot, durablement.
+
 ### V4.038-dev — 2026-07-07 — 📰 News « tourne sans fin » : spinner infini (client) + GDELT bloqué VPS (serveur)
 **Diagnostic par la télémétrie UI qu'on venait de construire** (`/cockpit/live-feed/diag`) : `gdelt-doc calls:1, fail:1, lastMs:20004, note:"aborted"` → **GDELT bloque l'IP du VPS** (abort systématique à 20 s). Le fix V4.037 (stale borné + RSS) ne suffisait pas car **deux bugs se cumulaient** :
 - **Bug client (le vrai symptôme « tourne sans fin »)** : dans `NewsPanel.charger()`, quand le **timeout local** (12 s) coupait la requête, le `catch` faisait `return` sur `aborted` et le `finally` ne remettait `loading` à false que si `!aborted` → sur timeout, **`loading` restait `true` pour toujours = spinner infini**. Corrigé avec un flag `timedOut` qui distingue « coupé par notre timeout » (→ erreur + stop) de « supplanté par une nouvelle recherche » (→ silencieux).

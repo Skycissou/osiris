@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.038-dev';
+export const OSIRIS_VERSION = 'V4.039-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.039-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F511} Diag clarifié (retour Cissou : « FIRMS je vois les feux, OpenSky j'ai rentré " +
+      "les identifiants ») : le bloc `env` ne reflète QUE le .env SERVEUR, pas les clés saisies " +
+      "dans l'app (navigateur, en-tête par requête) → `present:false` n'était pas « pas de clé ». " +
+      "Note explicite ajoutée. Point clé : OpenSky vue monde EXIGE le .env serveur (collecteur " +
+      "permanent, `lastGlobalAgeS:null` = jamais récupéré) → utiliser « Copier pour le .env ».",
+  },
   {
     version: 'V4.038-dev',
     date: '2026-07-07',

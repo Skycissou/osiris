@@ -50,7 +50,19 @@ export function GET() {
 
   return NextResponse.json(
     {
-      env: { configured: envConfigured, total: env.length, keys: env },
+      env: {
+        configured: envConfigured,
+        total: env.length,
+        keys: env,
+        // ⚠️ Ce bloc ne reflète QUE le .env SERVEUR. Les clés saisies dans l'app
+        // (navigateur/localStorage) ne sont PAS visibles ici — elles voyagent en
+        // en-tête par requête. Donc `present:false` ≠ « pas de clé » : une couche
+        // à la demande (FIRMS, Shodan…) peut marcher avec la clé navigateur seule.
+        // EXCEPTION : OpenSky. Son collecteur d'avions tourne EN PERMANENCE côté
+        // serveur (sans requête) → il lui faut la clé dans le .env serveur pour la
+        // vue monde durable (sinon `aircraftCollector.lastGlobalAgeS` reste null).
+        note: 'Reflète UNIQUEMENT le .env serveur. Les clés saisies dans l’app (navigateur) ne figurent pas ici (elles marchent en en-tête, par requête). OpenSky vue monde EXIGE le .env serveur (collecteur permanent).',
+      },
       telemetry: telemetrySnapshot(),
       aircraftCollector: collectorHealth(),
       ts: Date.now(),
