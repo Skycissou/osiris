@@ -110,16 +110,29 @@ function tag(block: string, name: string): string | undefined {
   return m ? decodeEntities(m[1]) : undefined;
 }
 
+/** Parse une date RFC-822 (pubDate RSS) en ms epoch, 0 si illisible/absente. */
+function pubMs(s: string | undefined): number {
+  if (!s) return 0;
+  const t = Date.parse(s);
+  return Number.isFinite(t) ? t : 0;
+}
+
 /**
  * Fil Google Actualités RSS pour un thème + langue. Renvoie null si le flux
  * est injoignable/illisible (l'appelant garde alors l'erreur GDELT d'origine).
  */
 async function fetchGoogleNewsRss(theme: string, lang: 'fr' | 'en' | null): Promise<NewsArticle[] | null> {
-  const q = theme || 'géopolitique OR cybersécurité OR conflit';
   const locale = lang === 'en'
     ? 'hl=en-US&gl=US&ceid=US:en'
     : 'hl=fr&gl=FR&ceid=FR:fr'; // défaut FR (public OSIRIS)
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&${locale}`;
+  const t = theme.trim();
+  // Sans thème → « À LA UNE » Google Actualités (toujours frais, minutes) plutôt
+  // qu'une recherche large qui remontait des articles vieux de plusieurs heures
+  // (retour Cissou 07/07 : « la dernière info c'est il y a 7 h »). Avec thème →
+  // recherche ciblée.
+  const url = t
+    ? `https://news.google.com/rss/search?q=${encodeURIComponent(t)}&${locale}`
+    : `https://news.google.com/rss?${locale}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), RSS_TIMEOUT_MS);
   const started = Date.now();
@@ -152,6 +165,9 @@ async function fetchGoogleNewsRss(theme: string, lang: 'fr' | 'en' | null): Prom
       });
       if (articles.length >= MAX_RECORDS) break;
     }
+    // Tri du PLUS RÉCENT au plus vieux (pubDate RFC-822) : la « dernière info »
+    // apparaît en haut, au lieu de l'ordre de pertinence Google (retour Cissou).
+    articles.sort((a, b) => pubMs(b.seendate) - pubMs(a.seendate));
     recordCall({ source: 'google-rss', ok: true, status: res.status, ms: Date.now() - started, count: articles.length });
     return articles.length ? articles : null;
   } catch (e) {

@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.044-dev — 2026-07-07 — 📰 News fraîcheur : « à la une » + tri par date + auto-refresh
+**Retour Cissou** : « la dernière info dessus c'est il y a 7 h ». Trois causes cumulées, corrigées :
+1. **Requête RSS** : sans thème, on faisait une **recherche large** (`géopolitique OR …`) qui remontait des articles vieux de plusieurs heures. → on passe sur le flux **« À LA UNE »** de Google Actualités (`news.google.com/rss?hl=..`), frais à la minute. Avec thème → recherche ciblée (inchangé).
+2. **Tri** : les articles arrivaient dans l'ordre de **pertinence** Google, pas par date → on **trie du plus récent au plus vieux** (`pubDate` RFC-822) → la dernière info est en haut.
+3. **Fraîcheur passive** : le panneau `NewsPanel` se **rafraîchit automatiquement toutes les 5 min** tant qu'il est ouvert (avant : 1 seul fetch à l'ouverture).
+
 ### V4.043-dev — 2026-07-07 — 📰 News RSS-first (GDELT bloqué VPS, prouvé par la télémétrie)
 **Diagnostic définitif par le diag** : `gdelt-doc` = timeout 8 s **systématique** (GDELT bloque l'IP du VPS), tandis que `google-rss` = **ok, 0,4 s, 40 articles frais**. Le « cache de 9 h » venait du fait qu'on menait avec GDELT (8 s perdus puis bascule), et que le fil n'était chargé qu'une fois.
 - **Fix** : la route `/news` **mène désormais avec Google Actualités RSS** (rapide, fiable) ; **GDELT n'est plus qu'un secours** si le RSS ne renvoie rien. → News affichées en ~0,4 s, toujours fraîches.

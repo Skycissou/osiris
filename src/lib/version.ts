@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.043-dev';
+export const OSIRIS_VERSION = 'V4.044-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.044-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F4F0} News fraîcheur (retour Cissou : « la dernière info c'est il y a 7 h ») : (1) fil " +
+      "SANS thème → « À LA UNE » Google Actualités (frais à la minute) au lieu d'une recherche " +
+      "large qui remontait du vieux ; (2) TRI du plus récent au plus vieux (avant : ordre de " +
+      "pertinence Google → le récent pas en haut) ; (3) le panneau se RAFRAÎCHIT tout seul toutes " +
+      "les 5 min. La « dernière info » est maintenant réellement la plus récente, en haut.",
+  },
   {
     version: 'V4.043-dev',
     date: '2026-07-07',

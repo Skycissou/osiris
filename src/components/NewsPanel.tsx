@@ -255,6 +255,13 @@ function NewsPanel({ onClose, isMobile }: NewsPanelProps) {
     return () => abortRef.current?.abort();
   }, []);
 
+  // Rafraîchissement AUTO toutes les 5 min tant que le panneau est ouvert →
+  // le fil reste frais sans action (retour Cissou : « la dernière info c'est 7 h »).
+  useEffect(() => {
+    const id = setInterval(() => void charger(), 5 * 60_000);
+    return () => clearInterval(id);
+  }, [charger]);
+
   const onSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
