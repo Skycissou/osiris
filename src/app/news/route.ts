@@ -231,26 +231,25 @@ export async function GET(request: NextRequest) {
     `&mode=ArtList&format=json&maxrecords=${MAX_RECORDS}&timespan=24h&sort=DateDesc`;
 
   try {
-    // Tout appel GDELT passe par le PORTIER (quota 1 req/5,5 s partagé avec la
-    // couche géopolitique, cache 5 min, stale-on-error, timeout 20 s).
+    // STRATÉGIE (diag 07/07, preuve télémétrie) : GDELT est BLOQUÉ depuis l'IP du
+    // VPS (timeout 8 s systématique, `gdelt-doc` toujours en échec) alors que le
+    // flux Google Actualités RSS répond en ~0,4 s avec des news FRAÎCHES. On MÈNE
+    // donc avec le RSS ; GDELT n'est plus qu'un SECOURS si le RSS ne renvoie rien.
+    // → fini l'attente de 8 s et le cache figé de plusieurs heures.
+    const rssPrimary = await fetchGoogleNewsRss(theme, lang);
+    if (rssPrimary && rssPrimary.length > 0) {
+      return NextResponse.json(
+        { articles: rssPrimary } satisfies NewsResult,
+        { status: 200, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+
+    // RSS vide (rare) → on tente GDELT en secours (métadonnées plus riches quand
+    // il répond : pays, image). Passe par le portier (quota, cache, stale borné).
     const gate = await gdeltFetch(upstream, USER_AGENT);
-    // GDELT KO (injoignable/quota/erreur, ou périmé trop vieux) → PLAN B RSS.
-    if (!gate) return gdeltDownFallback(theme, lang, 'GDELT injoignable, réessaie dans un moment');
-    // GDELT sert du PÉRIMÉ (stale-on-error) → on préfère des news FRAÎCHES via
-    // Google Actualités RSS ; le périmé n'est servi qu'en dernier recours (RSS KO).
-    // Sinon un cache figé masquait des news vieilles de plusieurs heures (07/07).
-    if (gate.stale) {
-      const rss = await fetchGoogleNewsRss(theme, lang);
-      if (rss) {
-        return NextResponse.json(
-          { articles: rss } satisfies NewsResult,
-          { status: 200, headers: { 'Cache-Control': 'no-store' } },
-        );
-      }
-      // RSS indisponible aussi → on tombera sur le parse du périmé ci-dessous.
-    } else {
-      if (gate.status === 429) return gdeltDownFallback(theme, lang, 'quota GDELT atteint, réessaie dans un moment');
-      if (gate.status < 200 || gate.status >= 300) return gdeltDownFallback(theme, lang, `amont GDELT ${gate.status}`);
+    if (!gate) return softError('actualités momentanément indisponibles, réessaie');
+    if (!gate.stale && (gate.status === 429 || gate.status < 200 || gate.status >= 300)) {
+      return softError('actualités momentanément indisponibles, réessaie');
     }
 
     // GDELT renvoie parfois du texte (message d'erreur, requête trop large…)

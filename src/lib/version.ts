@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.042-dev';
+export const OSIRIS_VERSION = 'V4.043-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.043-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F4F0} News RSS-FIRST (preuve télémétrie : `gdelt-doc` timeout 8 s systématique = GDELT " +
+      "bloque l'IP du VPS, alors que `google-rss` répond en 0,4 s avec 40 news fraîches). On MÈNE " +
+      "désormais avec Google Actualités RSS, GDELT n'est plus qu'un secours si le RSS ne renvoie " +
+      "rien → News rapides et FRAÎCHES (fini l'attente de 8 s et le cache figé). Bonus diag : " +
+      "OpenSky vue monde confirmée OK (11 000+ avions) ; celestrak/satellites à réparer (bloqué VPS).",
+  },
   {
     version: 'V4.042-dev',
     date: '2026-07-07',

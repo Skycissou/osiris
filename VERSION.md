@@ -29,6 +29,11 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.043-dev — 2026-07-07 — 📰 News RSS-first (GDELT bloqué VPS, prouvé par la télémétrie)
+**Diagnostic définitif par le diag** : `gdelt-doc` = timeout 8 s **systématique** (GDELT bloque l'IP du VPS), tandis que `google-rss` = **ok, 0,4 s, 40 articles frais**. Le « cache de 9 h » venait du fait qu'on menait avec GDELT (8 s perdus puis bascule), et que le fil n'était chargé qu'une fois.
+- **Fix** : la route `/news` **mène désormais avec Google Actualités RSS** (rapide, fiable) ; **GDELT n'est plus qu'un secours** si le RSS ne renvoie rien. → News affichées en ~0,4 s, toujours fraîches.
+- Constats du même diag : ✅ **OpenSky vue monde OK** (`opensky` ok, 11 453 avions, `lastGlobalAgeS` renseigné) — via clé navigateur + dézoom, comme prévu ; ⚠️ **celestrak (satellites) bloqué depuis le VPS** (657 échecs/663) → à réparer (piste : proxy/source alternative).
+
 ### V4.042-dev — 2026-07-07 — 🌍 Séismes + Cyber C2 enrichis (lot « gratuit » de l'audit, suite)
 Même logique que les feux (V4.041) : on lisait ~4 champs sur 25 (USGS) et 4/10 (Feodo).
 - **Séismes (USGS)** : ajout de **`alert`** (PAGER green/yellow/orange/red — impact humain officiel, coloré dans le popup), **🌊 `tsunami`** (alerte possible), **`sig`** (importance 0-1000), **`type`** et surtout — un « séisme » de type **explosion / tir de carrière / essai** est un **signal ARPD** (bandeau rouge « pas un séisme naturel »), **`magType`**, + **lien fiche USGS** (traçabilité). Popup au clic enrichi.
