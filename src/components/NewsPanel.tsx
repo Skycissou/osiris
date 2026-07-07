@@ -77,8 +77,9 @@ interface NewsArticle {
 // Préfixe basePath (comme tous les appels internes du cockpit).
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
-/** Timeout local de l'appel /news (ms). */
-const FETCH_TIMEOUT_MS = 12_000;
+/** Timeout local de l'appel /news (ms). Couvre le pire cas serveur (GDELT 8 s
+ *  + plan B RSS 7 s) avec marge — sinon le client coupe avant la réponse. */
+const FETCH_TIMEOUT_MS = 18_000;
 
 // ── Helpers de présentation ───────────────────────────────────────────────────
 /**
@@ -199,8 +200,15 @@ function NewsPanel({ onClose, isMobile }: NewsPanelProps) {
     if (q) params.set('q', q);
     const url = `${prefix}/news?${params.toString()}`;
 
-    // Timeout local combiné à l'éventuel abort externe (nouvelle recherche).
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    // Deux sources d'abort à distinguer : (a) NOTRE timeout local, (b) une NOUVELLE
+    // recherche qui supplante celle-ci. Sans ce flag, un abort par timeout était
+    // traité comme un abort « supplanté » → on ne remettait jamais loading à false
+    // → SPINNER INFINI (bug 07/07, confirmé par le diag : GDELT abort à 20 s).
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, FETCH_TIMEOUT_MS);
     try {
       const res = await fetch(url, {
         method: 'GET',
@@ -210,6 +218,7 @@ function NewsPanel({ onClose, isMobile }: NewsPanelProps) {
         signal: controller.signal,
       });
       const payload = (await res.json()) as { articles?: NewsArticle[]; error?: string };
+      // Supplanté entre la réponse et le rendu → on n'écrit pas (le nouvel appel gère).
       if (controller.signal.aborted) return;
       const list = Array.isArray(payload.articles) ? payload.articles : [];
       setArticles(list);
@@ -217,13 +226,15 @@ function NewsPanel({ onClose, isMobile }: NewsPanelProps) {
       if (payload.error) setError(payload.error);
       else if (list.length === 0) setError('Aucun article trouvé sur ce thème (24 h).');
     } catch (err) {
-      if (controller.signal.aborted) return;
-      const aborted = err instanceof Error && err.name === 'AbortError';
-      setError(aborted ? 'Délai dépassé, réessaie.' : 'Échec du chargement des actualités.');
+      // Supplanté par une nouvelle recherche (pas notre timeout) → on sort en
+      // silence : c'est le nouvel appel qui pilote l'état.
+      if (controller.signal.aborted && !timedOut) return;
+      setError(timedOut ? 'Délai dépassé, réessaie.' : 'Échec du chargement des actualités.');
       setArticles([]);
     } finally {
       clearTimeout(timeout);
-      if (!controller.signal.aborted) setLoading(false);
+      // Toujours arrêter le spinner, SAUF si supplanté (le nouvel appel gère).
+      if (timedOut || !controller.signal.aborted) setLoading(false);
     }
   }, [theme, lang]);
 

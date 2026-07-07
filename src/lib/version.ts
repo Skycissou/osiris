@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.037-dev';
+export const OSIRIS_VERSION = 'V4.038-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.038-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F4F0} News « tourne sans fin » ENFIN diagnostiquée par la télémétrie (gdelt-doc " +
+      "abort à 20 s = GDELT bloque l'IP du VPS). DEUX bugs cumulés corrigés : (1) client " +
+      "NewsPanel — sur timeout local, `loading` n'était jamais remis à false → SPINNER INFINI " +
+      "(flag `timedOut` pour distinguer timeout vs recherche supplantée) ; (2) serveur — GDELT " +
+      "timeout 20 s→8 s (échoue vite), plan B RSS 9 s→7 s, timeout client 12 s→18 s (couvre " +
+      "le pire cas). + télémétrie `google-rss` dans le diag (on voit enfin si le plan B répond).",
+  },
   {
     version: 'V4.037-dev',
     date: '2026-07-07',

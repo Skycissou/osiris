@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.038-dev — 2026-07-07 — 📰 News « tourne sans fin » : spinner infini (client) + GDELT bloqué VPS (serveur)
+**Diagnostic par la télémétrie UI qu'on venait de construire** (`/cockpit/live-feed/diag`) : `gdelt-doc calls:1, fail:1, lastMs:20004, note:"aborted"` → **GDELT bloque l'IP du VPS** (abort systématique à 20 s). Le fix V4.037 (stale borné + RSS) ne suffisait pas car **deux bugs se cumulaient** :
+- **Bug client (le vrai symptôme « tourne sans fin »)** : dans `NewsPanel.charger()`, quand le **timeout local** (12 s) coupait la requête, le `catch` faisait `return` sur `aborted` et le `finally` ne remettait `loading` à false que si `!aborted` → sur timeout, **`loading` restait `true` pour toujours = spinner infini**. Corrigé avec un flag `timedOut` qui distingue « coupé par notre timeout » (→ erreur + stop) de « supplanté par une nouvelle recherche » (→ silencieux).
+- **Bug serveur** : le timeout GDELT de **20 s** (`gdeltGate`) dépassait le timeout client (12 s) → le client coupait avant la réponse. Réduit à **8 s** (GDELT est de toute façon bloqué depuis le VPS) ; plan B RSS **9 s→7 s** ; timeout client **12 s→18 s** (couvre 8+7 avec marge).
+- **Visibilité** : ajout de la télémétrie `google-rss` (`recordCall`) dans `/news` → le diag montre enfin si le **plan B Google Actualités répond** depuis le VPS (angle mort jusqu'ici).
+
 ### V4.037-dev — 2026-07-07 — 📰 News figées (stale-on-error sans limite) + audit données OpenSky
 **Retour Cissou** : « pour les news ça fait 8 h que ce n'est pas à jour, y a un problème de live ».
 - **Cause** : le portier `gdeltGate` servait le **cache périmé sans limite d'âge** (`stale-on-error`). Quand GDELT rame (fréquent), il resservait indéfiniment le dernier cache → news gelées des heures. Et la route `/news`, en recevant du périmé (`gate.stale`), **ne basculait pas** sur le plan B Google RSS.

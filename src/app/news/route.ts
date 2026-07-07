@@ -35,6 +35,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { gdeltFetch } from '@/lib/gdeltGate';
 import { safeFetch } from '@/lib/ssrf-guard';
+import { recordCall } from '@/lib/telemetry';
 
 // Toujours dynamique : fil d'actu à la demande, jamais de pré-rendu / cache statique.
 export const dynamic = 'force-dynamic';
@@ -87,8 +88,8 @@ function softError(message: string): NextResponse {
 //  RSS public de Google Actualités : gratuit, sans clé, stable. Mêmes champs
 //  NewsArticle → le panneau ne voit pas la différence.
 
-/** Timeout du fallback RSS (Google répond vite). */
-const RSS_TIMEOUT_MS = 9_000;
+/** Timeout du fallback RSS (Google répond vite ; 7 s pour rester sous le client). */
+const RSS_TIMEOUT_MS = 7_000;
 
 /** Décode les entités XML/HTML courantes d'un titre RSS. */
 function decodeEntities(s: string): string {
@@ -121,6 +122,7 @@ async function fetchGoogleNewsRss(theme: string, lang: 'fr' | 'en' | null): Prom
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&${locale}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), RSS_TIMEOUT_MS);
+  const started = Date.now();
   try {
     const res = await safeFetch(url, {
       method: 'GET',
@@ -128,7 +130,11 @@ async function fetchGoogleNewsRss(theme: string, lang: 'fr' | 'en' | null): Prom
       headers: { Accept: 'application/rss+xml, application/xml, text/xml', 'User-Agent': USER_AGENT },
       maxRedirects: 3,
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // Visible dans /live-feed/diag : savoir si Google RSS répond depuis le VPS.
+      recordCall({ source: 'google-rss', ok: false, status: res.status, ms: Date.now() - started });
+      return null;
+    }
     const xml = await res.text();
     const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? [];
     const articles: NewsArticle[] = [];
@@ -146,8 +152,10 @@ async function fetchGoogleNewsRss(theme: string, lang: 'fr' | 'en' | null): Prom
       });
       if (articles.length >= MAX_RECORDS) break;
     }
+    recordCall({ source: 'google-rss', ok: true, status: res.status, ms: Date.now() - started, count: articles.length });
     return articles.length ? articles : null;
-  } catch {
+  } catch (e) {
+    recordCall({ source: 'google-rss', ok: false, ms: Date.now() - started, note: e instanceof Error ? e.message : 'error' });
     return null;
   } finally {
     clearTimeout(timeout);

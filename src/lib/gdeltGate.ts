@@ -34,8 +34,13 @@ const TTL_MS = 5 * 60_000;
 const MAX_STALE_MS = 30 * 60_000;
 /** Espacement minimal entre deux requêtes GDELT (règle amont 5 s + marge). */
 const MIN_INTERVAL_MS = 5_500;
-/** Timeout réseau par requête (GDELT dépasse souvent 9 s en pointe). */
-const TIMEOUT_MS = 20_000;
+/**
+ * Timeout réseau par requête. RÉDUIT à 8 s le 07/07 : le diag a montré que GDELT
+ * est bloqué depuis l'IP du VPS (abort systématique à 20 s) → attendre 20 s ne
+ * faisait que retarder le plan B (Google RSS) et dépasser le timeout client
+ * (spinner infini). 8 s = on abandonne vite et on bascule.
+ */
+const TIMEOUT_MS = 8_000;
 /** Garde-fou mémoire : nb max d'URLs distinctes en cache (FIFO). */
 const MAX_CACHE_ENTRIES = 40;
 
