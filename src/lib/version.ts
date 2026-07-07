@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.044-dev';
+export const OSIRIS_VERSION = 'V4.045-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.045-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F30D} Couche géopolitique GDELT enrichie (audit : on lisait 8 colonnes sur 61). Ajout de " +
+      "GoldsteinScale (GRAVITÉ −10..+10, colorée) + Actor1/Actor2 (QUI vs QUI) + id stable " +
+      "GLOBALEVENTID → popup passe de « du bruit médiatique » à « qui, quoi, quelle gravité ». " +
+      "+ télémétrie d'ÉCHEC `gdelt-export` (le diag dira enfin si data.gdeltproject.org est " +
+      "bloqué depuis le VPS, comme api.gdeltproject.org).",
+  },
   {
     version: 'V4.044-dev',
     date: '2026-07-07',

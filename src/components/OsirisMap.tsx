@@ -102,6 +102,9 @@ export interface GeoEventPoint {
   tone?: number;
   count?: number;
   url?: string;
+  goldstein?: number; // impact stabilité (-10..+10) — gravité
+  actor1?: string; // qui agit
+  actor2?: string; // cible / autre partie
 }
 
 /** Serveur C2 malware (source abuse.ch Feodo, public — veille cyber défensive). */
@@ -878,11 +881,19 @@ function OsirisMap({
         //    pas le schéma → un `javascript:` survivrait). URL non http(s) → pas de lien.
         const safeUrl = typeof p.url === 'string' && /^https?:\/\//i.test(p.url) ? p.url : '';
         const link = safeUrl ? `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener" style="color:#54bdde;">ouvrir la source ↗</a>` : '';
+        // Gravité Goldstein (-10..+10) : rouge si très négatif (déstabilisant).
+        const g = p.goldstein != null && p.goldstein !== '' ? Number(p.goldstein) : null;
+        const gravite = g != null && Number.isFinite(g)
+          ? `<span style="color:${g <= -5 ? '#ff6b74' : g < 0 ? '#ff9f43' : '#7cffb2'};">gravité ${g.toFixed(1)}</span> (−10 à +10)<br>` : '';
+        // Qui vs qui.
+        const acteurs = (p.actor1 || p.actor2)
+          ? `Acteurs : ${escapeHtml(p.actor1 || '?')}${p.actor2 ? ` → ${escapeHtml(p.actor2)}` : ''}<br>` : '';
         const html =
           `<div style="${POPUP_STYLE}">` +
           `<div style="color:#d6a445;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Événement · GDELT</div>` +
           `<div style="color:#fff;font-size:13px;font-weight:600;line-height:1.4;margin-bottom:6px;">${escapeHtml(p.title || p.name || 'Événement')}</div>` +
-          `<div style="color:#586475;font-size:10px;">Tonalité : ${escapeHtml(p.tone ?? '—')} · ${link} · source GDELT (public)</div>` +
+          `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">${gravite}${acteurs}Tonalité : ${escapeHtml(p.tone ?? '—')}</div>` +
+          `<div style="color:#586475;font-size:10px;margin-top:6px;">${link} · source GDELT (public)</div>` +
           `</div>`;
         popupRef.current?.remove();
         popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '360px', offset: 14 })
@@ -1171,7 +1182,10 @@ function OsirisMap({
       .map((g) => ({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: [g.lng, g.lat] },
-        properties: { title: g.title ?? '', name: g.name ?? '', tone: g.tone ?? '', url: g.url ?? '' },
+        properties: {
+          title: g.title ?? '', name: g.name ?? '', tone: g.tone ?? '', url: g.url ?? '',
+          goldstein: g.goldstein ?? '', actor1: g.actor1 ?? '', actor2: g.actor2 ?? '',
+        },
       }));
     setGeo('live-gdelt', gdeltFeats);
     setVis(['live-gdelt-dots'], !!activeLayers?.live_gdelt);

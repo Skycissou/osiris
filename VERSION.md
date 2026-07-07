@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.045-dev — 2026-07-07 — 🌍 Couche géopolitique GDELT enrichie (gravité + qui vs qui)
+Manque de l'audit : la couche événements lisait **8 colonnes sur 61** → « un point = du bruit médiatique ».
+- **Parsing** (`gdeltEvents.ts`) : ajout de **`GoldsteinScale`** (impact stabilité −10..+10 — hiérarchiser par **gravité**, pas par volume presse), **`Actor1Name`/`Actor2Name`** (**qui vs qui**), et **`GLOBALEVENTID`** comme id stable.
+- **Popup** (`OsirisMap.tsx`) : gravité colorée (rouge si ≤ −5), acteurs, tonalité, lien source.
+- **Visibilité** : télémétrie d'**échec** ajoutée à `gdelt-export` → le diag dira enfin si `data.gdeltproject.org` répond ou est **bloqué depuis le VPS** (même infra que `api.gdeltproject.org`, déjà bloquée pour les news). Si bloqué, on saura qu'il faut une source/proxy alternatif pour cette couche.
+
 ### V4.044-dev — 2026-07-07 — 📰 News fraîcheur : « à la une » + tri par date + auto-refresh
 **Retour Cissou** : « la dernière info dessus c'est il y a 7 h ». Trois causes cumulées, corrigées :
 1. **Requête RSS** : sans thème, on faisait une **recherche large** (`géopolitique OR …`) qui remontait des articles vieux de plusieurs heures. → on passe sur le flux **« À LA UNE »** de Google Actualités (`news.google.com/rss?hl=..`), frais à la minute. Avec thème → recherche ciblée (inchangé).

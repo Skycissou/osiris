@@ -37,8 +37,12 @@ const MAX_ZIP_BYTES = 30 * 1024 * 1024;
 const MAX_POINTS = 300;
 
 // ── Colonnes utiles de la table « GDELT 2.0 Event Database » (61 colonnes) ──
+const COL_EVENT_ID = 0; // GLOBALEVENTID (id stable)
+const COL_ACTOR1_NAME = 6; // Actor1Name (qui agit)
+const COL_ACTOR2_NAME = 16; // Actor2Name (cible)
 const COL_ROOTCODE = 28; // EventRootCode (CAMEO racine, '14' = PROTEST)
 const COL_QUADCLASS = 29; // 1 coop.verbale · 2 coop.matérielle · 3 CONFLIT verbal · 4 CONFLIT matériel
+const COL_GOLDSTEIN = 30; // GoldsteinScale (-10..+10) — impact sur la stabilité
 const COL_NUM_ARTICLES = 33; // intensité de couverture média
 const COL_AVG_TONE = 34; // tonalité moyenne (négatif = hostile)
 const COL_GEO_FULLNAME = 52; // ActionGeo_FullName (libellé du lieu)
@@ -57,6 +61,9 @@ export interface GdeltExportEvent {
   title?: string;
   url?: string;
   tone?: number;
+  goldstein?: number; // impact stabilité (-10..+10) — hiérarchiser par GRAVITÉ
+  actor1?: string; // qui agit
+  actor2?: string; // cible / autre partie
 }
 
 // ── Cache module (process Next standalone) ───────────────────────────────────
@@ -131,20 +138,27 @@ function parseEventsTsv(tsv: string): GdeltExportEvent[] {
 
     const count = Number(cols[COL_NUM_ARTICLES]);
     const tone = Number(cols[COL_AVG_TONE]);
+    const goldstein = Number(cols[COL_GOLDSTEIN]);
     const name = (cols[COL_GEO_FULLNAME] || '').trim() || undefined;
     const url = (cols[COL_SOURCE_URL] || '').trim() || undefined;
+    const eventId = (cols[COL_EVENT_ID] || '').trim();
+    const actor1 = (cols[COL_ACTOR1_NAME] || '').trim() || undefined;
+    const actor2 = (cols[COL_ACTOR2_NAME] || '').trim() || undefined;
 
     const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
     const prev = byPoint.get(key);
     if (prev && (prev.count ?? 0) >= (Number.isFinite(count) ? count : 0)) continue;
     byPoint.set(key, {
-      id: `${key}${name ? `,${name}` : ''}`,
+      id: eventId || `${key}${name ? `,${name}` : ''}`, // GLOBALEVENTID stable si dispo
       lat,
       lng,
       ...(name ? { name } : {}),
       ...(Number.isFinite(count) ? { count } : {}),
       ...(url ? { url } : {}),
       ...(Number.isFinite(tone) ? { tone } : {}),
+      ...(Number.isFinite(goldstein) ? { goldstein } : {}),
+      ...(actor1 ? { actor1 } : {}),
+      ...(actor2 ? { actor2 } : {}),
     });
   }
   return [...byPoint.values()]
@@ -154,21 +168,29 @@ function parseEventsTsv(tsv: string): GdeltExportEvent[] {
 
 /** Téléchargement + parse complet (une passe). Throw en cas d'échec. */
 async function refresh(): Promise<GdeltExportEvent[]> {
-  const idxRes = await fetchWithTimeout(LASTUPDATE_URL);
-  if (!idxRes.ok) throw new Error(`lastupdate ${idxRes.status}`);
-  const zipUrl = parseLastUpdate(await idxRes.text());
-  if (!zipUrl) throw new Error('lastupdate sans export.CSV.zip');
+  const started = Date.now();
+  try {
+    const idxRes = await fetchWithTimeout(LASTUPDATE_URL);
+    if (!idxRes.ok) throw new Error(`lastupdate ${idxRes.status}`);
+    const zipUrl = parseLastUpdate(await idxRes.text());
+    if (!zipUrl) throw new Error('lastupdate sans export.CSV.zip');
 
-  const zipRes = await fetchWithTimeout(zipUrl);
-  if (!zipRes.ok) throw new Error(`zip ${zipRes.status}`);
-  const raw = new Uint8Array(await zipRes.arrayBuffer());
-  if (raw.byteLength > MAX_ZIP_BYTES) throw new Error(`zip trop gros (${raw.byteLength}o)`);
+    const zipRes = await fetchWithTimeout(zipUrl);
+    if (!zipRes.ok) throw new Error(`zip ${zipRes.status}`);
+    const raw = new Uint8Array(await zipRes.arrayBuffer());
+    if (raw.byteLength > MAX_ZIP_BYTES) throw new Error(`zip trop gros (${raw.byteLength}o)`);
 
-  const tsv = unzipFirstEntry(raw);
-  if (!tsv) throw new Error('zip illisible');
-  const events = parseEventsTsv(tsv);
-  recordCall({ source: 'gdelt-export', ok: true, status: 200, ms: 0, count: events.length, note: 'export 15min' });
-  return events;
+    const tsv = unzipFirstEntry(raw);
+    if (!tsv) throw new Error('zip illisible');
+    const events = parseEventsTsv(tsv);
+    recordCall({ source: 'gdelt-export', ok: true, status: 200, ms: Date.now() - started, count: events.length, note: 'export 15min' });
+    return events;
+  } catch (e) {
+    // Visibilité diag : savoir si data.gdeltproject.org est bloqué depuis le VPS
+    // (même infra que api.gdeltproject.org, déjà bloquée). Puis on relance l'erreur.
+    recordCall({ source: 'gdelt-export', ok: false, ms: Date.now() - started, note: e instanceof Error ? e.message : 'error' });
+    throw e;
+  }
 }
 
 /**
