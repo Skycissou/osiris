@@ -43,10 +43,13 @@ check "Séismes (USGS)"           'd=json.load(sys.stdin);print(len(d.get("featu
   "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson"
 check "Satellites (celestrak)"   'print(1 if "1 " in sys.stdin.read() else 0)' \
   "https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=tle"
+# Requête géo = EXACTEMENT celle de l'app (GDELT_QUERY de slow/route.ts).
 check "Géopolitique (GDELT geo)" 'd=json.load(sys.stdin);print(len(d.get("features") or []))' \
-  "https://api.gdeltproject.org/api/v2/geo/geo?query=protest&format=GeoJSON&timespan=24h"
+  "https://api.gdeltproject.org/api/v2/geo/geo?query=%28protest%20OR%20conflict%20OR%20attack%20OR%20unrest%20OR%20election%29&format=GeoJSON&timespan=24h"
 check "Cyber C2 (abuse.ch)"      'd=json.load(sys.stdin);print(len(d) if isinstance(d,list) else 0)' \
   "https://feodotracker.abuse.ch/downloads/ipblocklist.json"
+# GDELT limite à 1 req/5 s par IP → pause avant le 2ᵉ appel GDELT du script.
+sleep 6
 check "News (GDELT doc)"         'd=json.load(sys.stdin);print(len(d.get("articles") or []))' \
   "https://api.gdeltproject.org/api/v2/doc/doc?query=france&mode=artlist&format=json&maxrecords=5"
 check "Bases mil. (Overpass)"    'd=json.load(sys.stdin);print(len(d.get("elements") or []))' \
@@ -58,7 +61,7 @@ check "fast: avions (bbox Paris)" 'd=json.load(sys.stdin);print(len(d.get("aircr
   "$STAGING/cockpit/live-feed/fast?bbox=1.5,47.9,3.2,49.7"
 check "fast: avions (bbox USA)"   'd=json.load(sys.stdin);print(len(d.get("aircraft") or []))' \
   "$STAGING/cockpit/live-feed/fast?bbox=-75,39,-72,41.5"
-check "slow: séismes+geo+cyber"   'd=json.load(sys.stdin);print(sum(len(d.get(k) or []) for k in ("earthquakes","gdelt","cyber","satellites")))' \
+check "slow: séismes+geo+cyber"   'd=json.load(sys.stdin);ks=("earthquakes","gdelt","cyber","satellites","wildfires","volcanoes");tot=sum(len(d.get(k) or []) for k in ks);print(f"{tot} ("+" ".join(f"{k}:{len(d.get(k) or [])}" for k in ks)+")")' \
   "$STAGING/cockpit/live-feed/slow"
 check "news (fil GDELT)"          'd=json.load(sys.stdin);print(len(d.get("articles") or []))' \
   "$STAGING/cockpit/news?q=cyber&lang=fr"

@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.019-dev — 2026-07-07 — 🚪 Portier GDELT (fin des « timeout GDELT »)
+- **Diagnostic (script test-couches sur le VPS)** : GDELT répond **429** avec le message « limit requests to one every 5 seconds » — `/news` et la couche géopolitique (`/live-feed/slow`, toutes les 120 s) + les refresh du panneau se marchaient dessus depuis la même IP → GDELT ralentissait/refusait → « timeout GDELT ».
+- **Fix : `lib/gdeltGate.ts`**, portier UNIQUE pour tout appel GDELT : ① file sérialisée, **1 requête / 5,5 s** max (leur règle + marge) ② **cache mémoire 5 min** par URL ③ **stale-on-error** (amont en panne → on sert la dernière réponse connue plutôt qu'un panneau vide) ④ timeout **20 s** (GDELT dépasse souvent 9 s en pointe). `/news` et la couche géo branchés dessus.
+- **Script test-couches amélioré** : requête géo = celle EXACTE de l'app (l'ancienne 404 du test venait d'une requête différente), pause 6 s entre les 2 appels GDELT du script (anti-auto-429), détail par couche sur le flux lent (`earthquakes:… gdelt:… cyber:…`).
+- Bilan du 1er run VPS : avions Paris **79** / USA **34** (fix bbox V4.018 **prouvé**), USGS/celestrak/abuse.ch/Overpass ✅.
+
 ### V4.018-dev — 2026-07-07 — 🐛 Avions « que sur la France » + script de test des couches
 - **Cause racine trouvée par lecture de code** : `page.tsx` appelait `useDataPolling({...})` **sans capturer le handle retourné** → `setBBox` n'était JAMAIS appelé → le flux avions restait sur la bbox par défaut (France métropole), où que soit la carte. Le doc-comment de `liveData.ts` montrait le câblage attendu… qui n'existait nulle part.
 - **Fix** : `OsirisMap` émet son emprise via un nouveau prop `onBoundsChange` (au `load` + à chaque `moveend`, **clampée ±180/±90** — sinon en vue monde/globe le serveur rejetait la bbox et retombait silencieusement sur la France) → `page.tsx` capture le handle et branche `live.setBBox`. Debounce déjà en place côté moteur (pas de spam réseau).

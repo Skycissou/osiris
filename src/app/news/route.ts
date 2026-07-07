@@ -33,13 +33,12 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from 'next/server';
-import { safeFetch } from '@/lib/ssrf-guard';
+import { gdeltFetch } from '@/lib/gdeltGate';
 
 // Toujours dynamique : fil d'actu à la demande, jamais de pré-rendu / cache statique.
 export const dynamic = 'force-dynamic';
 
-/** Timeout réseau vers l'API GDELT (ms). */
-const FETCH_TIMEOUT_MS = 9_000;
+// (Timeout/quota/cache GDELT : gérés par le portier partagé lib/gdeltGate.ts.)
 /** Longueur max acceptée pour le thème (garde-fou anti-abus). */
 const MAX_Q_LEN = 200;
 /** Plafond d'articles demandés à GDELT et renvoyés au client. */
@@ -137,21 +136,19 @@ export async function GET(request: NextRequest) {
     `?query=${encodeURIComponent(query)}` +
     `&mode=ArtList&format=json&maxrecords=${MAX_RECORDS}&timespan=24h&sort=DateDesc`;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await safeFetch(upstream, {
-      method: 'GET',
-      signal: controller.signal,
-      headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
-      maxRedirects: 2,
-    });
-    if (res.status === 429) return softError('quota GDELT atteint, réessaie dans un moment');
-    if (!res.ok) return softError(`amont GDELT ${res.status}`);
+    // Tout appel GDELT passe par le PORTIER (quota 1 req/5,5 s partagé avec la
+    // couche géopolitique, cache 5 min, stale-on-error, timeout 20 s).
+    const gate = await gdeltFetch(upstream, USER_AGENT);
+    if (!gate) return softError('GDELT injoignable, réessaie dans un moment');
+    if (!gate.stale) {
+      if (gate.status === 429) return softError('quota GDELT atteint, réessaie dans un moment');
+      if (gate.status < 200 || gate.status >= 300) return softError(`amont GDELT ${gate.status}`);
+    }
 
     // GDELT renvoie parfois du texte (message d'erreur, requête trop large…)
     // avec un content-type JSON : on parse défensivement.
-    const text = await res.text();
+    const text = gate.text;
     let payload: { articles?: unknown };
     try {
       payload = JSON.parse(text) as { articles?: unknown };
@@ -186,10 +183,8 @@ export async function GET(request: NextRequest) {
       { articles } satisfies NewsResult,
       { status: 200, headers: { 'Cache-Control': 'no-store' } },
     );
-  } catch (err) {
-    const aborted = err instanceof Error && err.name === 'AbortError';
-    return softError(aborted ? 'timeout GDELT' : 'échec réseau GDELT');
-  } finally {
-    clearTimeout(timeout);
+  } catch {
+    // Le portier gère timeout/quota en interne — ici : erreur inattendue.
+    return softError('échec réseau GDELT');
   }
 }

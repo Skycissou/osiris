@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.018-dev';
+export const OSIRIS_VERSION = 'V4.019-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.019-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F6AA} Portier GDELT (lib/gdeltGate.ts) : GDELT rate-limite \u00e0 1 req/5 s par IP " +
+      "(429 constat\u00e9 au test VPS) \u2192 file unique 5,5 s partag\u00e9e entre /news et la couche " +
+      "g\u00e9opolitique + cache 5 min + stale-on-error + timeout 20 s. Script test-couches " +
+      "am\u00e9lior\u00e9 (requ\u00eate g\u00e9o exacte de l'app, pause anti-429, d\u00e9tail par couche).",
+  },
   {
     version: 'V4.018-dev',
     date: '2026-07-07',
