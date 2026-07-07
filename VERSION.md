@@ -29,6 +29,11 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.031-dev — 2026-07-07 — 🔑 Diag : vérifier la barrière d'environnement (clés .env)
+- **Demande Cissou** (« si je te colle le diag, tu peux contrôler que le .env est bien enregistré ? — pas envie de rechercher mes clés »).
+- `GET /cockpit/live-feed/diag` renvoie désormais un bloc **`env`** : pour chaque clé attendue dans `/docker/osiris-v4/.env` (FIRMS, OpenSky id/secret, AIS, Shodan, HIBP, AbuseIPDB, GitHub, OpenSanctions, sources forme 2, LLM), **`present` (bool) + `len` (longueur)** — **JAMAIS la valeur** (sécurité). + compteur `configured/total`.
+- → Cissou colle le diag, on voit d'un coup d'œil quelles clés env sont chargées, sans re-chercher ni déclencher les couches.
+
 ### V4.030-dev — 2026-07-07 — ✈️ Avions « toujours bleus » réparé (repli type ICAO) + urgence
 - **Cause (retour Cissou)** : la catégorie émetteur ADS-B (`category` A1..A7) n'est renvoyée par adsb.lol que pour une minorité d'avions → sans elle, tout retombait sur « inconnu » (gris-bleu ≈ bleu).
 - **Fix — cascade de signaux** dans `lib/aircraftCategory.ts` (module PUR, **testé 17/17**) : urgence (squawk 7500/7600/7700 ou champ `emergency`) → militaire (bit dbFlags **ou type ICAO** F16/C130…) → `category` ADS-B → **REPLI sur le TYPE ICAO `t`** (A388→gros porteur, A320/B738→grand, EC35→hélico, C172→léger) → défaut. Résultat : la quasi-totalité des avions est colorée.
