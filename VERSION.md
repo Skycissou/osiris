@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.046-dev — 2026-07-07 — 📰 Dépêches AFP (bouton AFP dans le fil)
+**Demande Cissou** : « rajoute les dépêches AFP en RSS ou API suivant ce qui est à dispo ».
+- L'**API AFP officielle** (afp.com) est **licenciée/payante** (pas d'accès public gratuit au fil). La voie gratuite = le flux **Google Actualités filtré `source:AFP`**.
+- **Bouton « AFP »** ajouté dans le `NewsPanel` (à côté de FR/EN) : bascule le fil sur les **dépêches attribuées à l'Agence France-Presse** (`q=source:AFP when:2d`, + thème si saisi). Mode **RSS-only** (pas de GDELT), tri par date conservé.
+- Route `/news?afp=1`.
+
 ### V4.045-dev — 2026-07-07 — 🌍 Couche géopolitique GDELT enrichie (gravité + qui vs qui)
 Manque de l'audit : la couche événements lisait **8 colonnes sur 61** → « un point = du bruit médiatique ».
 - **Parsing** (`gdeltEvents.ts`) : ajout de **`GoldsteinScale`** (impact stabilité −10..+10 — hiérarchiser par **gravité**, pas par volume presse), **`Actor1Name`/`Actor2Name`** (**qui vs qui**), et **`GLOBALEVENTID`** comme id stable.

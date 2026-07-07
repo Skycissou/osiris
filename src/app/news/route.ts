@@ -121,18 +121,24 @@ function pubMs(s: string | undefined): number {
  * Fil Google Actualités RSS pour un thème + langue. Renvoie null si le flux
  * est injoignable/illisible (l'appelant garde alors l'erreur GDELT d'origine).
  */
-async function fetchGoogleNewsRss(theme: string, lang: 'fr' | 'en' | null): Promise<NewsArticle[] | null> {
+async function fetchGoogleNewsRss(theme: string, lang: 'fr' | 'en' | null, afp = false): Promise<NewsArticle[] | null> {
   const locale = lang === 'en'
     ? 'hl=en-US&gl=US&ceid=US:en'
     : 'hl=fr&gl=FR&ceid=FR:fr'; // défaut FR (public OSIRIS)
   const t = theme.trim();
-  // Sans thème → « À LA UNE » Google Actualités (toujours frais, minutes) plutôt
-  // qu'une recherche large qui remontait des articles vieux de plusieurs heures
-  // (retour Cissou 07/07 : « la dernière info c'est il y a 7 h »). Avec thème →
-  // recherche ciblée.
-  const url = t
-    ? `https://news.google.com/rss/search?q=${encodeURIComponent(t)}&${locale}`
-    : `https://news.google.com/rss?${locale}`;
+  // Mode AFP (demande Cissou 07/07) : dépêches attribuées à l'Agence France-Presse
+  // via l'opérateur `source:` de Google Actualités (l'API AFP officielle est
+  // licenciée/payante — cf. doc). Fenêtre 2 jours, + thème si fourni.
+  // Sinon : sans thème → « À LA UNE » (frais à la minute) ; avec thème → recherche.
+  let url: string;
+  if (afp) {
+    const q = `${t ? `${t} ` : ''}source:AFP when:2d`;
+    url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&${locale}`;
+  } else {
+    url = t
+      ? `https://news.google.com/rss/search?q=${encodeURIComponent(t)}&${locale}`
+      : `https://news.google.com/rss?${locale}`;
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), RSS_TIMEOUT_MS);
   const started = Date.now();
@@ -237,6 +243,21 @@ export async function GET(request: NextRequest) {
   // Langue : 'fr' | 'en' | null (tout autre valeur → pas de filtre).
   const rawLang = (params.get('lang') ?? '').trim().toLowerCase();
   const lang: 'fr' | 'en' | null = rawLang === 'fr' ? 'fr' : rawLang === 'en' ? 'en' : null;
+
+  // Mode « dépêches AFP » (demande Cissou 07/07) : RSS Google Actualités filtré
+  // source:AFP, SANS GDELT (l'API AFP officielle est payante).
+  const afp = params.get('afp') === '1';
+  if (afp) {
+    try {
+      const rss = await fetchGoogleNewsRss(theme, lang, true);
+      return NextResponse.json(
+        { articles: rss ?? [], ...(rss && rss.length ? {} : { error: 'Aucune dépêche AFP récente trouvée.' }) } satisfies NewsResult,
+        { status: 200, headers: { 'Cache-Control': 'no-store' } },
+      );
+    } catch {
+      return softError('dépêches AFP momentanément indisponibles');
+    }
+  }
 
   const query = buildQuery(theme, lang);
 

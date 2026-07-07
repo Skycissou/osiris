@@ -174,6 +174,7 @@ function NewsPanel({ onClose, isMobile }: NewsPanelProps) {
   // Thème saisi (contrôlé) + thème réellement appliqué à la dernière requête.
   const [theme, setTheme] = useState('');
   const [lang, setLang] = useState<'fr' | 'en'>('fr'); // défaut FR (charte)
+  const [afp, setAfp] = useState(false); // mode « dépêches AFP » (source:AFP)
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -198,6 +199,7 @@ function NewsPanel({ onClose, isMobile }: NewsPanelProps) {
     const params = new URLSearchParams({ lang });
     const q = theme.trim();
     if (q) params.set('q', q);
+    if (afp) params.set('afp', '1'); // dépêches AFP (via Google Actualités source:AFP)
     const url = `${prefix}/news?${params.toString()}`;
 
     // Deux sources d'abort à distinguer : (a) NOTRE timeout local, (b) une NOUVELLE
@@ -236,14 +238,14 @@ function NewsPanel({ onClose, isMobile }: NewsPanelProps) {
       // Toujours arrêter le spinner, SAUF si supplanté (le nouvel appel gère).
       if (timedOut || !controller.signal.aborted) setLoading(false);
     }
-  }, [theme, lang]);
+  }, [theme, lang, afp]);
 
-  // Chargement initial + rechargement à chaque changement de langue.
+  // Chargement initial + rechargement à chaque changement de langue OU du mode AFP.
   // (Le changement de thème passe par « Entrée » ou le bouton Rafraîchir.)
   useEffect(() => {
     void charger();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lang]);
+  }, [lang, afp]);
 
   // Focus auto du champ à l'ouverture.
   useEffect(() => {
@@ -345,6 +347,21 @@ function NewsPanel({ onClose, isMobile }: NewsPanelProps) {
                 {code}
               </button>
             ))}
+            {/* Dépêches AFP (via Google Actualités source:AFP) */}
+            <button
+              type="button"
+              onClick={() => setAfp((v) => !v)}
+              aria-pressed={afp}
+              title="Dépêches AFP uniquement"
+              className={
+                'ml-1 rounded px-2 py-0.5 text-[9px] font-mono uppercase tracking-widest border transition ' +
+                (afp
+                  ? 'text-[var(--accent-bright)] border-[var(--accent-line)] bg-[var(--accent-soft)]'
+                  : 'text-[var(--faint)] border-[var(--border-primary)] hover:text-white/70')
+              }
+            >
+              AFP
+            </button>
           </div>
 
           <button
