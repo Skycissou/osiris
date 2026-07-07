@@ -88,6 +88,61 @@ const CELESTRAK_GROUP_TMPL =
 const CELESTRAK_GROUPS = ['visual', 'stations'] as const;
 /** Plafond de satellites retenus (protège le client). */
 const SAT_MAX_POINTS = 300;
+
+// ── Cache TLE celestrak (fix 07/07 : celestrak RATE-LIMITE dur → « fetch failed »
+//  en boucle depuis le VPS, diag 657 échecs/663). Les TLE sont valables PLUSIEURS
+//  JOURS → on cache le blob 6 h (positions recalculées à chaque requête via SGP4,
+//  seul le TLE est mis en cache) et on sert le stale jusqu'à 3 j en cas d'échec.
+//  Résultat : celestrak appelé ~quelques fois/jour au lieu de centaines. ──────────
+const TLE_TTL_MS = 6 * 60 * 60_000; // fraîcheur 6 h
+const TLE_STALE_MAX_MS = 3 * 24 * 60 * 60_000; // stale servi jusqu'à 3 j
+const G_TLE = globalThis as unknown as { __osirisTleCache?: { ts: number; blob: string } | null; __osirisTleInflight?: Promise<string> | null };
+if (G_TLE.__osirisTleCache === undefined) G_TLE.__osirisTleCache = null;
+
+/** Téléchargement réel du blob TLE (groupes, repli seed CATNR). Throw si vide. */
+async function downloadTleBlob(): Promise<string> {
+  const tleTexts = await Promise.all(
+    CELESTRAK_GROUPS.map((g) =>
+      fetchText(CELESTRAK_GROUP_TMPL.replace('{GROUP}', encodeURIComponent(g)), 'celestrak'),
+    ),
+  );
+  let blob = tleTexts.filter((t): t is string => t !== null).join('\n');
+  if (blob.trim().length === 0) {
+    const seed = await Promise.all(
+      SATS_SUIVIS.map((s) =>
+        fetchText(CELESTRAK_GP_TMPL.replace('{CATNR}', encodeURIComponent(s.id)), 'celestrak'),
+      ),
+    );
+    blob = seed.filter((t): t is string => t !== null).join('\n');
+  }
+  if (blob.trim().length === 0) throw new Error('celestrak vide');
+  return blob;
+}
+
+/**
+ * Blob TLE avec cache 6 h + stale-on-error 3 j + un seul téléchargement concurrent.
+ * Renvoie '' seulement si aucun cache exploitable ET téléchargement KO.
+ */
+async function getTleBlob(): Promise<string> {
+  const hit = G_TLE.__osirisTleCache;
+  if (hit && Date.now() - hit.ts < TLE_TTL_MS) return hit.blob;
+  if (!G_TLE.__osirisTleInflight) {
+    G_TLE.__osirisTleInflight = downloadTleBlob()
+      .then((blob) => {
+        G_TLE.__osirisTleCache = { ts: Date.now(), blob };
+        return blob;
+      })
+      .catch(() => '') // échec → on gère le stale ci-dessous
+      .finally(() => {
+        G_TLE.__osirisTleInflight = null;
+      });
+  }
+  const fresh = await G_TLE.__osirisTleInflight;
+  if (fresh) return fresh;
+  // Téléchargement KO → stale borné (TLE dégradé mais exploitable quelques jours).
+  if (hit && Date.now() - hit.ts < TLE_STALE_MAX_MS) return hit.blob;
+  return '';
+}
 /**
  * API GDELT 2.0 GEO (« Geographic Query »), format GeoJSON, PUBLIQUE et SANS
  * clé. Renvoie une FeatureCollection de points géolocalisés agrégeant la
@@ -674,26 +729,11 @@ export async function GET(request: NextRequest) {
   //  toutes mortes ou lib qui jette → satellites = []. Jamais de 500.
   let satellites: SatPosition[] = [];
   try {
-    // Optimisé 07/07 : 2 requêtes GROUPE (visual+stations) → des centaines de
-    // satellites, au lieu de 6 requêtes CATNR pour 6 satellites. (SATS_SUIVIS
-    // reste le seed de repli documenté.)
-    const tleTexts = await Promise.all(
-      CELESTRAK_GROUPS.map((g) =>
-        fetchText(CELESTRAK_GROUP_TMPL.replace('{GROUP}', encodeURIComponent(g)), 'celestrak'),
-      ),
-    );
-    let blob = tleTexts.filter((t): t is string => t !== null).join('\n');
-    // Repli : groupes indisponibles → seed CATNR historique (SATS_SUIVIS).
-    if (blob.trim().length === 0) {
-      const seed = await Promise.all(
-        SATS_SUIVIS.map((s) =>
-          fetchText(CELESTRAK_GP_TMPL.replace('{CATNR}', encodeURIComponent(s.id)), 'celestrak'),
-        ),
-      );
-      blob = seed.filter((t): t is string => t !== null).join('\n');
-    }
+    // TLE via cache 6 h + stale 3 j (fini le martelage de celestrak, fix 07/07).
+    // Positions RECALCULÉES à chaque requête (SGP4, instant unique) depuis le blob
+    // caché → mouvement live conservé sans re-télécharger.
+    const blob = await getTleBlob();
     if (blob.trim().length > 0) {
-      // Instant unique partagé par tous les satellites (cohérence temporelle).
       satellites = computeSatellites(blob, new Date()).slice(0, SAT_MAX_POINTS);
     }
   } catch {

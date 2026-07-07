@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.046-dev';
+export const OSIRIS_VERSION = 'V4.047-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.047-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F6F0}️ Satellites réparés (diag : celestrak 657 échecs/663). CelesTrak RATE-LIMITE " +
+      "dur → le code le martelait (2-8 requêtes/poll, à chaque poll de 120 s). Les TLE étant " +
+      "valables plusieurs JOURS, on CACHE le blob TLE 6 h + stale-on-error 3 j (positions " +
+      "recalculées à chaque requête via SGP4 depuis le cache → mouvement live conservé). CelesTrak " +
+      "n'est plus appelé que ~quelques fois/jour → plus de rate-limit, la couche satellites revit.",
+  },
   {
     version: 'V4.046-dev',
     date: '2026-07-07',

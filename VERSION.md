@@ -29,6 +29,11 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.047-dev — 2026-07-07 — 🛰️ Satellites réparés : cache TLE (fini le rate-limit celestrak)
+**Diag** : `celestrak` = 657 échecs / 663 (« fetch failed »). Cause : **CelesTrak rate-limite dur** et le code le **martelait** (2 requêtes GROUPE + jusqu'à 6 requêtes seed, à **chaque** poll de 120 s) → connexions refusées en cascade.
+- **Fix** (`slow/route.ts`) : les TLE sont valables **plusieurs jours** → on **cache le blob TLE 6 h** (`TLE_TTL_MS`) + **stale-on-error 3 j** (`TLE_STALE_MAX_MS`), avec **un seul téléchargement concurrent**. Les **positions sont recalculées à chaque requête** (SGP4, instant courant) depuis le blob caché → le mouvement live est conservé sans re-télécharger.
+- Résultat : CelesTrak appelé **~quelques fois/jour** au lieu de centaines → plus de rate-limit, la couche satellites refonctionne.
+
 ### V4.046-dev — 2026-07-07 — 📰 Dépêches AFP (bouton AFP dans le fil)
 **Demande Cissou** : « rajoute les dépêches AFP en RSS ou API suivant ce qui est à dispo ».
 - L'**API AFP officielle** (afp.com) est **licenciée/payante** (pas d'accès public gratuit au fil). La voie gratuite = le flux **Google Actualités filtré `source:AFP`**.
