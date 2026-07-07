@@ -29,6 +29,13 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.048-dev — 2026-07-07 — 🔓 Outils OSINT enrichis (champs déjà reçus mais jetés)
+Constat de l'audit : la plupart des manques OSINT sont des champs **déjà présents dans la réponse amont**, jetés à la normalisation → gain gratuit, sans nouvelle clé ni appel. Enrichi côté route ET affichage (`OsintPanel.renderData`) :
+- **HIBP (fuites)** : **types de données fuitées** (`DataClasses` → mots de passe/CB/e-mails…, en FR), **volume total** de comptes exposés, titre de la brèche.
+- **OpenSanctions** : **`topics`** (motifs : sanction / PPE / crime…) — **dit POURQUOI** l'entité ressort (sinon un hit est aveugle), libellés FR.
+- **AbuseIPDB (réputation IP)** : **type d'usage** (datacenter/FAI — tri de menace), **opérateur (ISP)**, **domaine**, **nœud Tor**, **signalants distincts** (plus fiable que le total).
+- **GitHub** : **e-mail public**, **site/blog**, **X (Twitter)**, **dernière activité** (compte actif/dormant), et **exclusion des forks** du top dépôts (moins de bruit).
+
 ### V4.047-dev — 2026-07-07 — 🛰️ Satellites réparés : cache TLE (fini le rate-limit celestrak)
 **Diag** : `celestrak` = 657 échecs / 663 (« fetch failed »). Cause : **CelesTrak rate-limite dur** et le code le **martelait** (2 requêtes GROUPE + jusqu'à 6 requêtes seed, à **chaque** poll de 120 s) → connexions refusées en cascade.
 - **Fix** (`slow/route.ts`) : les TLE sont valables **plusieurs jours** → on **cache le blob TLE 6 h** (`TLE_TTL_MS`) + **stale-on-error 3 j** (`TLE_STALE_MAX_MS`), avec **un seul téléchargement concurrent**. Les **positions sont recalculées à chaque requête** (SGP4, instant courant) depuis le blob caché → le mouvement live est conservé sans re-télécharger.

@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.047-dev';
+export const OSIRIS_VERSION = 'V4.048-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.048-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F513} Outils OSINT enrichis (audit : champs déjà reçus mais jetés, gain gratuit sans " +
+      "nouvelle clé). HIBP → types de données fuitées + volume + titre. OpenSanctions → MOTIFS " +
+      "(topics : sanction/PPE/crime — dit POURQUOI l'entité ressort). AbuseIPDB → type d'usage " +
+      "(datacenter/FAI), opérateur (ISP), domaine, Tor, signalants distincts. GitHub → e-mail " +
+      "public, site, X, dernière activité + exclusion des forks. Affichage (renderData) mis à jour.",
+  },
   {
     version: 'V4.047-dev',
     date: '2026-07-07',

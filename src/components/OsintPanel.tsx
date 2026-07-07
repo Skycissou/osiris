@@ -283,9 +283,13 @@ function renderData(tool: OsintTool, data: Record<string, unknown>): React.React
         <>
           <Ligne label="Login" value={pick(data, 'login', 'username', 'pseudo')} />
           <Ligne label="Nom" value={pick(data, 'name', 'nom')} />
+          <Ligne label="E-mail public" value={pick(data, 'email')} />
+          <Ligne label="Site / blog" value={pick(data, 'blog', 'website')} />
+          <Ligne label="X (Twitter)" value={pick(data, 'twitter_username')} />
           <Ligne label="Dépôts publics" value={pick(data, 'public_repos', 'repos')} />
           <Ligne label="Abonnés" value={pick(data, 'followers')} />
           <Ligne label="Inscrit le" value={pick(data, 'created_at', 'created')} />
+          <Ligne label="Dernière activité" value={pick(data, 'updated_at')} />
           <Ligne label="Bio" value={pick(data, 'bio')} />
           <Ligne label="Profil" value={pick(data, 'html_url', 'url', 'profile')} />
         </>
@@ -297,6 +301,7 @@ function renderData(tool: OsintTool, data: Record<string, unknown>): React.React
       return (
         <>
           <Ligne label="Correspondances" value={count} />
+          <Chips label="Motifs (pourquoi ça ressort)" items={pickList(data, 'topics')} />
           {hits.length > 0 ? (
             <Chips label="Listes / entités" items={hits} />
           ) : (
@@ -325,6 +330,8 @@ function renderData(tool: OsintTool, data: Record<string, unknown>): React.React
       return (
         <>
           <Ligne label="Fuites connues" value={count} />
+          <Ligne label="Comptes exposés (total)" value={pick(data, 'pwnTotal')} />
+          <Chips label="Données fuitées" items={pickList(data, 'dataClasses')} />
           {breaches.length > 0 ? (
             <Chips label="Sources compromises" items={breaches} />
           ) : (
@@ -340,9 +347,14 @@ function renderData(tool: OsintTool, data: Record<string, unknown>): React.React
       return (
         <>
           <Ligne label="Cible" value={pick(data, 'target', 'ip', 'domain', 'cible')} />
-          <Ligne label="Score de risque" value={pick(data, 'score', 'risk', 'abuse_score', 'reputation')} />
-          <Ligne label="Verdict" value={pick(data, 'verdict', 'status', 'classification')} />
-          <Ligne label="Signalements" value={pick(data, 'reports', 'total_reports', 'signalements')} />
+          <Ligne label="Score de risque" value={pick(data, 'abuseScore', 'score', 'risk', 'abuse_score', 'reputation')} />
+          <Ligne label="Type d'usage" value={pick(data, 'usageType')} />
+          <Ligne label="Opérateur (ISP)" value={pick(data, 'isp')} />
+          <Ligne label="Domaine" value={pick(data, 'domain')} />
+          <Ligne label="Nœud Tor" value={data.isTor === true ? 'oui' : undefined} />
+          <Ligne label="Signalements" value={pick(data, 'totalReports', 'reports', 'total_reports', 'signalements')} />
+          <Ligne label="Signalants distincts" value={pick(data, 'distinctUsers')} />
+          <Ligne label="Dernier signalement" value={pick(data, 'lastReported')} />
           <Chips label="Catégories" items={pickList(data, 'categories', 'tags', 'threats')} />
         </>
       );

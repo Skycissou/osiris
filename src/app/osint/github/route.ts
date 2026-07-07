@@ -68,8 +68,13 @@ interface RawUser {
   company?: string | null;
   location?: string | null;
   created_at?: string;
+  updated_at?: string; // dernière activité (compte actif/dormant)
   public_repos?: number;
   followers?: number;
+  email?: string | null; // e-mail public — pivot OSINT
+  blog?: string | null; // site/blog — pivot OSINT
+  twitter_username?: string | null; // compte X — pivot OSINT
+  html_url?: string; // URL du profil
 }
 
 interface RawRepo {
@@ -119,7 +124,7 @@ export async function GET(request: NextRequest) {
         const repos = (await reposRes.json()) as RawRepo[];
         if (Array.isArray(repos)) {
           topRepos = repos
-            .filter((r) => r && typeof r.name === 'string')
+            .filter((r) => r && typeof r.name === 'string' && !r.fork) // exclut les forks (bruit)
             .map((r) => ({
               name: r.name as string,
               stars: typeof r.stargazers_count === 'number' ? r.stargazers_count : 0,
@@ -142,8 +147,14 @@ export async function GET(request: NextRequest) {
         company: user.company || undefined,
         location: user.location || undefined,
         created_at: user.created_at || undefined,
+        updated_at: user.updated_at || undefined,
         public_repos: typeof user.public_repos === 'number' ? user.public_repos : undefined,
         followers: typeof user.followers === 'number' ? user.followers : undefined,
+        // Pivots OSINT directs (souvent renseignés) : e-mail public, site, X.
+        email: user.email || undefined,
+        blog: user.blog || undefined,
+        twitter_username: user.twitter_username || undefined,
+        html_url: user.html_url || undefined,
         topRepos,
       },
       { status: 200, headers: { 'Cache-Control': 'no-store' } },

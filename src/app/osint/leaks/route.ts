@@ -49,8 +49,26 @@ const keyOf = (req: Request, service: string, env?: string) =>
 
 interface RawBreach {
   Name?: string;
+  Title?: string;
   Domain?: string;
   BreachDate?: string;
+  PwnCount?: number; // volume de comptes exposés
+  IsVerified?: boolean; // fuite confirmée vs douteuse
+  DataClasses?: string[]; // types de données fuitées (mots de passe, CB…) — gravité
+}
+
+/** Traduit les DataClasses HIBP (EN) en libellés FR courts. */
+function dataClassLabel(c: string): string {
+  const map: Record<string, string> = {
+    Passwords: 'mots de passe', 'Email addresses': 'e-mails', Usernames: 'identifiants',
+    'Phone numbers': 'téléphones', 'Physical addresses': 'adresses postales',
+    'Credit cards': 'cartes bancaires', 'Credit card CVV': 'CVV carte',
+    'Bank account numbers': 'comptes bancaires', 'Dates of birth': 'dates de naissance',
+    'IP addresses': 'adresses IP', 'Geographic locations': 'localisation',
+    'Names': 'noms', 'Genders': 'genre', 'Security questions and answers': 'questions secrètes',
+    'Password hints': 'indices de mot de passe', 'Social security numbers': 'n° sécurité sociale',
+  };
+  return map[c] || c;
 }
 
 export async function GET(request: NextRequest) {
@@ -95,13 +113,33 @@ export async function GET(request: NextRequest) {
       ? payload
           .filter((b) => b && typeof b.Name === 'string')
           .map((b) => ({
-            Name: b.Name as string,
+            Name: (b.Title || b.Name) as string,
             Domain: b.Domain || undefined,
             BreachDate: b.BreachDate || undefined,
           }))
       : [];
 
-    return NextResponse.json({ breaches }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
+    // Agrégats à valeur (audit) : types de données fuitées + volume total.
+    const dataClasses = Array.from(
+      new Set(
+        (Array.isArray(payload) ? payload : [])
+          .flatMap((b) => (Array.isArray(b.DataClasses) ? b.DataClasses : []))
+          .map(dataClassLabel),
+      ),
+    );
+    const pwnTotal = (Array.isArray(payload) ? payload : []).reduce(
+      (s, b) => s + (typeof b.PwnCount === 'number' ? b.PwnCount : 0),
+      0,
+    );
+
+    return NextResponse.json(
+      {
+        breaches,
+        ...(dataClasses.length ? { dataClasses } : {}),
+        ...(pwnTotal > 0 ? { pwnTotal } : {}),
+      },
+      { status: 200, headers: { 'Cache-Control': 'no-store' } },
+    );
   } catch (err) {
     const aborted = err instanceof Error && err.name === 'AbortError';
     return softError(aborted ? 'timeout HIBP' : 'échec réseau HIBP');

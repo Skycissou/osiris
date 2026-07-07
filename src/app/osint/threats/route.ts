@@ -54,6 +54,11 @@ interface RawCheck {
     totalReports?: number;
     lastReportedAt?: string | null;
     countryCode?: string | null;
+    usageType?: string | null; // datacenter / FAI / hébergeur — tri de menace
+    isp?: string | null; // opérateur derrière l'IP
+    domain?: string | null; // domaine associé
+    isTor?: boolean; // nœud Tor connu
+    numDistinctUsers?: number; // signalants distincts (plus fiable que totalReports)
   };
 }
 
@@ -96,8 +101,13 @@ export async function GET(request: NextRequest) {
         ip: d.ipAddress || q,
         abuseScore: typeof d.abuseConfidenceScore === 'number' ? d.abuseConfidenceScore : undefined,
         totalReports: typeof d.totalReports === 'number' ? d.totalReports : undefined,
+        distinctUsers: typeof d.numDistinctUsers === 'number' ? d.numDistinctUsers : undefined,
         lastReported: d.lastReportedAt || undefined,
         country: d.countryCode || undefined,
+        usageType: d.usageType || undefined,
+        isp: d.isp || undefined,
+        domain: d.domain || undefined,
+        isTor: d.isTor === true ? true : undefined,
       },
       { status: 200, headers: { 'Cache-Control': 'no-store' } },
     );

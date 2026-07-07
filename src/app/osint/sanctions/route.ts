@@ -49,7 +49,19 @@ interface RawResult {
   caption?: string;
   schema?: string;
   datasets?: string[];
+  topics?: string[]; // POURQUOI le hit ressort : sanction, role.pep, crime…
   properties?: { country?: string[]; countries?: string[]; nationality?: string[] };
+}
+
+/** Traduit un topic OpenSanctions technique en libellé FR court. */
+function topicLabel(t: string): string {
+  const map: Record<string, string> = {
+    sanction: 'sanction', 'role.pep': 'PPE (politiquement exposé)', 'role.rca': 'proche PPE',
+    crime: 'criminalité', 'crime.fin': 'crime financier', 'crime.terror': 'terrorisme',
+    'crime.war': 'crime de guerre', 'crime.traffick': 'trafic', debarment: 'exclusion marchés',
+    'gov.soe': 'entreprise d’État', wanted: 'recherché',
+  };
+  return map[t] || t;
 }
 
 export async function GET(request: NextRequest) {
@@ -94,10 +106,19 @@ export async function GET(request: NextRequest) {
         schema: r.schema || 'Unknown',
         datasets: Array.isArray(r.datasets) && r.datasets.length ? r.datasets : undefined,
         countries: uniqCountries.length ? uniqCountries : undefined,
+        topics: Array.isArray(r.topics) && r.topics.length ? r.topics.map(topicLabel) : undefined,
       };
     });
 
-    return NextResponse.json({ hits }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
+    // Motifs agrégés (POURQUOI ça ressort) — sinon un hit est aveugle.
+    const topics = Array.from(
+      new Set(results.flatMap((r) => (Array.isArray(r.topics) ? r.topics : [])).map(topicLabel)),
+    );
+
+    return NextResponse.json(
+      { hits, ...(topics.length ? { topics } : {}) },
+      { status: 200, headers: { 'Cache-Control': 'no-store' } },
+    );
   } catch (err) {
     const aborted = err instanceof Error && err.name === 'AbortError';
     return softError(aborted ? 'timeout OpenSanctions' : 'échec réseau OpenSanctions');
