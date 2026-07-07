@@ -50,6 +50,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { safeFetch } from '@/lib/ssrf-guard';
 import { getGdeltEvents } from '@/lib/gdeltEvents';
 import { computeSatellites, SATS_SUIVIS, type SatPosition } from '@/lib/satellites';
+import { recordCall } from '@/lib/telemetry';
 
 // Toujours dynamique : données temps quasi-réel, jamais de pré-rendu statique.
 export const dynamic = 'force-dynamic';
@@ -74,6 +75,18 @@ const FIRMS_MAX_POINTS = 2000;
  */
 const CELESTRAK_GP_TMPL =
   'https://celestrak.org/NORAD/elements/gp.php?CATNR={CATNR}&FORMAT=tle';
+/**
+ * Endpoint Celestrak « GP » par GROUPE : UN seul appel ramène des centaines de
+ * satellites (au lieu de 6 requêtes CATNR). Optimisation 07/07 : on interroge
+ * les groupes « visual » (satellites brillants/visibles) + « stations »
+ * (ISS/CSS…). {GROUP} url-encodé.
+ */
+const CELESTRAK_GROUP_TMPL =
+  'https://celestrak.org/NORAD/elements/gp.php?GROUP={GROUP}&FORMAT=tle';
+/** Groupes suivis (peu volumineux, sans clé). */
+const CELESTRAK_GROUPS = ['visual', 'stations'] as const;
+/** Plafond de satellites retenus (protège le client). */
+const SAT_MAX_POINTS = 300;
 /**
  * API GDELT 2.0 GEO (« Geographic Query »), format GeoJSON, PUBLIQUE et SANS
  * clé. Renvoie une FeatureCollection de points géolocalisés agrégeant la
@@ -285,9 +298,10 @@ const COUNTRY_CENTROIDS: Record<string, { lat: number; lng: number }> = {
 const keyOf = (req: Request, service: string, env?: string) =>
   req.headers.get(`x-osiris-key-${service}`) || (env ? process.env[env] : undefined) || '';
 
-async function fetchText(url: string): Promise<string | null> {
+async function fetchText(url: string, source?: string): Promise<string | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const started = Date.now();
   try {
     const res = await safeFetch(url, {
       method: 'GET',
@@ -295,9 +309,11 @@ async function fetchText(url: string): Promise<string | null> {
       headers: { 'User-Agent': USER_AGENT },
       maxRedirects: 2,
     });
+    if (source) recordCall({ source, ok: res.ok, status: res.status, ms: Date.now() - started });
     if (!res.ok) return null;
     return await res.text();
-  } catch {
+  } catch (e) {
+    if (source) recordCall({ source, ok: false, ms: Date.now() - started, note: e instanceof Error ? e.message : 'error' });
     return null;
   } finally {
     clearTimeout(timeout);
@@ -539,7 +555,7 @@ export async function GET(request: NextRequest) {
   void request.nextUrl.searchParams.get('bbox');
 
   // ── 1) SÉISMES — USGS (source réelle, la couche démo qui doit marcher) ────
-  const usgsText = await fetchText(USGS_ALL_DAY);
+  const usgsText = await fetchText(USGS_ALL_DAY, 'USGS');
   const earthquakes: Earthquake[] = usgsText ? parseUsgs(usgsText) : [];
 
   // ── 2) FEUX — NASA FIRMS (nécessite FIRMS_MAP_KEY, sinon couche vide) ─────
@@ -551,7 +567,7 @@ export async function GET(request: NextRequest) {
   const firmsKey = keyOf(request, 'firms', 'FIRMS_MAP_KEY');
   if (firmsKey) {
     const firmsUrl = FIRMS_AREA_CSV_TMPL.replace('{KEY}', encodeURIComponent(firmsKey));
-    const firmsText = await fetchText(firmsUrl);
+    const firmsText = await fetchText(firmsUrl, 'FIRMS');
     if (firmsText) wildfires = parseFirmsCsv(firmsText);
   }
 
@@ -572,16 +588,27 @@ export async function GET(request: NextRequest) {
   //  toutes mortes ou lib qui jette → satellites = []. Jamais de 500.
   let satellites: SatPosition[] = [];
   try {
+    // Optimisé 07/07 : 2 requêtes GROUPE (visual+stations) → des centaines de
+    // satellites, au lieu de 6 requêtes CATNR pour 6 satellites. (SATS_SUIVIS
+    // reste le seed de repli documenté.)
     const tleTexts = await Promise.all(
-      SATS_SUIVIS.map((s) =>
-        fetchText(CELESTRAK_GP_TMPL.replace('{CATNR}', encodeURIComponent(s.id))),
+      CELESTRAK_GROUPS.map((g) =>
+        fetchText(CELESTRAK_GROUP_TMPL.replace('{GROUP}', encodeURIComponent(g)), 'celestrak'),
       ),
     );
-    // On ne garde que les réponses non nulles, on les recolle en un seul blob.
-    const blob = tleTexts.filter((t): t is string => t !== null).join('\n');
+    let blob = tleTexts.filter((t): t is string => t !== null).join('\n');
+    // Repli : groupes indisponibles → seed CATNR historique (SATS_SUIVIS).
+    if (blob.trim().length === 0) {
+      const seed = await Promise.all(
+        SATS_SUIVIS.map((s) =>
+          fetchText(CELESTRAK_GP_TMPL.replace('{CATNR}', encodeURIComponent(s.id)), 'celestrak'),
+        ),
+      );
+      blob = seed.filter((t): t is string => t !== null).join('\n');
+    }
     if (blob.trim().length > 0) {
       // Instant unique partagé par tous les satellites (cohérence temporelle).
-      satellites = computeSatellites(blob, new Date());
+      satellites = computeSatellites(blob, new Date()).slice(0, SAT_MAX_POINTS);
     }
   } catch {
     satellites = []; // toute erreur inattendue → couche vide, la route tient
@@ -602,7 +629,7 @@ export async function GET(request: NextRequest) {
   //  destinés à la veille / au blocage / à la cartographie de la menace — JAMAIS
   //  à une exploitation offensive. Pas de coordonnées dans la source → géoloc
   //  par centroïde pays (COUNTRY_CENTROIDS). Source KO → couche vide.
-  const feodoText = await fetchText(FEODO_C2_JSON);
+  const feodoText = await fetchText(FEODO_C2_JSON, 'abuse.ch');
   const cyber: CyberC2[] = feodoText ? parseFeodo(feodoText) : [];
 
   // ── ETag conditionnel : 304 si le client renvoie l'ETag courant ───────────

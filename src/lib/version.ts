@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.028-dev';
+export const OSIRIS_VERSION = 'V4.029-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.029-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F4CA} MONITORING de toutes les requ\u00eates amont (demande Cissou) : V4 lib/telemetry " +
+      "+ route /cockpit/live-feed/diag ; V3 http.record_call + endpoint /diag \u2014 ok/\u00e9chec, " +
+      "latence, nb d'\u00e9l\u00e9ments PAR source. Exploitation des donn\u00e9es (audit) : V3 prix/m\u00b2 DVF, " +
+      "vraie m\u00e9diane, BODACC jugement/acte structur\u00e9s, contexte BAN, URL data.gouv, fields geo " +
+      "\u00e9largis, per_page 25 (pytest OK) ; V4 celestrak GROUP (2 appels \u2192 centaines de satellites).",
+  },
   {
     version: 'V4.028-dev',
     date: '2026-07-07',

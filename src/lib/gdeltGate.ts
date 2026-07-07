@@ -20,6 +20,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { safeFetch } from '@/lib/ssrf-guard';
+import { recordCall } from '@/lib/telemetry';
 
 /** Durée de fraîcheur d'une réponse en cache. */
 const TTL_MS = 5 * 60_000;
@@ -75,6 +76,7 @@ export async function gdeltFetch(url: string, userAgent: string): Promise<GdeltR
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const started = Date.now();
     try {
       const res = await safeFetch(url, {
         method: 'GET',
@@ -84,6 +86,7 @@ export async function gdeltFetch(url: string, userAgent: string): Promise<GdeltR
       });
       const text = await res.text();
       fresh = { ts: Date.now(), status: res.status, text };
+      recordCall({ source: 'gdelt-doc', ok: res.ok, status: res.status, ms: Date.now() - started });
       // Seules les réponses OK méritent le cache (un 429 ne doit pas coller).
       if (res.ok) {
         cache.set(url, fresh);
@@ -92,8 +95,9 @@ export async function gdeltFetch(url: string, userAgent: string): Promise<GdeltR
           if (oldest !== undefined) cache.delete(oldest);
         }
       }
-    } catch {
+    } catch (e) {
       fresh = null; // réseau/timeout → on tentera le stale ci-dessous
+      recordCall({ source: 'gdelt-doc', ok: false, ms: Date.now() - started, note: e instanceof Error ? e.message : 'error' });
     } finally {
       clearTimeout(timeout);
     }

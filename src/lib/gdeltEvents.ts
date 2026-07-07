@@ -23,6 +23,7 @@
 
 import { unzipSync, strFromU8 } from 'fflate';
 import { safeFetch } from '@/lib/ssrf-guard';
+import { recordCall } from '@/lib/telemetry';
 
 /** Index des fichiers 15-min GDELT (1ʳᵉ ligne = export.CSV.zip courant). */
 const LASTUPDATE_URL = 'https://data.gdeltproject.org/gdeltv2/lastupdate.txt';
@@ -165,7 +166,9 @@ async function refresh(): Promise<GdeltExportEvent[]> {
 
   const tsv = unzipFirstEntry(raw);
   if (!tsv) throw new Error('zip illisible');
-  return parseEventsTsv(tsv);
+  const events = parseEventsTsv(tsv);
+  recordCall({ source: 'gdelt-export', ok: true, status: 200, ms: 0, count: events.length, note: 'export 15min' });
+  return events;
 }
 
 /**

@@ -29,6 +29,7 @@
 
 import { safeFetch } from '@/lib/ssrf-guard';
 import { getGlobalAircraft } from '@/lib/openskyGlobal';
+import { recordCall } from '@/lib/telemetry';
 
 /** Avion normalisé (même forme que l'API publique du flux fast). */
 export interface CollectedAircraft {
@@ -176,6 +177,7 @@ async function fetchDisc(disc: CollectDisc): Promise<CollectedAircraft[] | null>
   const url = `https://api.adsb.lol/v2/point/${disc.lat.toFixed(2)}/${disc.lng.toFixed(2)}/${disc.radiusNm}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DISC_TIMEOUT_MS);
+  const started = Date.now();
   try {
     const res = await safeFetch(url, {
       method: 'GET',
@@ -185,10 +187,12 @@ async function fetchDisc(disc: CollectDisc): Promise<CollectedAircraft[] | null>
     });
     if (!res.ok) {
       console.warn(`[OSIRIS avions] adsb.lol ${res.status} sur ${url}`);
+      recordCall({ source: 'adsb.lol', ok: false, status: res.status, ms: Date.now() - started });
       return null;
     }
     const payload = (await res.json()) as { ac?: Record<string, unknown>[] };
     const raw = Array.isArray(payload.ac) ? payload.ac : [];
+    recordCall({ source: 'adsb.lol', ok: true, status: res.status, ms: Date.now() - started, count: raw.length });
     const out: CollectedAircraft[] = [];
     for (const r of raw) {
       const hex = typeof r.hex === 'string' ? r.hex.trim().toLowerCase() : '';
@@ -219,6 +223,7 @@ async function fetchDisc(disc: CollectDisc): Promise<CollectedAircraft[] | null>
     return out;
   } catch (e) {
     console.warn('[OSIRIS avions] disque KO:', e instanceof Error ? e.message : e);
+    recordCall({ source: 'adsb.lol', ok: false, ms: Date.now() - started, note: e instanceof Error ? e.message : 'error' });
     return null;
   } finally {
     clearTimeout(timeout);

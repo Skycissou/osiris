@@ -29,6 +29,14 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.029-dev — 2026-07-07 — 📊 Monitoring des requêtes + exploitation des données (phase 1)
+- **MONITORING (demande Cissou « installe quelque chose qui monitore toutes les requêtes »)** :
+  - **V4** : `lib/telemetry.ts` (anneau 200 + compteurs par source) branché sur adsb.lol, USGS, celestrak, FIRMS, gdelt-doc, gdelt-export, abuse.ch, opensky. Endpoint **`GET /cockpit/live-feed/diag`** → ok/échec, latence, nb d'éléments par source + santé du collecteur. Testé (fixture : compteurs ok/fail, recent).
+  - **V3** : `http.record_call` (dans le fetcher partagé, capture TOUT appel amont) + endpoint **`GET /diag`**. Testé (pytest).
+- **Exploitation des données jetées (audit, phase 1) — V3, testé pytest** : **prix au m²** DVF (+ coords des ventes), **vraie médiane** (le libellé annonçait médiane, calculait la moyenne), **BODACC `jugement`/`acte` structurés** (nature réelle de procédure + capital social), **contexte BAN** (dépt+région, importance, banID), **URL réelle data.gouv** (+ liens ressources, tri par fraîcheur), **fields geo élargis** (centre/surface/EPCI/SIREN commune), **per_page 10→25**, **BODACC limit 5→10**.
+- **Optimisation requêtes — V4** : satellites via **`GROUP=visual`+`GROUP=stations`** (2 appels → des centaines de satellites, plafonné 300) au lieu de 6 appels CATNR pour 6 satellites ; repli sur le seed si groupes indisponibles.
+- ⏭️ Phase 2 (à suivre) : enrichissement des popups live (USGS tsunami/alerte, Feodo port/statut, GDELT acteurs/Goldstein, adsb squawk/urgence) + wins OSINT (ip timezone/flag, github html_url, cve severity, dns CAA).
+
 ### V4.028-dev — 2026-07-07 — ✈️ Couleur par catégorie + trajet départ/arrivée (retours Cissou)
 - **Couleur par CATÉGORIE d'avion** (« tout est bleu ») : le collecteur récupère maintenant `category` (A1..A7) + le bit **militaire** de `dbFlags` (jusque-là jetés). Buckets colorés : militaire (rouge), gros porteur A5 (orange), grand avion A3/A4 (violet), hélicoptère A7 (vert), léger A1/A2 (cyan), autre/inconnu (gris-bleu). Une icône par couleur (Path2D) + `iconId` data-driven sur la couche symbole + **légende** en bas à droite quand la couche Avions est active.
 - **Trajet départ → arrivée** (« savoir le point de départ et d'arrivée ») : au clic sur un avion, la fiche résout la route via **adsbdb.com** (gratuit, sans clé, CORS ouvert) — aéroports d'origine et destination (code IATA/ICAO + ville). Cache mémoire (échecs inclus), en parallèle de la photo. Indicatif inconnu → section masquée (dégradation douce).

@@ -18,6 +18,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { safeFetch } from '@/lib/ssrf-guard';
+import { recordCall } from '@/lib/telemetry';
 
 /** Jeton OAuth2 (client credentials) — realm officiel OpenSky. */
 const TOKEN_URL =
@@ -134,8 +135,10 @@ async function refresh(clientId: string, clientSecret: string): Promise<GlobalAi
       if (a) aircraft.push(a);
     }
     snapshot = { ts: Date.now(), aircraft };
+    recordCall({ source: 'opensky', ok: true, status: res.status, ms: 0, count: aircraft.length });
     return aircraft;
-  } catch {
+  } catch (e) {
+    recordCall({ source: 'opensky', ok: false, ms: 0, note: e instanceof Error ? e.message : 'error' });
     return null;
   } finally {
     inflight = null;
