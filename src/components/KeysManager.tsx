@@ -317,8 +317,52 @@ function KeysManager({ onCountChange }: KeysManagerProps) {
     onCountChange(configured, total);
   }, [onCountChange]);
 
+  // ── « Copier pour le .env » (demande Cissou : coffre serveur bug-proof) ──
+  //  Construit les lignes VAR=valeur à partir des clés DÉJÀ dans le navigateur,
+  //  à coller UNE fois dans /docker/osiris-v4/.env → persistance serveur qui
+  //  survit à tout. Aucune clé à recréer.
+  const [envCopied, setEnvCopied] = useState<string | null>(null);
+  const copierPourEnv = useCallback(async () => {
+    const lignes: string[] = [];
+    for (const m of API_KEY_SERVICES) {
+      const v = getKey(m.service);
+      if (v) lignes.push(`${m.env}=${v}`);
+    }
+    if (lignes.length === 0) {
+      setEnvCopied('Aucune clé enregistrée dans ce navigateur.');
+      return;
+    }
+    const texte = lignes.join('\n');
+    try {
+      await navigator.clipboard.writeText(texte);
+      setEnvCopied(`${lignes.length} ligne(s) copiée(s) → colle-les dans /docker/osiris-v4/.env sur le VPS, puis rebuild.`);
+    } catch {
+      // Presse-papier refusé → on affiche le texte pour copie manuelle.
+      setEnvCopied(`Copie auto refusée. Contenu à coller dans le .env :\n${texte}`);
+    }
+  }, []);
+
   return (
     <div className="flex flex-col gap-4">
+      {/* Barre d'outils : export vers le .env serveur (persistance bug-proof) */}
+      <div className="flex flex-col gap-1.5 rounded-lg border border-[var(--border-primary)] bg-white/[0.02] px-3 py-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] font-mono text-[var(--muted)] leading-relaxed">
+            Pour ne PLUS jamais retaper tes clés : copie-les vers le <span className="text-[var(--accent)]">.env du VPS</span> (coffre serveur, survit à tout).
+          </span>
+          <button
+            type="button"
+            onClick={copierPourEnv}
+            className="flex-none rounded-md px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-[var(--accent-bright)] border border-[var(--accent-line)] bg-[var(--accent-soft)] hover:brightness-125 transition"
+          >
+            📋 Copier pour le .env
+          </button>
+        </div>
+        {envCopied && (
+          <pre className="mt-1 text-[9px] font-mono text-[var(--green)] whitespace-pre-wrap break-all">{envCopied}</pre>
+        )}
+      </div>
+
       {groupes.map(({ cat, services }) => (
         <section key={cat.id} className="flex flex-col gap-2">
           {/* Titre de catégorie */}

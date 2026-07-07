@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.033-dev';
+export const OSIRIS_VERSION = 'V4.034-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.034-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F4CB} Bouton « Copier pour le .env » sur la page Cl\u00e9s API : g\u00e9n\u00e8re les lignes " +
+      "VAR=valeur \u00e0 partir des cl\u00e9s d\u00e9j\u00e0 dans le navigateur \u2192 \u00e0 coller UNE fois dans " +
+      "/docker/osiris-v4/.env (coffre serveur bug-proof, survit \u00e0 tout). Cissou ne recr\u00e9e " +
+      "aucune cl\u00e9.",
+  },
   {
     version: 'V4.033-dev',
     date: '2026-07-07',
