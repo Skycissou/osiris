@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.015-dev';
+export const OSIRIS_VERSION = 'V4.016-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.016-dev',
+    date: '2026-07-07',
+    resume:
+      "Clés API : page dédiée /cockpit/cles-api (plein écran, compteur X/13 clés " +
+      "configurées, note sécurité, retours cockpit/accueil). Cœur extrait en " +
+      "KeysManager.tsx (source unique) ; ancien panneau flottant KeysPanel archivé " +
+      "dormant ; sidebars accueil+cockpit et ?panel=keys pointent sur la page.",
+  },
   {
     version: 'V4.015-dev',
     date: '2026-07-07',

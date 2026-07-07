@@ -264,7 +264,9 @@ export default function Dashboard() {
     if (panel === 'osint') setOsintOpen(true);
     else if (panel === 'graph') setGraphOpen(true);
     else if (panel === 'news') setNewsOpen(true);
-    else if (panel === 'keys') setKeysOpen(true);
+    // Clés API = page dédiée depuis le 07/07 (les anciens liens ?panel=keys
+    // continuent de fonctionner : on redirige).
+    else if (panel === 'keys') window.location.replace(`${BASE_PATH}/cles-api`);
   }, []);
 
   // ── Filtres d'attributs (filtrer DANS une couche affichée) ──
@@ -655,7 +657,10 @@ export default function Dashboard() {
         </ErrorBoundary>
       )}
 
-      {/* ── MODULE CLÉS API ── */}
+      {/* ── MODULE CLÉS API ── ⏸️ panneau ARCHIVÉ le 07/07 (page dédiée
+          /cles-api à la place — demande Cissou). keysOpen ne peut plus passer
+          à true (sidebar + deep-link pointent sur la page) ; on garde le
+          montage pour une réactivation en 1 ligne. */}
       {keysOpen && (
         <ErrorBoundary name="Clés API">
           <KeysPanel onClose={() => setKeysOpen(false)} />
@@ -954,7 +959,6 @@ export default function Dashboard() {
           onOpenOsint={() => setOsintOpen(true)}
           onOpenGraph={() => setGraphOpen(true)}
           onOpenNews={() => setNewsOpen(true)}
-          onOpenKeys={() => setKeysOpen(true)}
         />
       )}
 

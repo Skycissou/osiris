@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.016-dev — 2026-07-07 — Clés API : page dédiée (fini le panneau sur la carte)
+- **Nouvelle page `/cockpit/cles-api`** (demande Cissou : « l'onglet API mérite une page dédiée ») : plein écran, **compteur « X / 13 clés configurées »**, note de sécurité, boutons retour Cockpit/Accueil, badge version. Route sous le basePath `/cockpit` (**jamais `/api/*`** — Traefik).
+- **Refactor sans duplication** : le cœur du module (cartes de services par catégorie, statut ✔/○, champ masqué, Enregistrer/Effacer, lien + procédure) est extrait dans **`KeysManager.tsx`** — source unique consommée par la page ET l'ancien panneau.
+- **`KeysPanel` (panneau flottant) ARCHIVÉ dormant** : plus référencé par l'UI, réactivable en 1 ligne (montage conservé dans `page.tsx`, `keysOpen` ne passe plus à true).
+- **Tous les chemins pointent sur la page** : sidebar cockpit (« Clés API » → `Link /cles-api`), sidebar accueil (`goCockpitPage('/cockpit/cles-api')`), et compat des anciens liens `?panel=keys` (redirection).
+
 ### V4.015-dev — 2026-07-07 — Finitions sidebar (retours Cissou sur V4.014)
 - **Version jamais tronquée** : le badge version passe **SOUS le mot OSIRIS** (layout colonne) sur l'accueil **et** le cockpit — l'image OSIRIS se réduit proprement (`max-width` + ratio préservé) au lieu d'être coupée. Le cockpit affiche à nouveau la version dans la marque (elle était reléguée au pied, invisible) ; retirée du pied (doublon).
 - **Chevauchements réglés** : la barre de recherche du cockpit se décale de la largeur de la sidebar (`leftOffset={navW}` → `SearchBar`), fini le passage sous la barre.

@@ -13,6 +13,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { memo, useState } from 'react';
+import Link from 'next/link';
 import { BASE_PATH } from '@/lib/api';
 
 /** Liens de navigation → onglets de l'accueil (racine du domaine, hors basePath).
@@ -36,7 +37,8 @@ const DOC_LINKS: { label: string; href: string }[] = [
 export interface CockpitSidebarProps {
   /** Version affichée dans le badge de marque (ex. 'V4.011-dev'). */
   version: string;
-  /** Ouvre le module « Clés API ». */
+  /** ⏸️ Inutilisé depuis le 07/07 (Clés API = page dédiée /cles-api).
+   *  Conservé pour compat — réactivable si le panneau flottant revient. */
   onOpenKeys?: () => void;
   /** Ouvre la boîte à outils OSINT. */
   onOpenOsint?: () => void;
@@ -48,15 +50,16 @@ export interface CockpitSidebarProps {
   onCollapse?: () => void;
 }
 
-function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenNews, onCollapse }: CockpitSidebarProps) {
-  /** Outils du cockpit (ouvrent un panneau). Édite librement : label + action.
+function CockpitSidebar({ version, onOpenOsint, onOpenGraph, onOpenNews, onCollapse }: CockpitSidebarProps) {
+  /** Outils du cockpit. `onClick` = ouvre un panneau · `page` = route dédiée.
    *  (⏸️ « Briefing IA » retiré le 05/07 à la demande de Cissou — code dormant.
-   *   Emojis retirés le 07/07 à la demande de Cissou.) */
-  const TOOLS: { label: string; onClick?: () => void }[] = [
+   *   Emojis retirés le 07/07. « Clés API » = page dédiée /cles-api depuis le
+   *   07/07 — l'ancien panneau (onOpenKeys/KeysPanel) est archivé, dormant.) */
+  const TOOLS: { label: string; onClick?: () => void; page?: string }[] = [
     { label: 'OSINT', onClick: onOpenOsint },
     { label: 'Graphe', onClick: onOpenGraph },
     { label: 'News', onClick: onOpenNews },
-    { label: 'Clés API', onClick: onOpenKeys },
+    { label: 'Clés API', page: '/cles-api' },
   ];
 
   // Groupe Doc repliable (fermé par défaut, comme le <details> de l'accueil).
@@ -103,11 +106,17 @@ function CockpitSidebar({ version, onOpenKeys, onOpenOsint, onOpenGraph, onOpenN
 
       <div className="ck-navlabel">Outils</div>
       <div className="ck-navlinks">
-        {TOOLS.map((t) => (
-          <button key={t.label} type="button" className="ck-navlink" onClick={t.onClick}>
-            {t.label}
-          </button>
-        ))}
+        {TOOLS.map((t) =>
+          t.page ? (
+            <Link key={t.label} className="ck-navlink" href={t.page}>
+              {t.label}
+            </Link>
+          ) : (
+            <button key={t.label} type="button" className="ck-navlink" onClick={t.onClick}>
+              {t.label}
+            </button>
+          ),
+        )}
       </div>
 
       {/* Feedback + Déconnexion : classes dédiées = mêmes styles que .nav-fb / .nav-logout de l'accueil.
