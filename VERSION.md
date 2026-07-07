@@ -29,6 +29,11 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.033-dev — 2026-07-07 — 🐛 Avions revenus (OpenSky n'affame plus adsb.lol) + doc OpenSky + versions couplées
+- **Bug « plus aucun avion depuis la clé OpenSky »** : dans le collecteur, dès qu'OpenSky était demandé, un `return` sautait la collecte adsb.lol ; si OpenSky ne répondait pas (clé incomplète), la carte se vidait PARTOUT. Corrigé : adsb.lol est collecté **à chaque tick** (socle), OpenSky est un **bonus non-bloquant** (throttle 1 tentative/2 min, succès ou échec). Les avions reviennent même sans OpenSky valide.
+- **OpenSky : intégration vérifiée sur la VRAIE doc** (openskynetwork.github.io + web) : OAuth2 client_credentials, token `auth.opensky-network.org/.../token`, `GET /api/states/all` Bearer — mon code était correct. Le blocage venait du **client_secret manquant** (OpenSky = 2 valeurs : client_id + client_secret). howTo des 2 champs précisé (id = `email-api-client`, secret affiché une seule fois à la création).
+- **Version accueil ASSUJETTIE au cockpit** (demande Cissou) : nouvel endpoint `GET /cockpit/version` (source unique `version.ts`) ; l'accueil (`app.js`) le lit au chargement et écrit le badge → fini le lockstep manuel qui dérive. Repli sur la valeur en dur si cockpit injoignable.
+
 ### V4.032-dev — 2026-07-07 — 🧪 Bouton « Tester » par clé API
 - **Demande Cissou** (« quand j'enregistre ça dit OK mais je vois pas si c'est bien connecté »).
 - Route **`GET /cockpit/keys/test?service=<id>`** : fait un **vrai appel minimal** à la source avec la clé (en-tête client ou env) → `{ ok, status, message }`. Bouton **« Tester »** sur chaque carte de la page Clés API → **✅ Connecté** ou **❌ + raison** (401 clé invalide, quota, etc.).
