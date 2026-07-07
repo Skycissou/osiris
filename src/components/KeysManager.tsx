@@ -38,9 +38,11 @@ import {
   setKey,
   clearKey,
   hasKey,
+  keyHeaders,
   type ApiKeyService,
   type ApiKeyServiceMeta,
 } from '@/lib/apiKeys';
+import { BASE_PATH } from '@/lib/api';
 
 // ── Catégories d'affichage ────────────────────────────────────────────────────
 //  3 blocs lisibles, déduits du registre : forme 2 → « Sensibles » ; FIRMS/AIS →
@@ -106,6 +108,9 @@ const ServiceRow = memo(function ServiceRow({ meta, onChanged }: ServiceRowProps
   const [reveal, setReveal] = useState(false);
   // Petit feedback visuel après enregistrement / effacement.
   const [flash, setFlash] = useState<'saved' | 'cleared' | null>(null);
+  // Test de connexion : état + résultat.
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   // Hydratation côté client uniquement (localStorage indispo en SSR).
   useEffect(() => {
@@ -141,8 +146,29 @@ const ServiceRow = memo(function ServiceRow({ meta, onChanged }: ServiceRowProps
     setValue('');
     setReveal(false);
     setFlash('cleared');
+    setTestResult(null);
     onChanged?.();
   }, [meta.service, onChanged]);
+
+  // Test de connexion réel : envoie la clé (en-tête) à /keys/test qui interroge
+  // la source et renvoie ok/raison. OpenSky/AIS ont besoin des 2 champs → on
+  // joint toutes les clés configurées.
+  const tester = useCallback(async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch(`${BASE_PATH}/keys/test?service=${encodeURIComponent(meta.service)}`, {
+        headers: keyHeaders([...ALL_API_KEY_SERVICES]),
+        cache: 'no-store',
+      });
+      const j = (await res.json()) as { ok: boolean; message: string };
+      setTestResult({ ok: !!j.ok, message: j.message || (j.ok ? 'Connecté' : 'Échec') });
+    } catch {
+      setTestResult({ ok: false, message: 'Test injoignable' });
+    } finally {
+      setTesting(false);
+    }
+  }, [meta.service]);
 
   return (
     <div className="rounded-lg border border-[var(--border-primary)] bg-white/[0.015] px-3 py-2.5">
@@ -209,6 +235,16 @@ const ServiceRow = memo(function ServiceRow({ meta, onChanged }: ServiceRowProps
           <Trash2 className="w-3 h-3" />
           Effacer
         </button>
+        {/* Tester la connexion réelle à la source */}
+        <button
+          type="button"
+          onClick={tester}
+          disabled={testing || (!configured && !value)}
+          title="Vérifie que la clé est acceptée par la source"
+          className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-white/80 border border-[var(--border-primary)] bg-white/[0.03] hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed transition"
+        >
+          {testing ? '…' : 'Tester'}
+        </button>
 
         {/* Feedback discret */}
         {flash === 'saved' && (
@@ -222,6 +258,16 @@ const ServiceRow = memo(function ServiceRow({ meta, onChanged }: ServiceRowProps
           </span>
         )}
       </div>
+
+      {/* Résultat du test de connexion */}
+      {testResult && (
+        <div
+          className={`mt-1.5 text-[10px] font-mono ${testResult.ok ? 'text-[var(--green)]' : 'text-[var(--red,#db6f78)]'}`}
+        >
+          {testResult.ok ? '✅ ' : '❌ '}
+          {testResult.message}
+        </div>
+      )}
 
       {/* Lien « Obtenir la clé » + procédure courte */}
       <div className="mt-2 pt-2 border-t border-white/[0.06]">

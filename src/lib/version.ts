@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.031-dev';
+export const OSIRIS_VERSION = 'V4.032-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.032-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F9EA} Bouton « Tester » par cl\u00e9 (demande Cissou : « \u00e7a dit OK mais je vois pas " +
+      "si c'est connect\u00e9 ») : route /cockpit/keys/test fait un VRAI appel \u00e0 la source avec " +
+      "la cl\u00e9 \u2192 \u2705 connect\u00e9 / \u274c + raison (401, quota\u2026). Couvre FIRMS, OpenSky, Shodan, " +
+      "HIBP, AbuseIPDB, GitHub, OpenSanctions, AIS. Cl\u00e9 jamais renvoy\u00e9e au client (safeFetch).",
+  },
   {
     version: 'V4.031-dev',
     date: '2026-07-07',
