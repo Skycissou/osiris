@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.028-dev — 2026-07-07 — ✈️ Couleur par catégorie + trajet départ/arrivée (retours Cissou)
+- **Couleur par CATÉGORIE d'avion** (« tout est bleu ») : le collecteur récupère maintenant `category` (A1..A7) + le bit **militaire** de `dbFlags` (jusque-là jetés). Buckets colorés : militaire (rouge), gros porteur A5 (orange), grand avion A3/A4 (violet), hélicoptère A7 (vert), léger A1/A2 (cyan), autre/inconnu (gris-bleu). Une icône par couleur (Path2D) + `iconId` data-driven sur la couche symbole + **légende** en bas à droite quand la couche Avions est active.
+- **Trajet départ → arrivée** (« savoir le point de départ et d'arrivée ») : au clic sur un avion, la fiche résout la route via **adsbdb.com** (gratuit, sans clé, CORS ouvert) — aéroports d'origine et destination (code IATA/ICAO + ville). Cache mémoire (échecs inclus), en parallèle de la photo. Indicatif inconnu → section masquée (dégradation douce).
+- **Fiche avion enrichie** : ajout de l'**immatriculation** (`r`) et du **type ICAO** (`t`) — deux champs qu'adsb.lol envoyait et qu'on jetait (cf. audit V4 quick win #2).
+- Aucune clé requise pour tout ça. Couches/collecteur/anti-course (V4.027) inchangés.
+
 ### V4.027-dev — 2026-07-07 — 🔄 COUCHE AVIONS RÉÉCRITE À ZÉRO (architecture collecteur)
 - **Décision Cissou** (« reprendre cette couche-là à zéro, voir ce que l'app d'origine applique ») : on adopte le modèle des apps fluides (FR24, tar1090…) — **l'affichage ne déclenche JAMAIS de téléchargement**.
 - **`lib/aircraftCollector.ts`** : boucle permanente côté serveur (1 tick / 8 s, **UN téléchargement à la fois**, jamais de parallélisme) qui entretient un **état monde en mémoire** (avions + fraîcheur). Les vues déclarent leurs « zones d'intérêt » (disques quantifiés, round-robin, expiration 10 min) ; OpenSky monde rafraîchi ~2 min quand une vue large l'a demandé. Avion non revu : hors affichage à 5 min, hors mémoire à 10 min.

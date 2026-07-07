@@ -9,6 +9,7 @@ import { search, buildMapData, BASE_PATH, type SearchResponse, type PlotPoint } 
 import { useDataPolling, useInterpolation, deadReckon } from '@/lib/liveData';
 import { useDataKey } from '@/lib/store';
 import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint, SatellitePoint, ShipPoint, SensitiveData, SensitivePoint, GeoEventPoint, CyberPoint } from '@/components/OsirisMap';
+import { AIRCRAFT_CAT_COLORS, AIRCRAFT_CAT_LABELS } from '@/components/OsirisMap';
 import { OSIRIS_VERSION, OSIRIS_VERSION_LABEL } from '@/lib/version';
 import { useAlertToasts } from '@/lib/alerts';
 import AlertToasts from '@/components/AlertToasts';
@@ -244,7 +245,7 @@ export default function Dashboard() {
   // ── Carte-fiche entité (clic avion) : affichage immédiat puis photo ──
   const [selectedEntity, setSelectedEntity] = useState<AircraftEnriched | null>(null);
   const handleAircraftClick = useCallback((a: AircraftPoint) => {
-    setSelectedEntity({ ...a, photo: null, socials: [] } as AircraftEnriched);
+    setSelectedEntity({ ...a, photo: null, route: null, socials: [] } as AircraftEnriched);
     enrichAircraft(a).then(setSelectedEntity).catch(() => {});
   }, []);
 
@@ -721,6 +722,31 @@ export default function Dashboard() {
           </span>
         </div>
       </motion.div>
+      )}
+
+      {/* ── LÉGENDE CATÉGORIES AVIONS (visible si la couche Avions est active) ── */}
+      {!isMobile && activeLayers?.live_aircraft && (
+        <div
+          className="glass-panel absolute z-[200] pointer-events-none px-3 py-2.5"
+          style={{ right: '16px', bottom: '120px' }}
+        >
+          <div className="text-[9px] font-mono uppercase tracking-widest text-[var(--faint)] mb-1.5">
+            Catégories avions
+          </div>
+          <div className="flex flex-col gap-1">
+            {['mil', 'heavy', 'large', 'rotor', 'light', 'default'].map((k) => (
+              <div key={k} className="flex items-center gap-2">
+                <span
+                  className="inline-block w-2.5 h-2.5 rounded-[2px]"
+                  style={{ background: AIRCRAFT_CAT_COLORS[k] }}
+                />
+                <span className="text-[10px] font-mono text-[var(--muted)]">
+                  {AIRCRAFT_CAT_LABELS[k]}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* ── PANNEAU MENU DE COUCHES (dépliable, au-dessus du bouton COUCHES) ── */}

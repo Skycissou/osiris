@@ -62,6 +62,8 @@ export interface AircraftEnriched {
   callsign?: string;
   hex?: string;
   category?: string;
+  reg?: string;
+  acType?: string;
   // -- Marqueur VIP (forme 2, données publiques) --
   vip?: boolean;
   vipName?: string;
@@ -70,8 +72,24 @@ export interface AircraftEnriched {
   // -- Enrichissements --
   /** Photo planespotters, ou null si aucune / échec (dégradation douce). */
   photo: AircraftPhoto | null;
+  /** Route (départ → arrivée) résolue via adsbdb, ou null. */
+  route: AircraftRoute | null;
   /** Liens sociaux VIP (seed), [] si non VIP ou inconnu. */
   socials: VipSocial[];
+}
+
+/** Aéroport d'un segment de route (adsbdb). */
+export interface RouteAirport {
+  iata?: string;
+  icao?: string;
+  name?: string;
+  municipality?: string;
+  country?: string;
+}
+/** Route d'un vol : origine → destination (adsbdb, gratuit sans clé). */
+export interface AircraftRoute {
+  origin: RouteAirport | null;
+  destination: RouteAirport | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -194,8 +212,11 @@ export function vipSocials(vipName?: string): VipSocial[] {
  * @param a  Avion normalisé issu de la carte (AircraftPoint).
  */
 export async function enrichAircraft(a: AircraftPoint): Promise<AircraftEnriched> {
-  // La photo se résout par hex ; sans hex on saute l'appel réseau.
-  const photo = a.hex ? await fetchAircraftPhoto(a.hex) : null;
+  // Photo (par hex) et route (par indicatif) résolues EN PARALLÈLE.
+  const [photo, route] = await Promise.all([
+    a.hex ? fetchAircraftPhoto(a.hex) : Promise.resolve(null),
+    a.callsign ? fetchRoute(a.callsign) : Promise.resolve(null),
+  ]);
 
   return {
     id: a.id,
@@ -207,11 +228,63 @@ export async function enrichAircraft(a: AircraftPoint): Promise<AircraftEnriched
     callsign: a.callsign,
     hex: a.hex,
     category: a.category,
+    reg: a.reg,
+    acType: a.acType,
     vip: a.vip,
     vipName: a.vipName,
     vipCategory: a.vipCategory,
     vipColor: a.vipColor,
     photo,
+    route,
     socials: a.vip ? vipSocials(a.vipName) : [],
   };
+}
+
+// ── Route de vol (adsbdb.com — gratuit, sans clé, CORS ouvert) ───────────────
+//  Traduit un indicatif de vol → aéroports d'origine et destination.
+//  Cache mémoire (dont les échecs) pour ne pas retaper l'API en boucle.
+const routeCache = new Map<string, AircraftRoute | null>();
+
+function airportFrom(o: Record<string, unknown> | undefined): RouteAirport | null {
+  if (!o || typeof o !== 'object') return null;
+  const s = (k: string) => (typeof o[k] === 'string' && (o[k] as string).trim() ? (o[k] as string).trim() : undefined);
+  return {
+    iata: s('iata_code'),
+    icao: s('icao_code'),
+    name: s('name'),
+    municipality: s('municipality'),
+    country: s('country_iso_name'),
+  };
+}
+
+async function fetchRoute(callsign: string): Promise<AircraftRoute | null> {
+  const cs = callsign.trim().toUpperCase();
+  if (!cs) return null;
+  if (routeCache.has(cs)) return routeCache.get(cs) ?? null;
+  try {
+    const res = await fetch(`https://api.adsbdb.com/v0/callsign/${encodeURIComponent(cs)}`, {
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) {
+      routeCache.set(cs, null); // 404 = indicatif inconnu (fréquent, normal)
+      return null;
+    }
+    const json = (await res.json()) as {
+      response?: { flightroute?: { origin?: Record<string, unknown>; destination?: Record<string, unknown> } };
+    };
+    const fr = json.response?.flightroute;
+    if (!fr) {
+      routeCache.set(cs, null);
+      return null;
+    }
+    const route: AircraftRoute = {
+      origin: airportFrom(fr.origin),
+      destination: airportFrom(fr.destination),
+    };
+    routeCache.set(cs, route);
+    return route;
+  } catch {
+    routeCache.set(cs, null);
+    return null;
+  }
 }

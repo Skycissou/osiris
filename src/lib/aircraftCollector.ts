@@ -40,7 +40,10 @@ export interface CollectedAircraft {
   speed?: number;
   alt?: number;
   callsign?: string;
-  category?: string;
+  category?: string; // classe émetteur ADS-B (A1..C7) → couleur par catégorie
+  reg?: string; // immatriculation (adsb.lol `r`)
+  acType?: string; // type ICAO appareil (adsb.lol `t`, ex. A320)
+  mil?: boolean; // avion militaire (bit 0 de dbFlags)
   vip: boolean;
 }
 
@@ -196,6 +199,7 @@ async function fetchDisc(disc: CollectDisc): Promise<CollectedAircraft[] | null>
       let alt: number | undefined;
       if (typeof r.alt_baro === 'number' && Number.isFinite(r.alt_baro)) alt = r.alt_baro;
       else if (typeof r.alt_geom === 'number' && Number.isFinite(r.alt_geom)) alt = r.alt_geom;
+      const dbFlags = typeof r.dbFlags === 'number' ? r.dbFlags : 0;
       out.push({
         id: hex,
         hex,
@@ -206,6 +210,9 @@ async function fetchDisc(disc: CollectDisc): Promise<CollectedAircraft[] | null>
         alt,
         callsign: typeof r.flight === 'string' && r.flight.trim() ? r.flight.trim() : undefined,
         category: typeof r.category === 'string' && r.category ? r.category : undefined,
+        reg: typeof r.r === 'string' && r.r.trim() ? r.r.trim() : undefined,
+        acType: typeof r.t === 'string' && r.t.trim() ? r.t.trim() : undefined,
+        mil: (dbFlags & 1) === 1, // bit 0 = militaire (convention adsb.lol/tar1090)
         vip: false,
       });
     }

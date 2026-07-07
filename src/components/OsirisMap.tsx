@@ -26,6 +26,9 @@ export interface AircraftPoint {
   callsign?: string;
   hex?: string;
   category?: string;
+  reg?: string;
+  acType?: string;
+  mil?: boolean;
   /** Marqueur watchlist VIP (forme 2, données publiques) — cf. route fast. */
   vip?: boolean;
   vipName?: string;
@@ -211,6 +214,38 @@ function computeSolarTerminator(): [number, number][] {
 }
 
 const EMPTY_FC = { type: 'FeatureCollection' as const, features: [] };
+
+// ── Couleur des avions PAR CATÉGORIE (demande Cissou 07/07 : « tout est bleu ») ──
+//  Buckets dérivés de la catégorie émetteur ADS-B (A1..A7) + bit militaire.
+//  Une icône « plane-<key> » est générée par couleur au chargement de la carte.
+export const AIRCRAFT_CAT_COLORS: Record<string, string> = {
+  mil: '#e0555f', // militaire (bit dbFlags) — rouge
+  heavy: '#f0a35e', // gros porteur (A5) — orange
+  large: '#c9a2ff', // large (A3/A4) — violet clair
+  rotor: '#7cffb2', // hélicoptère / giravion (A7) — vert
+  light: '#9bdcf0', // léger / petit (A1/A2) — cyan
+  default: '#8fa6bd', // autre / inconnu — gris-bleu
+};
+/** Libellés FR pour la légende. */
+export const AIRCRAFT_CAT_LABELS: Record<string, string> = {
+  mil: 'Militaire',
+  heavy: 'Gros porteur',
+  large: 'Grand avion',
+  rotor: 'Hélicoptère',
+  light: 'Avion léger',
+  default: 'Autre / inconnu',
+};
+
+/** Catégorie émetteur ADS-B + bit militaire → clé de couleur/icône. */
+function aircraftCatKey(category?: string, mil?: boolean): string {
+  if (mil) return 'mil';
+  const c = (category ?? '').toUpperCase();
+  if (c === 'A5') return 'heavy';
+  if (c === 'A3' || c === 'A4') return 'large';
+  if (c === 'A7') return 'rotor';
+  if (c === 'A1' || c === 'A2') return 'light';
+  return 'default';
+}
 
 // ── Fabrique d'URL de tuiles WMTS Géoplateforme IGN (data.geopf.fr) ──
 // Gratuit sans clé · TileMatrixSet PM = z/x/y standard (compatible MapLibre).
@@ -447,7 +482,11 @@ function OsirisMap({
       map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: 'metric' }), 'bottom-right');
 
       // Icônes/pastilles de base réutilisables par les futures couches FR.
-      createIcon(map, 'plane', '#9bdcf0', 26);
+      // Une icône par catégorie d'avion (couleur) — demande Cissou 07/07.
+      createIcon(map, 'plane', '#9bdcf0', 26); // défaut / inconnu (rétro-compat)
+      for (const [key, col] of Object.entries(AIRCRAFT_CAT_COLORS)) {
+        createIcon(map, `plane-${key}`, col, 26);
+      }
       createDot(map, 'dot-gold', '#54bdde', 8);
 
       // Source jour/nuit (couche d'affichage optionnelle conservée).
@@ -510,7 +549,9 @@ function OsirisMap({
         type: 'symbol',
         source: 'live-aircraft',
         layout: {
-          'icon-image': 'plane',
+          // Icône colorée par catégorie : la feature porte `iconId`
+          // (plane-mil / plane-heavy / …) sinon retombe sur 'plane' (défaut).
+          'icon-image': ['coalesce', ['get', 'iconId'], 'plane'],
           'icon-size': ['interpolate', ['linear'], ['zoom'], 4, 0.6, 10, 1.1],
           'icon-rotate': ['coalesce', ['get', 'heading'], 0],
           'icon-rotation-alignment': 'map',
@@ -536,6 +577,8 @@ function OsirisMap({
           callsign: p.callsign ? String(p.callsign) : undefined,
           hex: p.hex ? String(p.hex) : undefined,
           category: p.category ? String(p.category) : undefined,
+          reg: p.reg ? String(p.reg) : undefined,
+          acType: p.acType ? String(p.acType) : undefined,
           vip: p.vip === true || p.vip === 'true',
           vipName: p.vipName ? String(p.vipName) : undefined,
           vipCategory: p.vipCategory ? String(p.vipCategory) : undefined,
@@ -954,6 +997,10 @@ function OsirisMap({
           alt: a.alt ?? '',
           speed: a.speed ?? '',
           category: a.category ?? '',
+          reg: a.reg ?? '',
+          acType: a.acType ?? '',
+          // Icône colorée par catégorie ; VIP garde son rendu halo dédié.
+          iconId: `plane-${aircraftCatKey(a.category, a.mil)}`,
           vip: !!a.vip,
           vipName: a.vipName ?? '',
           vipCategory: a.vipCategory ?? '',

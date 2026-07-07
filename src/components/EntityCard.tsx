@@ -52,7 +52,20 @@
 import { memo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Plane, Crosshair, Loader2, ImageOff, ExternalLink, Camera } from 'lucide-react';
-import type { AircraftEnriched } from '@/lib/entityEnrich';
+import type { AircraftEnriched, RouteAirport } from '@/lib/entityEnrich';
+
+/** Puce aéroport (départ/arrivée) : code IATA/ICAO + ville, ou « ? » si inconnu. */
+function AirportChip({ label, ap }: { label: string; ap: RouteAirport | null }) {
+  const code = ap?.iata || ap?.icao || '?';
+  const sub = ap?.municipality || ap?.country || '';
+  return (
+    <div className="flex-1 min-w-0">
+      <div className="text-[8px] font-mono uppercase tracking-widest text-[var(--faint)]">{label}</div>
+      <div className="text-[13px] font-mono font-bold text-white/90">{code}</div>
+      {sub && <div className="text-[9px] font-mono text-[var(--muted)] truncate" title={ap?.name || sub}>{sub}</div>}
+    </div>
+  );
+}
 
 interface EntityCardProps {
   /** Entité enrichie à afficher (avion ± VIP + photo). */
@@ -236,6 +249,8 @@ function EntityCard({ entity, onClose, onFlyTo, isMobile }: EntityCardProps) {
             <Ligne label="Altitude" value={altFmt} />
             <Ligne label="Vitesse sol" value={spdFmt} />
             <Ligne label="Cap" value={hdgFmt} />
+            <Ligne label="Immatriculation" value={entity.reg?.toUpperCase()} />
+            <Ligne label="Type appareil" value={entity.acType?.toUpperCase()} />
             <Ligne label="Hex ICAO" value={entity.hex?.toUpperCase()} />
             <Ligne label="Catégorie" value={entity.category} />
             <Ligne label="Indicatif" value={entity.callsign} />
@@ -246,6 +261,20 @@ function EntityCard({ entity, onClose, onFlyTo, isMobile }: EntityCardProps) {
               </div>
             )}
           </section>
+
+          {/* ── Route du vol (départ → arrivée, adsbdb) ── */}
+          {entity.route && (entity.route.origin || entity.route.destination) && (
+            <section>
+              <div className="text-[9px] font-mono font-bold uppercase tracking-widest text-[var(--accent-bright)] pb-1 mb-1 border-b border-white/10">
+                Trajet
+              </div>
+              <div className="flex items-center gap-2 py-1">
+                <AirportChip label="Départ" ap={entity.route.origin} />
+                <span className="text-[var(--accent)] text-sm">→</span>
+                <AirportChip label="Arrivée" ap={entity.route.destination} />
+              </div>
+            </section>
+          )}
 
           {/* ── Socials VIP (si VIP + liens connus) ── */}
           {entity.vip && entity.socials.length > 0 && (

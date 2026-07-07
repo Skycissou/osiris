@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.027-dev';
+export const OSIRIS_VERSION = 'V4.028-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.028-dev',
+    date: '2026-07-07',
+    resume:
+      "\u2708\ufe0f Avions color\u00e9s par CAT\u00c9GORIE (militaire/gros porteur/grand/h\u00e9lico/" +
+      "l\u00e9ger/inconnu) via `category`+bit militaire d'adsb.lol, avec l\u00e9gende. Fiche avion : " +
+      "immatriculation + type ICAO (champs `r`/`t` jusque-l\u00e0 jet\u00e9s) + TRAJET d\u00e9part\u2192" +
+      "arriv\u00e9e r\u00e9solu au clic via adsbdb.com (gratuit, sans cl\u00e9).",
+  },
   {
     version: 'V4.027-dev',
     date: '2026-07-07',

@@ -160,6 +160,9 @@ interface Aircraft {
   callsign?: string; // indicatif de vol (flight, trimé)
   hex: string; // hex ICAO24 brut
   category?: string; // catégorie ADS-B émetteur (A1..C7…) si diffusée — NE PAS confondre avec vipCategory
+  reg?: string; // immatriculation (adsb.lol `r`)
+  acType?: string; // type ICAO appareil (adsb.lol `t`)
+  mil?: boolean; // avion militaire (bit dbFlags)
   // ── Champs d'enrichissement watchlist VIP (toujours présents) ──────────
   vip: boolean; // true si le hex figure dans WATCHLIST_VIP, false sinon
   vipName?: string; // libellé public de l'aéronef (ex. « Air Force One (VC-25) ») — seulement si vip
