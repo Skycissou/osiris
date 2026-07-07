@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.035-dev';
+export const OSIRIS_VERSION = 'V4.036-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.036-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F511} OpenSky enfin clair (retour Cissou : « je vois 1 seul champ ») : les 2 " +
+      "cartes (identifiant + secret) existaient mais se ressemblaient trop. L'IDENTIFIANT " +
+      "client OAuth2 n'étant PAS un secret, il s'affiche désormais EN CLAIR (champ texte " +
+      "vert, badge « identifiant · pas un secret · visible ») → impossible à confondre avec " +
+      "le secret masqué. Libellés « CHAMP 1/2 » / « CHAMP 2/2 » + « 👉 colle ICI ». Flag " +
+      "meta `secret:false` réutilisable pour tout futur identifiant non sensible.",
+  },
   {
     version: 'V4.035-dev',
     date: '2026-07-07',

@@ -76,6 +76,12 @@ export interface ApiKeyServiceMeta {
   cost: string;
   /** 1 = standard (OSINT/couche) · 2 = source sensible à câblage variable. */
   form?: 1 | 2;
+  /**
+   * `false` = ce champ n'est PAS un secret (ex. un identifiant client OAuth2).
+   * → affiché EN CLAIR par défaut (champ texte, pas de masquage) pour le
+   * distinguer sans ambiguïté du vrai secret. Absent/`true` = masqué (défaut).
+   */
+  secret?: boolean;
 }
 
 /**
@@ -179,22 +185,23 @@ export const API_KEY_SERVICES: readonly ApiKeyServiceMeta[] = [
   },
   {
     service: 'opensky_id',
-    label: 'OpenSky — 1/2 · identifiant client (avions vue MONDE)',
+    label: 'OpenSky — CHAMP 1/2 · IDENTIFIANT client (pas un secret)',
     env: 'OPENSKY_CLIENT_ID',
     purpose:
-      'Vue MONDIALE des avions en dézoom (instantané global ~2 min via OpenSky Network). OpenSky utilise OAuth2 : il faut LES DEUX valeurs (identifiant + secret). Sans elles, le dézoom reste limité aux disques adsb.lol (250 NM).',
+      '👉 Colle ICI le client_id OpenSky (ex. ton-email-api-client). C’est la 1ʳᵉ des DEUX valeurs OAuth2 (identifiant + secret) nécessaires à la vue MONDE des avions en dézoom. Le secret va dans la carte juste en dessous. Sans les deux, le dézoom reste limité aux disques adsb.lol (250 NM).',
     url: 'https://opensky-network.org/my-opensky/account',
     howTo:
-      'opensky-network.org → connecte-toi → menu « Account » → onglet « API Client » → « New API Client ». Deux valeurs s’affichent : un client_id (ex. ton-email-api-client) ET un client_secret. Colle le client_id ICI, le client_secret dans le champ suivant.',
+      'opensky-network.org → connecte-toi → menu « Account » → onglet « API Client » → « New API Client ». Deux valeurs s’affichent : un client_id (ex. ton-email-api-client) ET un client_secret. Colle le client_id ICI (champ affiché en clair, ce n’est pas un secret), le client_secret dans la carte suivante.',
     cost: 'gratuit (quota crédits)',
     form: 1,
+    secret: false, // l'identifiant client OAuth2 n'est pas secret → affiché en clair
   },
   {
     service: 'opensky_secret',
-    label: 'OpenSky — 2/2 · secret client (avions vue MONDE)',
+    label: 'OpenSky — CHAMP 2/2 · SECRET client (masqué)',
     env: 'OPENSKY_CLIENT_SECRET',
     purpose:
-      'Seconde moitié OBLIGATOIRE de l’accès OpenSky : le « client_secret » (chaîne longue). Va de pair avec l’identifiant ci-dessus.',
+      '👉 Colle ICI le client_secret OpenSky (longue chaîne). Seconde moitié OBLIGATOIRE de l’accès OpenSky, va de pair avec l’identifiant de la carte au-dessus.',
     url: 'https://opensky-network.org/my-opensky/account',
     howTo:
       'ATTENTION : le client_secret n’est affiché QU’UNE SEULE FOIS, au moment où tu crées le API Client (page Account → API Client). Copie-le tout de suite et colle-le ici. Perdu ? Recrée un client API pour en obtenir un nouveau.',

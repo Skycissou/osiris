@@ -29,6 +29,13 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.036-dev — 2026-07-07 — 🔑 OpenSky : identifiant client affiché en clair (fin de la confusion des 2 champs)
+**Retour Cissou** : « je vois 1 seul champ OpenSky » alors que le registre en déclare deux depuis V4.023 (`opensky_id` + `opensky_secret`). Diagnostic : les deux cartes existaient bien mais **se ressemblaient trop** (deux champs masqués identiques) → lues comme une seule.
+- **Correctif** : l'**identifiant client OAuth2 n'est PAS un secret**. Nouveau flag `secret?: boolean` dans `ApiKeyServiceMeta` ; `opensky_id` passe à `secret: false` → rendu **en clair** (champ texte, bordure/badge **vert** « identifiant · pas un secret · visible »), visuellement **distinct** du secret masqué.
+- **Libellés** clarifiés : « OpenSky — **CHAMP 1/2 · IDENTIFIANT** client (pas un secret) » / « OpenSky — **CHAMP 2/2 · SECRET** client (masqué) », avec « 👉 colle ICI » dans chaque `purpose`.
+- Flag réutilisable pour tout futur identifiant non sensible. Le secret reste masqué + œil.
+- ⚠️ Rappel : OpenSky ne sert QUE la vue **monde** (dézoom) — les avions France/régionaux passent par adsb.lol **sans** OpenSky (V4.033). C'est un **bonus**, pas un prérequis.
+
 ### V4.035-dev — 2026-07-07 — 📡 Télémétrie UI (option B — traçage des actions in-app + timeline fusionnée)
 **Demande Cissou** : « tracker toutes les actions de l'app pour voir si tout est fait, détecter les bugs, savoir où est l'erreur. » Spec écrite par Claude (brain `notes/ops/2026-07-07-osiris-telemetrie-ui-spec.md`). **Complète** la télémétrie serveur (V4.029) : côté serveur = « la source amont a-t-elle répondu ? » ; côté UI = « qu'a fait l'utilisateur, dans quel ordre, et où ça a cassé ? ».
 

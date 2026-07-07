@@ -192,30 +192,51 @@ const ServiceRow = memo(function ServiceRow({ meta, onChanged }: ServiceRowProps
         {meta.purpose}
       </p>
 
-      {/* Champ de saisie masqué + bouton œil */}
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <div className="relative flex-1 min-w-0">
+      {/* Champ de saisie. Un IDENTIFIANT (secret === false) s'affiche EN CLAIR
+          → visuellement distinct d'un vrai secret masqué (fini la confusion des
+          deux cartes OpenSky, retour Cissou 07/07). */}
+      {meta.secret === false ? (
+        <div className="mb-1.5">
+          <span className="inline-block mb-1 text-[8px] font-mono uppercase tracking-widest text-[var(--green)] border border-[var(--green)]/40 rounded px-1.5 py-0.5">
+            identifiant · pas un secret · visible
+          </span>
           <input
-            type={reveal ? 'text' : 'password'}
+            type="text"
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            placeholder={configured ? '•••••••••• (clé enregistrée)' : 'Colle ta clé ici…'}
+            placeholder={configured ? '(identifiant enregistré)' : 'Colle ICI l’identifiant client…'}
             spellCheck={false}
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
-            className="w-full bg-black/25 border border-[var(--border-primary)] rounded-md pl-2.5 pr-8 py-1.5 text-[11px] font-mono text-white placeholder:text-[var(--faint)] outline-none focus:border-[var(--accent-line)] focus:shadow-[0_0_0_3px_var(--accent-soft)] transition"
+            className="w-full bg-black/25 border border-[var(--green)]/40 rounded-md px-2.5 py-1.5 text-[11px] font-mono text-white placeholder:text-[var(--faint)] outline-none focus:border-[var(--green)] focus:shadow-[0_0_0_3px_var(--green)]/10 transition"
           />
-          <button
-            type="button"
-            onClick={() => setReveal((r) => !r)}
-            title={reveal ? 'Masquer' : 'Afficher'}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 text-white/35 hover:text-white transition-colors"
-          >
-            {reveal ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-          </button>
         </div>
-      </div>
+      ) : (
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <div className="relative flex-1 min-w-0">
+            <input
+              type={reveal ? 'text' : 'password'}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={configured ? '•••••••••• (clé enregistrée)' : 'Colle ta clé ici…'}
+              spellCheck={false}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              className="w-full bg-black/25 border border-[var(--border-primary)] rounded-md pl-2.5 pr-8 py-1.5 text-[11px] font-mono text-white placeholder:text-[var(--faint)] outline-none focus:border-[var(--accent-line)] focus:shadow-[0_0_0_3px_var(--accent-soft)] transition"
+            />
+            <button
+              type="button"
+              onClick={() => setReveal((r) => !r)}
+              title={reveal ? 'Masquer' : 'Afficher'}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-white/35 hover:text-white transition-colors"
+            >
+              {reveal ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Boutons Enregistrer / Effacer + feedback */}
       <div className="flex items-center gap-1.5">
