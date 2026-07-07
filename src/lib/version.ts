@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.023-dev';
+export const OSIRIS_VERSION = 'V4.024-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.024-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F9F2} Anti-scintillement avions (zoom/d\u00e9zoom) : disques de requ\u00eate QUANTIFI\u00c9S " +
+      "(centre au degr\u00e9, rayon au palier de 50 NM +45 de marge) \u2192 des vues voisines " +
+      "r\u00e9utilisent le m\u00eame cache ; et en cas d'\u00e9chec amont la cl\u00e9 `aircraft` est " +
+      "OMISE de la r\u00e9ponse \u2192 le client GARDE les avions affich\u00e9s au lieu de tout " +
+      "effacer puis r\u00e9afficher.",
+  },
   {
     version: 'V4.023-dev',
     date: '2026-07-07',

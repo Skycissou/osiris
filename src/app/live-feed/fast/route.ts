@@ -264,20 +264,36 @@ const MAX_TILES = 4;
  * • sinon → grille 2×2, chaque quadrant interrogé sur son propre disque
  *   circonscrit (plafonné) → couverture ×4, avions répartis sur toute la vue.
  */
+/**
+ * QUANTIFICATION des disques de requête (anti-scintillement au zoom, 07/07) :
+ * sans elle, chaque zoom/pan produit un centre/rayon légèrement différent →
+ * nouvelle clé de cache → cache vide → avions qui disparaissent le temps d'un
+ * re-téléchargement (25-40 s). On arrondit le centre au degré et le rayon au
+ * palier de 50 NM SUPÉRIEUR (+45 NM de marge pour couvrir le décalage du
+ * centre, ~1° ≈ 60 NM en pire cas) → des vues voisines RÉUTILISENT les mêmes
+ * disques, donc le même cache : affichage stable en zoomant/dézoomant.
+ */
+function quantizePoint(pt: { lat: number; lng: number; radiusNm: number }): { lat: number; lng: number; radiusNm: number } {
+  const lat = Math.round(pt.lat);
+  const lng = Math.round(pt.lng);
+  const radiusNm = Math.min(MAX_RADIUS_NM, Math.ceil((pt.radiusNm + 45) / 50) * 50);
+  return { lat, lng, radiusNm: Math.max(MIN_RADIUS_NM, radiusNm) };
+}
+
 function bboxToPoints(bbox: BBox): { lat: number; lng: number; radiusNm: number }[] {
   const [minLng, minLat, maxLng, maxLat] = bbox;
   const midLat = (minLat + maxLat) / 2;
   const midLng = (minLng + maxLng) / 2;
   // Rayon NON plafonné qu'il faudrait pour couvrir la bbox d'un seul disque.
   const neededNm = haversineMeters(midLat, midLng, maxLat, maxLng) / NM_IN_METERS;
-  if (neededNm <= MAX_RADIUS_NM) return [bboxToPoint(bbox)];
+  if (neededNm <= MAX_RADIUS_NM) return [quantizePoint(bboxToPoint(bbox))];
   const quadrants: BBox[] = [
     [minLng, minLat, midLng, midLat],
     [midLng, minLat, maxLng, midLat],
     [minLng, midLat, midLng, maxLat],
     [midLng, midLat, maxLng, maxLat],
   ];
-  return quadrants.slice(0, MAX_TILES).map(bboxToPoint);
+  return quadrants.slice(0, MAX_TILES).map((q) => quantizePoint(bboxToPoint(q)));
 }
 
 // ── Cache PAR TUILE + rafraîchissement en fond (anti-scintillement) ──────────
@@ -639,11 +655,12 @@ export async function GET(request: NextRequest) {
   const tiles = await Promise.all(points.map((pt) => fetchAdsbTile(pt)));
   const okTiles = tiles.filter((t): t is RawAircraft[] => t !== null);
   if (okTiles.length === 0) {
-    // Amont en panne / rate-limit : dégradation douce. Le client attend un
-    // JSON mergeable ; on renvoie une couche vide plutôt que de casser le
-    // polling. On la marque no-store et non conditionnable (pas d'ETag).
+    // Amont en panne / rate-limit : on OMET volontairement la clé `aircraft`
+    // (07/07, anti-scintillement) → le store client NE TOUCHE PAS aux avions
+    // affichés (mergeData n'écrase que les clés présentes). Avant, on envoyait
+    // `aircraft: []` → tout disparaissait à chaque échec puis réapparaissait.
     return NextResponse.json(
-      { aircraft: [], ships, count: 0, ts: Date.now(), error: 'amont adsb.lol indisponible' },
+      { ships, ts: Date.now(), error: 'amont adsb.lol indisponible (avions conservés côté client)' },
       { status: 200, headers: { 'Cache-Control': 'no-store' } },
     );
   }

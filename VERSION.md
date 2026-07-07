@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.024-dev — 2026-07-07 — 🧲 Anti-scintillement avions au zoom/dézoom
+- **Diagnostic (retour Cissou : « je peux pas zoomer/dézoomer sinon tout disparaît »)** : le cache V4.022 était indexé sur la géométrie EXACTE des disques (centre à 4 décimales, rayon au NM) → le moindre zoom/pan changeait la clé → cache vide → re-téléchargement 25-40 s pendant lequel la couche se vidait.
+- **Fix 1 — disques QUANTIFIÉS** : centre arrondi au degré, rayon au palier de 50 NM supérieur (+45 NM de marge pour couvrir le décalage) → des vues voisines (zoom in/out, petits pans) frappent les MÊMES disques → cache réutilisé → affichage stable.
+- **Fix 2 — jamais d'effacement sur échec** : quand toutes les tuiles échouent, la réponse **omet la clé `aircraft`** au lieu d'envoyer `[]` → `mergeData` côté client ne touche pas aux avions affichés (il n'écrase que les clés présentes). L'échec devient « pas de mise à jour » au lieu de « écran vide ».
+- Feux : rien de neuf côté code (cf. V4.023) — vérifier la CLÉ FIRMS (page Clés API, statut ✔) et le toggle **Couches → Feux** (pas le panneau Filtres) ; `docker logs osiris-v4-cockpit` dit désormais si FIRMS rejette la clé.
+
 ### V4.023-dev — 2026-07-07 — 🌐 Vue MONDE (OpenSky) + plan B news (RSS) + feux traçables
 - **Vue MONDE des avions** (GO Cissou, option A) : quand la vue dépasse la portée d'adsb.lol (> 700 NM nécessaires), la route fast sert l'**instantané global OpenSky Network** (~8-12 000 avions, rafraîchi ~2 min, cache serveur + stale). `lib/openskyGlobal.ts` : OAuth2 client-credentials (jeton mis en cache), normalisation vers la MÊME forme qu'adsb.lol (kt/ft) → zéro changement client. **Sans identifiants → comportement actuel** (tuilage), rien ne casse.
 - **Page Clés API** : 2 nouveaux services **`OpenSky — identifiant client`** et **`OpenSky — secret client`** avec protocole complet (compte gratuit → Account → API Client → copier client_id/client_secret) + env `OPENSKY_CLIENT_ID`/`OPENSKY_CLIENT_SECRET` (persistant via `/docker/osiris-v4/.env`). Transport auto vers les flux live (`LIVE_KEY_SERVICES`).
