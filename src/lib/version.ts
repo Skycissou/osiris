@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.039-dev';
+export const OSIRIS_VERSION = 'V4.040-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.040-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F510} Coffre de clés SERVEUR + page admin (retour Cissou : « un vrai user peut pas " +
+      "faire du SSH »). L'opérateur colle UNE fois les clés « couches » (OpenSky/FIRMS/AIS) dans " +
+      "/cockpit/admin (protégé par token) → enregistrées côté serveur (volume persistant, jamais " +
+      "git), lues par le collecteur d'avions ET les couches → la vue monde OpenSky marche sans " +
+      "SSH ni .env, pour TOUS. Priorité : en-tête navigateur → coffre → env. Clés perso OSINT " +
+      "restent au navigateur. Diag : bloc `serverStore` ajouté. Valeur jamais exposée (présence+len).",
+  },
   {
     version: 'V4.039-dev',
     date: '2026-07-07',

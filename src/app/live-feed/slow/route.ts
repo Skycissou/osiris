@@ -51,6 +51,7 @@ import { safeFetch } from '@/lib/ssrf-guard';
 import { getGdeltEvents } from '@/lib/gdeltEvents';
 import { computeSatellites, SATS_SUIVIS, type SatPosition } from '@/lib/satellites';
 import { recordCall } from '@/lib/telemetry';
+import { ensureKeysLoaded, getServerKey } from '@/lib/serverKeyStore';
 
 // Toujours dynamique : données temps quasi-réel, jamais de pré-rendu statique.
 export const dynamic = 'force-dynamic';
@@ -295,8 +296,14 @@ const COUNTRY_CENTROIDS: Record<string, { lat: number; lng: number }> = {
  * sans redéployer — sinon repli sur la variable d'env. '' si ni l'un ni l'autre
  * (dégradation douce inchangée : la couche reste vide, jamais un 500).
  */
+// Priorité : en-tête navigateur (clé perso) → COFFRE serveur (page admin, clés
+// « couches ») → env. Le coffre permet à un vrai utilisateur d'avoir les couches
+// sans SSH (retour Cissou 07/07). ensureKeysLoaded() est appelé dans le handler.
 const keyOf = (req: Request, service: string, env?: string) =>
-  req.headers.get(`x-osiris-key-${service}`) || (env ? process.env[env] : undefined) || '';
+  req.headers.get(`x-osiris-key-${service}`) ||
+  getServerKey(service) ||
+  (env ? process.env[env] : undefined) ||
+  '';
 
 async function fetchText(url: string, source?: string): Promise<string | null> {
   const controller = new AbortController();
@@ -553,6 +560,10 @@ export async function GET(request: NextRequest) {
   // On lit le param bbox pour ne pas planter s'il est fourni, mais on ne
   // l'exploite pas (couches globales/nationales — voir en-tête du fichier).
   void request.nextUrl.searchParams.get('bbox');
+
+  // Coffre serveur chargé → keyOf peut lire les clés « couches » (FIRMS) saisies
+  // par l'admin dans l'app, sans SSH ni .env (retour Cissou 07/07).
+  await ensureKeysLoaded();
 
   // ── 1) SÉISMES — USGS (source réelle, la couche démo qui doit marcher) ────
   const usgsText = await fetchText(USGS_ALL_DAY, 'USGS');

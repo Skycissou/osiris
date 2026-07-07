@@ -29,6 +29,7 @@
 
 import { safeFetch } from '@/lib/ssrf-guard';
 import { getGlobalAircraft } from '@/lib/openskyGlobal';
+import { ensureKeysLoaded, getServerKey } from '@/lib/serverKeyStore';
 import { recordCall } from '@/lib/telemetry';
 
 /** Avion normalisé (même forme que l'API publique du flux fast). */
@@ -116,6 +117,19 @@ export function registerInterest(discs: CollectDisc[]): void {
 /** Déclare qu'une vue LARGE veut l'instantané monde (OpenSky si identifiants). */
 export function registerGlobalInterest(id: string, secret: string): void {
   C.globalInterestTs = Date.now();
+  if (id && secret) {
+    C.openskyId = id;
+    C.openskySecret = secret;
+  }
+}
+
+/**
+ * Applique les identifiants OpenSky du COFFRE SERVEUR au collecteur, en live
+ * (appelé par /admin/keys après enregistrement → pas besoin de redémarrer).
+ */
+export function applyServerOpenskyCreds(): void {
+  const id = getServerKey('opensky_id');
+  const secret = getServerKey('opensky_secret');
   if (id && secret) {
     C.openskyId = id;
     C.openskySecret = secret;
@@ -245,19 +259,28 @@ async function tick(): Promise<void> {
     const now = Date.now();
     pruneAll(now);
 
+    // Coffre serveur chargé (idempotent) → les clés OpenSky saisies par l'admin
+    // dans l'app sont disponibles SANS SSH ni .env (retour Cissou 07/07).
+    await ensureKeysLoaded();
+
     // 1) MONDE (OpenSky) — BONUS NON-BLOQUANT (corrigé 07/07 : avant, un
     //    return ici affamait la collecte adsb.lol quand OpenSky ne répondait
     //    pas → « plus aucun avion depuis que j'ai mis la clé OpenSky »).
     //    getGlobalAircraft est SYNCHRONE (le téléchargement réel se fait en
     //    fond) → on le lit sans bloquer, puis on collecte TOUJOURS un disque.
+    // Priorité des identifiants : requête (registerGlobalInterest) → COFFRE
+    // serveur (page admin) → env. → OpenSky marche durablement sans SSH.
+    const openskyId = C.openskyId || getServerKey('opensky_id') || process.env.OPENSKY_CLIENT_ID || '';
+    const openskySecret =
+      C.openskySecret || getServerKey('opensky_secret') || process.env.OPENSKY_CLIENT_SECRET || '';
     const wantGlobal =
       now - C.globalInterestTs < INTEREST_TTL_MS &&
-      C.openskyId !== '' &&
-      C.openskySecret !== '' &&
+      openskyId !== '' &&
+      openskySecret !== '' &&
       now - C.lastGlobalAt > GLOBAL_REFRESH_MS;
     if (wantGlobal) {
       C.lastGlobalAt = now; // throttle : 1 tentative / 2 min, succès OU échec
-      const global = getGlobalAircraft(C.openskyId, C.openskySecret);
+      const global = getGlobalAircraft(openskyId, openskySecret);
       if (Array.isArray(global)) mergeAircraft(global, now);
       // 'warming'/null → OpenSky télécharge (ou échoue) en fond ; on NE bloque
       // PAS la collecte adsb.lol ci-dessous.

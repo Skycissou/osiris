@@ -29,6 +29,15 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.040-dev — 2026-07-07 — 🔐 Coffre de clés SERVEUR + page admin (un vrai user sans SSH)
+**Retour Cissou** : « un futur utilisateur va pas pouvoir faire du SSH et éditer un `.env`, faut une solution. »
+- **Reformulation du problème** : 2 types de clés. (a) **clés « couches »** (OpenSky, FIRMS, AIS) → données **partagées** de la carte, doivent vivre **côté serveur** (OpenSky a un collecteur permanent) ; (b) **clés perso OSINT** (Shodan, HIBP…) → par enquêteur, restent au **navigateur**.
+- **Solution** : une **page admin `/cockpit/admin`** (protégée par `OSIRIS_DIAG_TOKEN`) où l'opérateur colle UNE fois les clés « couches » → enregistrées dans un **coffre serveur** (`serverKeyStore`, fichier JSON dans le volume persistant `/app/data`, hors git, mode 0600) → lues par le **collecteur d'avions** et les **couches**. Zéro SSH, survit aux redémarrages, **l'utilisateur n'entre rien**.
+- **Priorité de résolution** partout : en-tête navigateur (clé perso) → **coffre serveur** → env. Le collecteur applique les identifiants OpenSky **en live** à l'enregistrement (`applyServerOpenskyCreds`, pas de redémarrage).
+- **Sécurité** : valeur **jamais** renvoyée au client (présence + longueur seulement) ; endpoint `POST /admin/keys` token + same-origin ; whitelist stricte des services gérés.
+- **Diag** : nouveau bloc `serverStore` → on voit quelles clés « couches » sont dans le coffre serveur (c'est CE bloc qui doit être rempli pour OpenSky vue monde).
+- **Compose (brain)** : `OSIRIS_KEYS_DIR=/app/data` (persistance dans le volume).
+
 ### V4.039-dev — 2026-07-07 — 🔑 Diag clarifié : `.env` serveur vs clés navigateur (+ OpenSky vue monde)
 **Retour Cissou** : « FIRMS je vois bien les feux sur la carte, et OpenSky j'ai bien rentré les identifiants » — alors que le diag affichait `present:false` pour les deux. **J'avais mal lu le diag.**
 - Le bloc `env` du diag ne reflète **QUE le `.env` serveur**. Les clés saisies **dans l'app** (navigateur/localStorage) voyagent en **en-tête par requête** et **n'apparaissent pas** ici → `present:false` ≠ « pas de clé ». C'est pour ça que FIRMS marche (clé navigateur, couche à la demande). **Note explicite ajoutée** au bloc `env`.

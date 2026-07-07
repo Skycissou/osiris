@@ -16,6 +16,7 @@
 import { NextResponse } from 'next/server';
 import { telemetrySnapshot } from '@/lib/telemetry';
 import { collectorHealth } from '@/lib/aircraftCollector';
+import { ensureKeysLoaded, serverKeyStatus } from '@/lib/serverKeyStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,12 +42,18 @@ const EXPECTED_ENV_KEYS: { env: string; usage: string }[] = [
   { env: 'LLM_API_KEY', usage: 'Briefing IA (dormant)' },
 ];
 
-export function GET() {
+export async function GET() {
   const env = EXPECTED_ENV_KEYS.map(({ env, usage }) => {
     const v = (process.env[env] ?? '').trim();
     return { env, usage, present: v.length > 0, len: v.length };
   });
   const envConfigured = env.filter((e) => e.present).length;
+
+  // Coffre serveur (page admin) — clés « couches » persistées côté serveur,
+  // visibles ici sans révéler la valeur. C'est CE bloc qui doit être rempli pour
+  // qu'un utilisateur ait OpenSky/FIRMS/AIS sans SSH.
+  await ensureKeysLoaded();
+  const store = serverKeyStatus();
 
   return NextResponse.json(
     {
@@ -62,6 +69,10 @@ export function GET() {
         // serveur (sans requête) → il lui faut la clé dans le .env serveur pour la
         // vue monde durable (sinon `aircraftCollector.lastGlobalAgeS` reste null).
         note: 'Reflète UNIQUEMENT le .env serveur. Les clés saisies dans l’app (navigateur) ne figurent pas ici (elles marchent en en-tête, par requête). OpenSky vue monde EXIGE le .env serveur (collecteur permanent).',
+      },
+      serverStore: {
+        note: 'Coffre serveur (page admin /cockpit/admin). Clés « couches » persistées côté serveur → OpenSky/FIRMS/AIS sans SSH. Valeur jamais exposée.',
+        keys: store,
       },
       telemetry: telemetrySnapshot(),
       aircraftCollector: collectorHealth(),

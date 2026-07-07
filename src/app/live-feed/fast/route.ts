@@ -49,6 +49,7 @@ import {
   getAircraftInBBox,
   collectorHealth,
 } from '@/lib/aircraftCollector';
+import { ensureKeysLoaded, getServerKey } from '@/lib/serverKeyStore';
 
 // Toujours dynamique : données temps-réel, jamais de pré-rendu / cache statique.
 export const dynamic = 'force-dynamic';
@@ -211,8 +212,14 @@ interface Ship {
  * sans redéployer — sinon repli sur la variable d'env. '' si ni l'un ni l'autre
  * (dégradation douce inchangée : la couche reste vide, jamais un 500).
  */
+// Priorité : en-tête navigateur → COFFRE serveur (page admin) → env. Le coffre
+// donne les clés « couches » (AIS) sans SSH (retour Cissou 07/07). Le collecteur
+// (ensureCollector) charge déjà le coffre en fond ; il est prêt ici.
 const keyOf = (req: Request, service: string, env?: string) =>
-  req.headers.get(`x-osiris-key-${service}`) || (env ? process.env[env] : undefined) || '';
+  req.headers.get(`x-osiris-key-${service}`) ||
+  getServerKey(service) ||
+  (env ? process.env[env] : undefined) ||
+  '';
 
 /**
  * Parse le paramètre `bbox` (`minLng,minLat,maxLng,maxLat`). Renvoie la bbox
@@ -626,6 +633,10 @@ const MAX_GLOBAL_POINTS = 4000;
 
 export async function GET(request: NextRequest) {
   const bbox = parseBBox(request.nextUrl.searchParams.get('bbox'));
+
+  // Coffre serveur chargé → keyOf (AIS) et le collecteur (OpenSky) voient les
+  // clés « couches » saisies dans la page admin, sans SSH (retour Cissou 07/07).
+  await ensureKeysLoaded();
 
   // Couche NAVIRES (AIS) : indépendante des avions. Sans clé configurée elle
   // renvoie [] immédiatement (aucun fetch), donc zéro latence sur le cas démo.
