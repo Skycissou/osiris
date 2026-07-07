@@ -40,8 +40,11 @@ scanner/
 # Data files
 threatfox.json
 
-# Dev scripts (one-time migration helpers)
-scripts/
+# Dev scripts (one-time migration helpers) — mais les outils DURABLES sont
+# versionnés via exceptions ! (piège : « scripts/ » masquait silencieusement
+# tout ajout, leçon du 07/07 avec test-couches.sh)
+scripts/*
+!scripts/test-couches.sh
 
 # AI agent config files
 CLAUDE.md
