@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.029-dev';
+export const OSIRIS_VERSION = 'V4.030-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.030-dev',
+    date: '2026-07-07',
+    resume:
+      "\u2708\ufe0f Avions « toujours bleus » corrig\u00e9 : la category ADS-B est rare c\u00f4t\u00e9 " +
+      "adsb.lol \u2192 REPLI sur le type ICAO (`t` : A320\u2192grand, A388\u2192gros porteur, EC35\u2192" +
+      "h\u00e9lico, C172\u2192l\u00e9ger, F16\u2192mil) + URGENCE rouge vif (squawk 7500/7600/7700). Logique " +
+      "extraite en lib/aircraftCategory.ts (test\u00e9e 17/17). Bandeau urgence + squawk dans la fiche.",
+  },
   {
     version: 'V4.029-dev',
     date: '2026-07-07',

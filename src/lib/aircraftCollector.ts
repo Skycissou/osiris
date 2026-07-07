@@ -45,6 +45,8 @@ export interface CollectedAircraft {
   reg?: string; // immatriculation (adsb.lol `r`)
   acType?: string; // type ICAO appareil (adsb.lol `t`, ex. A320)
   mil?: boolean; // avion militaire (bit 0 de dbFlags)
+  squawk?: string; // code transpondeur (7500/7600/7700 = urgence)
+  emergency?: string; // état d'urgence déclaré (general/lifeguard/…)
   vip: boolean;
 }
 
@@ -217,6 +219,11 @@ async function fetchDisc(disc: CollectDisc): Promise<CollectedAircraft[] | null>
         reg: typeof r.r === 'string' && r.r.trim() ? r.r.trim() : undefined,
         acType: typeof r.t === 'string' && r.t.trim() ? r.t.trim() : undefined,
         mil: (dbFlags & 1) === 1, // bit 0 = militaire (convention adsb.lol/tar1090)
+        squawk: typeof r.squawk === 'string' && r.squawk.trim() ? r.squawk.trim() : undefined,
+        emergency:
+          typeof r.emergency === 'string' && r.emergency.trim() && r.emergency !== 'none'
+            ? r.emergency.trim()
+            : undefined,
         vip: false,
       });
     }

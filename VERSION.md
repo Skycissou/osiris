@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.030-dev — 2026-07-07 — ✈️ Avions « toujours bleus » réparé (repli type ICAO) + urgence
+- **Cause (retour Cissou)** : la catégorie émetteur ADS-B (`category` A1..A7) n'est renvoyée par adsb.lol que pour une minorité d'avions → sans elle, tout retombait sur « inconnu » (gris-bleu ≈ bleu).
+- **Fix — cascade de signaux** dans `lib/aircraftCategory.ts` (module PUR, **testé 17/17**) : urgence (squawk 7500/7600/7700 ou champ `emergency`) → militaire (bit dbFlags **ou type ICAO** F16/C130…) → `category` ADS-B → **REPLI sur le TYPE ICAO `t`** (A388→gros porteur, A320/B738→grand, EC35→hélico, C172→léger) → défaut. Résultat : la quasi-totalité des avions est colorée.
+- **Urgence en rouge vif** : nouvelle catégorie `emergency` (couleur + icône + légende) ; **bandeau 🚨 URGENCE** + ligne **Squawk** dans la fiche avion (7500 détournement / 7600 panne radio / 7700 urgence).
+- Champs `squawk`/`emergency` désormais collectés (adsb.lol) et propagés jusqu'à la carte.
+
 ### V4.029-dev — 2026-07-07 — 📊 Monitoring des requêtes + exploitation des données (phase 1)
 - **MONITORING (demande Cissou « installe quelque chose qui monitore toutes les requêtes »)** :
   - **V4** : `lib/telemetry.ts` (anneau 200 + compteurs par source) branché sur adsb.lol, USGS, celestrak, FIRMS, gdelt-doc, gdelt-export, abuse.ch, opensky. Endpoint **`GET /cockpit/live-feed/diag`** → ok/échec, latence, nb d'éléments par source + santé du collecteur. Testé (fixture : compteurs ok/fail, recent).

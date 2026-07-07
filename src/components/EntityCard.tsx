@@ -241,6 +241,17 @@ function EntityCard({ entity, onClose, onFlyTo, isMobile }: EntityCardProps) {
             </div>
           </div>
 
+          {/* ── Bandeau URGENCE (squawk 7500/7600/7700 ou emergency déclaré) ── */}
+          {(entity.emergency || ['7500', '7600', '7700'].includes(entity.squawk ?? '')) && (
+            <div className="rounded-md border border-[var(--red-line,#db6f78)] bg-[var(--red-soft,rgba(219,111,120,.14))] px-3 py-2 text-[11px] font-mono text-[var(--red,#ff6b74)]">
+              🚨 URGENCE
+              {entity.squawk === '7500' && ' · 7500 détournement'}
+              {entity.squawk === '7600' && ' · 7600 panne radio'}
+              {entity.squawk === '7700' && ' · 7700 urgence générale'}
+              {entity.emergency && entity.emergency !== 'none' ? ` · ${entity.emergency}` : ''}
+            </div>
+          )}
+
           {/* ── Grille de détails FR ── */}
           <section>
             <div className="text-[9px] font-mono font-bold uppercase tracking-widest text-[var(--accent-bright)] pb-1 mb-1 border-b border-white/10">
@@ -252,6 +263,7 @@ function EntityCard({ entity, onClose, onFlyTo, isMobile }: EntityCardProps) {
             <Ligne label="Immatriculation" value={entity.reg?.toUpperCase()} />
             <Ligne label="Type appareil" value={entity.acType?.toUpperCase()} />
             <Ligne label="Hex ICAO" value={entity.hex?.toUpperCase()} />
+            <Ligne label="Squawk" value={entity.squawk} />
             <Ligne label="Catégorie" value={entity.category} />
             <Ligne label="Indicatif" value={entity.callsign} />
             {/* Aucune donnée exploitable → mention explicite. */}

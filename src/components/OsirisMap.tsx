@@ -6,6 +6,10 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { BASE_PATH } from '@/lib/api';
 // (pruneEntities volontairement plus importé — cf. notes 07/07 sur les traînées)
 import { recordPositions, buildTrails } from '@/lib/trails';
+// Couleur des avions par catégorie — logique PURE et testée dans aircraftCategory.ts.
+import { AIRCRAFT_CAT_COLORS, aircraftCatKey } from '@/lib/aircraftCategory';
+// Ré-export pour la légende (page.tsx).
+export { AIRCRAFT_CAT_COLORS, AIRCRAFT_CAT_LABELS, AIRCRAFT_CAT_ORDER } from '@/lib/aircraftCategory';
 
 // ─────────────────────────────────────────────────────────────────────────
 //  OsirisMap — CHÂSSIS carto MapLibre (OSIRIS V4 LEAN)
@@ -29,6 +33,8 @@ export interface AircraftPoint {
   reg?: string;
   acType?: string;
   mil?: boolean;
+  squawk?: string;
+  emergency?: string;
   /** Marqueur watchlist VIP (forme 2, données publiques) — cf. route fast. */
   vip?: boolean;
   vipName?: string;
@@ -215,37 +221,6 @@ function computeSolarTerminator(): [number, number][] {
 
 const EMPTY_FC = { type: 'FeatureCollection' as const, features: [] };
 
-// ── Couleur des avions PAR CATÉGORIE (demande Cissou 07/07 : « tout est bleu ») ──
-//  Buckets dérivés de la catégorie émetteur ADS-B (A1..A7) + bit militaire.
-//  Une icône « plane-<key> » est générée par couleur au chargement de la carte.
-export const AIRCRAFT_CAT_COLORS: Record<string, string> = {
-  mil: '#e0555f', // militaire (bit dbFlags) — rouge
-  heavy: '#f0a35e', // gros porteur (A5) — orange
-  large: '#c9a2ff', // large (A3/A4) — violet clair
-  rotor: '#7cffb2', // hélicoptère / giravion (A7) — vert
-  light: '#9bdcf0', // léger / petit (A1/A2) — cyan
-  default: '#8fa6bd', // autre / inconnu — gris-bleu
-};
-/** Libellés FR pour la légende. */
-export const AIRCRAFT_CAT_LABELS: Record<string, string> = {
-  mil: 'Militaire',
-  heavy: 'Gros porteur',
-  large: 'Grand avion',
-  rotor: 'Hélicoptère',
-  light: 'Avion léger',
-  default: 'Autre / inconnu',
-};
-
-/** Catégorie émetteur ADS-B + bit militaire → clé de couleur/icône. */
-function aircraftCatKey(category?: string, mil?: boolean): string {
-  if (mil) return 'mil';
-  const c = (category ?? '').toUpperCase();
-  if (c === 'A5') return 'heavy';
-  if (c === 'A3' || c === 'A4') return 'large';
-  if (c === 'A7') return 'rotor';
-  if (c === 'A1' || c === 'A2') return 'light';
-  return 'default';
-}
 
 // ── Fabrique d'URL de tuiles WMTS Géoplateforme IGN (data.geopf.fr) ──
 // Gratuit sans clé · TileMatrixSet PM = z/x/y standard (compatible MapLibre).
@@ -579,6 +554,8 @@ function OsirisMap({
           category: p.category ? String(p.category) : undefined,
           reg: p.reg ? String(p.reg) : undefined,
           acType: p.acType ? String(p.acType) : undefined,
+          squawk: p.squawk ? String(p.squawk) : undefined,
+          emergency: p.emergency ? String(p.emergency) : undefined,
           vip: p.vip === true || p.vip === 'true',
           vipName: p.vipName ? String(p.vipName) : undefined,
           vipCategory: p.vipCategory ? String(p.vipCategory) : undefined,
@@ -999,8 +976,10 @@ function OsirisMap({
           category: a.category ?? '',
           reg: a.reg ?? '',
           acType: a.acType ?? '',
-          // Icône colorée par catégorie ; VIP garde son rendu halo dédié.
-          iconId: `plane-${aircraftCatKey(a.category, a.mil)}`,
+          squawk: a.squawk ?? '',
+          emergency: a.emergency ?? '',
+          // Icône colorée par catégorie (cascade urgence→mil→category→type).
+          iconId: `plane-${aircraftCatKey({ category: a.category, mil: a.mil, acType: a.acType, squawk: a.squawk, emergency: a.emergency })}`,
           vip: !!a.vip,
           vipName: a.vipName ?? '',
           vipCategory: a.vipCategory ?? '',

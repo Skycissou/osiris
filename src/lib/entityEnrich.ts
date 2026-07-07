@@ -64,6 +64,8 @@ export interface AircraftEnriched {
   category?: string;
   reg?: string;
   acType?: string;
+  squawk?: string;
+  emergency?: string;
   // -- Marqueur VIP (forme 2, données publiques) --
   vip?: boolean;
   vipName?: string;
@@ -230,6 +232,8 @@ export async function enrichAircraft(a: AircraftPoint): Promise<AircraftEnriched
     category: a.category,
     reg: a.reg,
     acType: a.acType,
+    squawk: a.squawk,
+    emergency: a.emergency,
     vip: a.vip,
     vipName: a.vipName,
     vipCategory: a.vipCategory,

@@ -9,7 +9,7 @@ import { search, buildMapData, BASE_PATH, type SearchResponse, type PlotPoint } 
 import { useDataPolling, useInterpolation, deadReckon } from '@/lib/liveData';
 import { useDataKey } from '@/lib/store';
 import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint, SatellitePoint, ShipPoint, SensitiveData, SensitivePoint, GeoEventPoint, CyberPoint } from '@/components/OsirisMap';
-import { AIRCRAFT_CAT_COLORS, AIRCRAFT_CAT_LABELS } from '@/components/OsirisMap';
+import { AIRCRAFT_CAT_COLORS, AIRCRAFT_CAT_LABELS, AIRCRAFT_CAT_ORDER } from '@/components/OsirisMap';
 import { OSIRIS_VERSION, OSIRIS_VERSION_LABEL } from '@/lib/version';
 import { useAlertToasts } from '@/lib/alerts';
 import AlertToasts from '@/components/AlertToasts';
@@ -734,7 +734,7 @@ export default function Dashboard() {
             Catégories avions
           </div>
           <div className="flex flex-col gap-1">
-            {['mil', 'heavy', 'large', 'rotor', 'light', 'default'].map((k) => (
+            {AIRCRAFT_CAT_ORDER.map((k) => (
               <div key={k} className="flex items-center gap-2">
                 <span
                   className="inline-block w-2.5 h-2.5 rounded-[2px]"
