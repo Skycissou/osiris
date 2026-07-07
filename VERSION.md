@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.022-dev — 2026-07-07 — 🩹 Avions STABLES : cache par tuile + traînées qui survivent aux ticks ratés
+- **Diagnostic (screenshot Cissou : scintillement, disques qui sautent, avions « dans l'océan »)** : le lien VPS↔adsb.lol est **lent** (~300 Ko en 25 s mesuré au script) alors que le timeout était de **8 s** et le polling de 15 s → presque toutes les tuiles 250 NM expiraient ; celle qui passait affichait SON disque (centré sur un quadrant → parfois la mer), puis disparaissait au tick suivant.
+- **Fix : cache serveur PAR TUILE + refresh en fond** (même philosophie que le portier GDELT) : réponse **instantanée** depuis le cache (frais < 12 s ; périmé servi jusqu'à 2 min pendant qu'un refresh tourne), **un seul téléchargement à la fois par tuile**, timeout monté à **45 s** (on laisse le téléchargement finir). Résultat : affichage stable, les 4 quadrants se remplissent au fil des refreshes, plus de trous ni de clignotement — la fluidité visuelle reste assurée par l'interpolation 2 s.
+- **🐛 Traînées (suite et fin)** : `pruneEntities` effaçait l'historique de tout avion **absent du dernier tick** — avec un flux qui rate des ticks, les routes ne se construisaient JAMAIS (même après le fix V4.021 du fondu). Retiré (avions + navires) : l'élagage par ÂGE (10 min) de `recordPositions`/`buildTrails` suffit et borne la mémoire.
+- Reste vrai : la vue monde entière n'est couverte que partiellement (4 disques de 250 NM max — limite de la source gratuite).
+
 ### V4.021-dev — 2026-07-07 — ✈️ Avions ×3 : icône digne, traînées visibles, couverture dézoom
 - **Icône refaite** (retour Cissou « années 80 Atari ») : vraie silhouette d'avion de ligne vue de dessus (fuselage effilé + ailes en flèche + empennage), tracée en `Path2D`, rendue **2×** (`pixelRatio`) → anticrénelée, liseré sombre (lisible sur satellite) + léger halo. Tracé clean-room.
 - **🐛 Traînées invisibles** (retour « on ne voit pas les routes ») : le fondu (`ageRatio`) partait du point **le plus ANCIEN** → un avion suivi 10 min avait ratio ≈ 1 → opacité ≈ 0 → toutes les routes des avions actifs disparaissaient. Il part maintenant du **plus RÉCENT** : traînée pleinement visible tant que l'avion émet, fondu seulement après sa disparition du flux. Trait épaissi (1,4→2,4 px selon zoom).

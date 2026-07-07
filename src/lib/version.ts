@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.021-dev';
+export const OSIRIS_VERSION = 'V4.022-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.022-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1FA79} Avions STABLES : cache serveur par tuile + refresh en fond (le VPS " +
+      "t\u00e9l\u00e9charge adsb.lol \u00e0 ~300 Ko/25 s, timeout 8 s \u2192 quasi tout expirait : " +
+      "scintillement, disques al\u00e9atoires, avions en mer). R\u00e9ponse instantan\u00e9e depuis " +
+      "le cache (frais 12 s, p\u00e9rim\u00e9 servi < 2 min), 1 seul t\u00e9l\u00e9chargement/tuile, " +
+      "timeout 45 s. Tra\u00een\u00e9es : pruneEntities retir\u00e9 (un tick rat\u00e9 effa\u00e7ait " +
+      "l'historique \u2192 routes jamais visibles).",
+  },
   {
     version: 'V4.021-dev',
     date: '2026-07-07',

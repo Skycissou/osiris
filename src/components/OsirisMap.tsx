@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, useCallback, memo } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { BASE_PATH } from '@/lib/api';
-import { recordPositions, buildTrails, pruneEntities } from '@/lib/trails';
+// (pruneEntities volontairement plus importé — cf. notes 07/07 sur les traînées)
+import { recordPositions, buildTrails } from '@/lib/trails';
 
 // ─────────────────────────────────────────────────────────────────────────
 //  OsirisMap — CHÂSSIS carto MapLibre (OSIRIS V4 LEAN)
@@ -961,7 +962,10 @@ function OsirisMap({
     const now = Date.now();
     const alive = rows.filter((a) => typeof a?.lat === 'number' && typeof a?.lng === 'number');
     recordPositions('aircraft', alive.map((a) => ({ id: String(a.hex ?? a.id ?? ''), lat: a.lat, lng: a.lng })), now);
-    pruneEntities('aircraft', new Set(alive.map((a) => String(a.hex ?? a.id ?? ''))));
+    // ⚠️ PAS de pruneEntities ici (retiré 07/07) : le flux amont peut rater un
+    // tick (tuile lente/timeout) — élaguer sur « absent du dernier tick »
+    // effaçait l'historique et les traînées ne se construisaient JAMAIS.
+    // L'élagage par ÂGE de recordPositions/buildTrails (10 min) suffit.
     setGeo('aircraft-trails', buildTrails('aircraft', now).features);
     setVis(['aircraft-trails-line'], !!activeLayers?.live_aircraft);
     // Halo VIP : sous-ensemble taggé vip=true (forme 2), affiché avec les avions.
@@ -1056,7 +1060,8 @@ function OsirisMap({
     setVis(['live-ships-dots'], !!activeLayers?.live_ships);
     const now = Date.now();
     recordPositions('ships', rows.map((s) => ({ id: String(s.id ?? s.mmsi ?? ''), lat: s.lat, lng: s.lng })), now);
-    pruneEntities('ships', new Set(rows.map((s) => String(s.id ?? s.mmsi ?? ''))));
+    // Pas de pruneEntities (07/07) : même raison que les avions — un tick raté
+    // effaçait l'historique. L'élagage par âge (10 min) suffit.
     setGeo('ships-trails', buildTrails('ships', now).features);
     setVis(['ships-trails-line'], !!activeLayers?.live_ships);
   }, [mapReady, ships, activeLayers, setGeo, setVis]);

@@ -58,8 +58,8 @@ const NM_IN_METERS = 1852;
 /** Rayon moyen terrestre (m). */
 const EARTH_RADIUS_M = 6_371_000;
 const DEG2RAD = Math.PI / 180;
-/** Timeout réseau vers adsb.lol. */
-const FETCH_TIMEOUT_MS = 8_000;
+// (Timeout avions : voir TILE_FETCH_TIMEOUT_MS — le cache par tuile a remplacé
+//  l'ancien FETCH_TIMEOUT_MS de 8 s, trop court pour le débit adsb.lol↔VPS.)
 /** User-Agent identifiant l'appelant, exigé par l'étiquette adsb.lol. */
 const USER_AGENT = 'Osiris-Cockpit/4.0 (ARPD veille; +https://osiris.cissouhub.cloud)';
 
@@ -279,15 +279,41 @@ function bboxToPoints(bbox: BBox): { lat: number; lng: number; radiusNm: number 
   return quadrants.slice(0, MAX_TILES).map(bboxToPoint);
 }
 
-/**
- * Interroge adsb.lol /v2/point pour UN disque. Renvoie la liste brute, ou
- * null si l'amont échoue (timeout/erreur) — l'appelant fusionne les tuiles
- * qui ont répondu (dégradation douce par tuile, pas tout-ou-rien).
- */
-async function fetchAdsbTile(pt: { lat: number; lng: number; radiusNm: number }): Promise<RawAircraft[] | null> {
+// ── Cache PAR TUILE + rafraîchissement en fond (anti-scintillement) ──────────
+//  Diagnostic 07/07 (screenshot Cissou : avions qui clignotent, ronds qui
+//  sautent, parfois en pleine mer) : le VPS télécharge adsb.lol LENTEMENT
+//  (~300 Ko en 25 s mesuré) alors que le timeout était de 8 s et le polling de
+//  15 s → quasi toutes les requêtes 250 NM expiraient, celles qui passaient
+//  faisaient apparaître UN disque au hasard (centre d'un quadrant = parfois
+//  l'océan), puis tout disparaissait au tick suivant.
+//  Remède (même philosophie que gdeltGate) :
+//    • réponse INSTANTANÉE depuis le cache par tuile (fraîche < 12 s, sinon
+//      périmée < 2 min servie quand même) → affichage STABLE, jamais de trou ;
+//    • UN SEUL téléchargement en cours par tuile (inflight), timeout 45 s,
+//      qui remplit le cache en fond — le rythme réel s'adapte au débit amont.
+const TILE_FRESH_MS = 12_000; // < cadence client (15 s) → au mieux 1 fetch/tuile/tick
+const TILE_STALE_MAX_MS = 120_000; // au-delà : donnée trop vieille pour être montrée
+const TILE_FETCH_TIMEOUT_MS = 45_000; // débit adsb.lol↔VPS lent : laisser finir
+
+interface TileEntry {
+  ts: number;
+  ac: RawAircraft[];
+}
+const tileCache = new Map<string, TileEntry>();
+const tileInflight = new Map<string, Promise<RawAircraft[] | null>>();
+
+function tileKey(pt: { lat: number; lng: number; radiusNm: number }): string {
+  return `${pt.lat.toFixed(2)},${pt.lng.toFixed(2)},${pt.radiusNm}`;
+}
+
+/** Téléchargement réel d'une tuile (une passe), met le cache à jour si OK. */
+async function refreshTile(
+  key: string,
+  pt: { lat: number; lng: number; radiusNm: number },
+): Promise<RawAircraft[] | null> {
   const upstream = `https://api.adsb.lol/v2/point/${pt.lat.toFixed(4)}/${pt.lng.toFixed(4)}/${pt.radiusNm}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), TILE_FETCH_TIMEOUT_MS);
   try {
     // safeFetch : garde SSRF (valide l'hôte, re-valide chaque redirection).
     const res = await safeFetch(upstream, {
@@ -298,12 +324,30 @@ async function fetchAdsbTile(pt: { lat: number; lng: number; radiusNm: number })
     });
     if (!res.ok) return null;
     const payload = (await res.json()) as { ac?: RawAircraft[] };
-    return Array.isArray(payload.ac) ? payload.ac : [];
+    const ac = Array.isArray(payload.ac) ? payload.ac : [];
+    tileCache.set(key, { ts: Date.now(), ac });
+    return ac;
   } catch {
     return null;
   } finally {
     clearTimeout(timeout);
+    tileInflight.delete(key);
   }
+}
+
+/**
+ * Donnée d'une tuile : cache frais → direct ; cache périmé (< 2 min) → servi
+ * immédiatement pendant qu'un refresh tourne en fond ; rien d'utilisable →
+ * on attend le refresh (premier affichage). null = amont KO sans cache.
+ */
+async function fetchAdsbTile(pt: { lat: number; lng: number; radiusNm: number }): Promise<RawAircraft[] | null> {
+  const key = tileKey(pt);
+  const hit = tileCache.get(key);
+  const age = hit ? Date.now() - hit.ts : Number.POSITIVE_INFINITY;
+  if (hit && age < TILE_FRESH_MS) return hit.ac;
+  if (!tileInflight.has(key)) tileInflight.set(key, refreshTile(key, pt));
+  if (hit && age < TILE_STALE_MAX_MS) return hit.ac; // stable d'abord, frais ensuite
+  return tileInflight.get(key)!;
 }
 
 /** Un point (lat,lng) est-il dans la bbox ? */
