@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.040-dev';
+export const OSIRIS_VERSION = 'V4.041-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.041-dev',
+    date: '2026-07-07',
+    resume:
+      "\u{1F525} Feux enrichis (retour Cissou : « juste un point rouge, aucune info ») — 1er lot " +
+      "« gratuit » de l'audit. On lisait 5 colonnes FIRMS sur 14 : ajout de FRP (puissance réelle " +
+      "en MW), confiance, jour/nuit, satellite. La TAILLE et la COULEUR du point suivent " +
+      "maintenant la puissance (gros brasier = gros point rouge vif, point chaud faible = petit " +
+      "orange) + POPUP au clic (puissance, confiance, moment, satellite, heure). Fini le point muet.",
+  },
   {
     version: 'V4.040-dev',
     date: '2026-07-07',

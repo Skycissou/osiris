@@ -145,6 +145,10 @@ interface Wildfire {
   lng: number;
   bright: number | null; // température de brillance (K) — indicateur d'intensité
   time: string; // date+heure d'acquisition ('YYYY-MM-DD HH:MM')
+  frp: number | null; // Fire Radiative Power (MW) — VRAIE puissance du feu
+  confidence?: string; // fiabilité de la détection ('faible'/'nominale'/'haute' ou %)
+  daynight?: string; // 'jour' | 'nuit'
+  satellite?: string; // plateforme (S-NPP, NOAA-20…) — utile multi-capteurs
 }
 
 /** Volcan normalisé (structure PRÉVUE — couche vide pour l'instant, voir TODO). */
@@ -380,6 +384,11 @@ function parseFirmsCsv(text: string): Wildfire[] {
   const iBright = header.indexOf('bright_ti4') !== -1 ? header.indexOf('bright_ti4') : header.indexOf('brightness');
   const iDate = header.indexOf('acq_date');
   const iTime = header.indexOf('acq_time');
+  // Colonnes d'ENRICHISSEMENT (audit 07/07 : elles étaient jetées → 1 point muet).
+  const iFrp = header.indexOf('frp'); // Fire Radiative Power (MW) — puissance réelle
+  const iConf = header.indexOf('confidence'); // VIIRS: l/n/h · MODIS: 0-100
+  const iDayNight = header.indexOf('daynight'); // D/N
+  const iSat = header.indexOf('satellite'); // N / NOAA-20 / 1…
   if (iLat === -1 || iLng === -1) {
     // Format inattendu = souvent un MESSAGE FIRMS en HTTP 200 (clé invalide,
     // quota). Avant le 07/07 c'était 100 % silencieux → intraçable. On loggue
@@ -400,15 +409,39 @@ function parseFirmsCsv(text: string): Wildfire[] {
     const rawT = iTime !== -1 ? (cols[iTime] ?? '').trim() : '';
     const hhmm = rawT.padStart(4, '0');
     const time = date ? `${date} ${hhmm.slice(0, 2)}:${hhmm.slice(2, 4)}` : '';
+    const frp = iFrp !== -1 ? Number(cols[iFrp]) : NaN;
     out.push({
       id: `${lat},${lng},${time}`,
       lat,
       lng,
       bright: Number.isFinite(bright) ? bright : null,
       time,
+      frp: Number.isFinite(frp) ? Math.round(frp * 10) / 10 : null,
+      confidence: iConf !== -1 ? normFireConfidence(cols[iConf]) : undefined,
+      daynight: iDayNight !== -1 ? normDayNight(cols[iDayNight]) : undefined,
+      satellite: iSat !== -1 ? (cols[iSat] ?? '').trim() || undefined : undefined,
     });
   }
   return out;
+}
+
+/** Normalise la confiance FIRMS : VIIRS = l/n/h · MODIS = 0-100 (%). */
+function normFireConfidence(raw: string | undefined): string | undefined {
+  const s = (raw ?? '').trim().toLowerCase();
+  if (!s) return undefined;
+  if (s === 'l' || s === 'low') return 'faible';
+  if (s === 'n' || s === 'nominal') return 'nominale';
+  if (s === 'h' || s === 'high') return 'haute';
+  const n = Number(s);
+  return Number.isFinite(n) ? `${n}%` : undefined;
+}
+
+/** Normalise le drapeau jour/nuit FIRMS ('D'/'N'). */
+function normDayNight(raw: string | undefined): string | undefined {
+  const s = (raw ?? '').trim().toUpperCase();
+  if (s === 'D') return 'jour';
+  if (s === 'N') return 'nuit';
+  return undefined;
 }
 
 /**

@@ -62,6 +62,10 @@ export interface FirePoint {
   lng: number;
   bright?: number;
   time?: string | number;
+  frp?: number | null; // Fire Radiative Power (MW) — puissance réelle du feu
+  confidence?: string; // fiabilité ('faible'/'nominale'/'haute' ou %)
+  daynight?: string; // 'jour' | 'nuit'
+  satellite?: string; // plateforme (S-NPP, NOAA-20…)
 }
 
 /** Volcan (stub — piste Smithsonian GVP). */
@@ -623,19 +627,50 @@ function OsirisMap({
       map.on('mouseleave', 'live-quakes-dots', () => { map.getCanvas().style.cursor = ''; });
 
       // ─── COUCHE FEUX (NASA FIRMS, public — vide sans clé FIRMS_MAP_KEY) ──
+      //  Taille ET couleur pilotées par la PUISSANCE réelle (FRP en MW, audit
+      //  07/07) → un gros brasier est gros et rouge vif, un point chaud faible
+      //  reste petit/orange. `to-number ... 0` gère les FRP manquants (→ ''→0).
       map.addSource('live-fires', { type: 'geojson', data: EMPTY_FC });
       map.addLayer({
         id: 'live-fires-dots',
         type: 'circle',
         source: 'live-fires',
         paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 2.5, 10, 6],
-          'circle-color': '#db6f78',
-          'circle-opacity': 0.7,
-          'circle-blur': 0.3,
+          'circle-radius': ['interpolate', ['linear'], ['to-number', ['get', 'frp'], 0], 0, 3, 50, 7, 300, 13],
+          'circle-color': ['interpolate', ['linear'], ['to-number', ['get', 'frp'], 0], 0, '#f0a35e', 50, '#e8663f', 200, '#d6392f'],
+          'circle-opacity': 0.75,
+          'circle-blur': 0.25,
         },
         layout: { visibility: 'none' },
       });
+      // Popup FR au clic : puissance (FRP), confiance, moment, satellite, heure.
+      map.on('click', 'live-fires-dots', (e) => {
+        const f = e.features?.[0]; if (!f) return;
+        const p = f.properties || {};
+        const geom = f.geometry;
+        const coords = geom && geom.type === 'Point' ? (geom.coordinates as [number, number]) : [e.lngLat.lng, e.lngLat.lat];
+        const frp = p.frp != null && p.frp !== '' ? `${escapeHtml(p.frp)} MW` : null;
+        const line = (label: string, val: unknown) =>
+          val != null && val !== '' ? `${label} : ${escapeHtml(val)}<br>` : '';
+        const html =
+          `<div style="${POPUP_STYLE}">` +
+          `<div style="color:#e8663f;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">Feu actif · FIRMS</div>` +
+          `<div style="color:#fff;font-size:16px;font-weight:600;margin-bottom:4px;">${frp ? `${frp} <span style="font-size:11px;color:#8a94a3;">puissance</span>` : 'Puissance n/c'}</div>` +
+          `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">` +
+          line('Confiance', p.confidence) +
+          line('Brillance', p.bright !== '' && p.bright != null ? `${escapeHtml(p.bright)} K` : '') +
+          line('Moment', p.daynight) +
+          line('Satellite', p.satellite) +
+          line('Détecté', p.time ? `${escapeHtml(p.time)} UTC` : '') +
+          `</div>` +
+          `<div style="color:#586475;font-size:10px;margin-top:8px;">source NASA FIRMS (public)</div>` +
+          `</div>`;
+        popupRef.current?.remove();
+        popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '340px', offset: 14 })
+          .setLngLat(coords as maplibregl.LngLatLike).setHTML(html).addTo(map);
+      });
+      map.on('mouseenter', 'live-fires-dots', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'live-fires-dots', () => { map.getCanvas().style.cursor = ''; });
 
       // ─── COUCHE VOLCANS (stub — violet) ─────────────────────────────────
       map.addSource('live-volcanoes', { type: 'geojson', data: EMPTY_FC });
@@ -1041,7 +1076,14 @@ function OsirisMap({
       .map((f) => ({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: [f.lng, f.lat] },
-        properties: { bright: f.bright ?? '' },
+        properties: {
+          bright: f.bright ?? '',
+          frp: f.frp ?? '',
+          confidence: f.confidence ?? '',
+          daynight: f.daynight ?? '',
+          satellite: f.satellite ?? '',
+          time: f.time ?? '',
+        },
       }));
     setGeo('live-fires', fireFeats);
     setVis(['live-fires-dots'], !!activeLayers?.live_wildfires);

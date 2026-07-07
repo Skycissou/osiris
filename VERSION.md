@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.041-dev — 2026-07-07 — 🔥 Feux enrichis : FRP + confiance + jour/nuit + popup (fini le point muet)
+**Retour Cissou** : « pour les feux j'ai juste un point rouge, aucune info ». C'est le manque #1 des feux dans l'audit (5 colonnes FIRMS lues sur 14).
+- **Parsing** (`slow/route.ts`) : ajout de **`frp`** (Fire Radiative Power, MW — la VRAIE puissance du feu), **`confidence`** (faible/nominale/haute ou %), **`daynight`** (jour/nuit), **`satellite`** (S-NPP / NOAA-20…).
+- **Carte** (`OsirisMap.tsx`) : la **taille** ET la **couleur** du point suivent la **puissance** (gros brasier = gros point rouge vif ; point chaud faible = petit orange), via une expression `to-number frp`. Fini le point uniforme.
+- **Popup au clic** (comme les séismes) : puissance MW, confiance, moment (jour/nuit), satellite, heure de détection UTC. Le `time` était parsé mais jamais affiché (fuite « route→carte » de l'audit) → maintenant remonté.
+
 ### V4.040-dev — 2026-07-07 — 🔐 Coffre de clés SERVEUR + page admin (un vrai user sans SSH)
 **Retour Cissou** : « un futur utilisateur va pas pouvoir faire du SSH et éditer un `.env`, faut une solution. »
 - **Reformulation du problème** : 2 types de clés. (a) **clés « couches »** (OpenSky, FIRMS, AIS) → données **partagées** de la carte, doivent vivre **côté serveur** (OpenSky a un collecteur permanent) ; (b) **clés perso OSINT** (Shodan, HIBP…) → par enquêteur, restent au **navigateur**.
