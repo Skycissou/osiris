@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.013-dev';
+export const OSIRIS_VERSION = 'V4.014-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.014-dev',
+    date: '2026-07-07',
+    resume:
+      "Réorg sidebar accueil : les outils (OSINT/Graphe/News/Clés) quittent la " +
+      "carte pour la sidebar de l'accueil → deep-link /cockpit?panel=… (le cockpit " +
+      "ouvre le panneau plein écran au montage via ?panel). Doc (Sources/Recettes/" +
+      "Glossaire) regroupée sous 1 onglet repliable « 📚 Doc ». Badge version affiché " +
+      "sur l'accueil (aligné sur ce fichier).",
+  },
   {
     version: 'V4.013-dev',
     date: '2026-07-05',

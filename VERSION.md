@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.014-dev — 2026-07-07 — Réorg sidebar accueil (outils rapatriés + doc regroupée + version affichée)
+- **Outils rapatriés sur l'accueil** (demande Cissou : « sur la carte c'est pas facile à utiliser ») : nouveau groupe repliable **« 🧰 Outils »** dans la sidebar de l'**accueil** (OSINT/Graphe/News/Clés API). Chaque bouton pointe vers **`/cockpit?panel=osint|graph|news|keys`** ; le cockpit lit `?panel` au montage (`useEffect` dans `src/app/page.tsx`) et **ouvre le panneau plein écran** — plus collé sur la carte. Helper `goCockpitPanel()` côté accueil (`app.js`). **1 seul code** (les outils restent en React dans le cockpit, aucune duplication).
+- **Doc regroupée** : `Sources · Recettes · Glossaire` → 1 seul groupe repliable **« 📚 Doc »** dans la sidebar accueil (gain de place). `<details>`/`<summary>` natif, sans JS, + adaptation mobile. Prototype & Garde-fous restent séparés (pas de la doc).
+- **Version visible sur l'accueil** : le badge sidebar affiche le palier (au lieu de « V4 » nu). ⚠️ L'accueil est un **repo séparé** (`claude-brain/projects/open-radar-fr`, FastAPI) qui ne peut pas importer ce `version.ts` → le numéro y est tenu **en lockstep manuel** (commentaire de rappel dans `index.html`). À bumper en même temps que ce fichier.
+- Build cockpit vert + `tsc` OK + push branche V4. Accueil : commits brain sur la même branche.
+
 ### V4.013-dev — 2026-07-05 — Filtres d'attributs + Confort UI + Briefing IA
 - **Filtres d'attributs 🎚️** : filtrer DANS une couche déjà affichée (≠ toggle d'activation). `lib/layerFilters.ts` (fonctions pures, tolérantes, jamais de throw) + `FilterPanel` (n'affiche que les couches actives). Avions : altitude/vitesse mini-maxi, militaires seuls, VIP seuls. Séismes : magnitude mini. Navires : vitesse + type. Géopolitique : plage de tonalité. Cyber : malware/pays (texte). Bouton « 🎚️ Filtres » + raccourci **T**.
 - **Confort UI** : `shortcuts.ts` (raccourcis clavier **C**ouches/**R**ecentrer FR/**O**SINT/**T**ri-filtres/**V**isuel/**P**artage/Échap, ignorés dans les champs de saisie) · `viewPresets.ts` (presets de vue France/Paris/Occitanie/Méditerranée/Manche-Atlantique/Monde + presets custom localStorage) · `shareLink.ts` (lien partageable encodant couches+requête, copie presse-papier) · `ComfortBar` (Vues/Partager/?). **Barre d'échelle** MapLibre (charte OSIRIS).
