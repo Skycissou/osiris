@@ -29,6 +29,13 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.018-dev — 2026-07-07 — 🐛 Avions « que sur la France » + script de test des couches
+- **Cause racine trouvée par lecture de code** : `page.tsx` appelait `useDataPolling({...})` **sans capturer le handle retourné** → `setBBox` n'était JAMAIS appelé → le flux avions restait sur la bbox par défaut (France métropole), où que soit la carte. Le doc-comment de `liveData.ts` montrait le câblage attendu… qui n'existait nulle part.
+- **Fix** : `OsirisMap` émet son emprise via un nouveau prop `onBoundsChange` (au `load` + à chaque `moveend`, **clampée ±180/±90** — sinon en vue monde/globe le serveur rejetait la bbox et retombait silencieusement sur la France) → `page.tsx` capture le handle et branche `live.setBBox`. Debounce déjà en place côté moteur (pas de spam réseau).
+- **Limite amont assumée** : adsb.lol (`/v2/point`) plafonne à **250 NM de rayon** → on voit les avions autour du CENTRE de la vue, jamais le monde entier d'un coup. C'est la source gratuite qui veut ça.
+- **`scripts/test-couches.sh`** (demande Cissou « il faut tester toutes ces couches ») : teste chaque couche SANS CLÉ en 2 passes — ① la source amont répond ? ② le staging la sert ? — avec verdict ✅/❌ par ligne. À lancer sur le VPS : `bash scripts/test-couches.sh`. (Impossible à exécuter depuis l'environnement Claude : réseau sortant bloqué par proxy.)
+- **Rappel UX** : toutes les couches sont **éteintes par défaut** (économie réseau + respect des sources gratuites) → panneau « Couches » pour les allumer. « Rien ne s'affiche » ≠ « pas connecté ».
+
 ### V4.017-dev — 2026-07-07 — Page Clés API : scroll + PERSISTANCE des clés entre versions
 - **Scroll réparé** sur `/cockpit/cles-api` : `html/body` sont en `overflow:hidden` (nécessaire à la carte plein écran) → la page porte désormais **son propre conteneur de scroll** (`h-screen overflow-y-auto`).
 - **Clés saisies UNE fois, valables pour TOUTES les versions** (demande Cissou) : le compose staging charge **`env_file: /docker/osiris-v4/.env`** sur le service cockpit. Ce fichier vit sur le VPS, **hors git** (`.env` gitignoré) → il survit aux `git pull` et aux `up -d --build` de chaque palier. Création une seule fois : `cp .env.example .env` + renseigner. Priorité côté routes : clé saisie dans l'app (en-tête navigateur) → sinon cet env.

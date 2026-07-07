@@ -205,7 +205,14 @@ export default function Dashboard() {
   // réseau + respect des sources gratuites). Le moteur interroge /fast (15 s :
   // avions) et /slow (120 s : géophysique) et merge dans le store par-clé.
   const anyLiveOn = LIVE_LAYER_KEYS.some((k) => activeLayers[k]);
-  useDataPolling({ enabled: anyLiveOn });
+  // Handle CAPTURÉ (bug corrigé 07/07) : il était jeté → setBBox jamais appelé
+  // → les couches denses (avions) restaient figées sur la bbox défaut France,
+  // où que soit la carte. La carte pousse maintenant son emprise (onBoundsChange).
+  const live = useDataPolling({ enabled: anyLiveOn });
+  const handleBoundsChange = useCallback(
+    (bbox: [number, number, number, number]) => live.setBBox(bbox),
+    [live],
+  );
   const aircraft = useDataKey<AircraftPoint[]>('aircraft');
   const earthquakes = useDataKey<QuakePoint[]>('earthquakes');
   const wildfires = useDataKey<FirePoint[]>('wildfires');
@@ -526,6 +533,7 @@ export default function Dashboard() {
           overlays={overlays}
           onMouseCoords={handleMouseCoords}
           onRightClick={handleRightClick}
+          onBoundsChange={handleBoundsChange}
           flyToLocation={flyToLocation}
         />
       </ErrorBoundary>

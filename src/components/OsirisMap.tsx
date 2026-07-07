@@ -165,6 +165,10 @@ interface OsirisMapProps {
   onMouseCoords?: (coords: { lat: number; lng: number }) => void;
   onRightClick?: (coords: { lat: number; lng: number }) => void;
   onViewStateChange?: (vs: { zoom: number; latitude: number }) => void;
+  /** Emprise visible [minLng,minLat,maxLng,maxLat] — émise au chargement puis à
+   *  chaque fin de déplacement. Branchée sur live.setBBox : les couches denses
+   *  (avions…) suivent la carte au lieu de rester figées sur la France. */
+  onBoundsChange?: (bbox: [number, number, number, number]) => void;
   flyToLocation?: { lat: number; lng: number; ts: number } | null;
   projection?: 'mercator' | 'globe';
   /** Fond : 'dark' (CARTO) · 'satellite' (ArcGIS) · 'ign' (Plan IGN) · 'scan25' · 'ortho' (ortho IGN). */
@@ -333,6 +337,7 @@ function OsirisMap({
   onMouseCoords,
   onRightClick,
   onViewStateChange,
+  onBoundsChange,
   flyToLocation,
   projection = 'mercator',
   mapStyle = 'dark',
@@ -830,7 +835,27 @@ function OsirisMap({
       }
     });
     map.on('contextmenu', e => { e.preventDefault(); onRightClick?.({ lat: e.lngLat.lat, lng: e.lngLat.lng }); });
-    map.on('moveend', () => { const c = map.getCenter(); onViewStateChange?.({ zoom: map.getZoom(), latitude: c.lat }); });
+    // Emprise visible → parent (live.setBBox). Clamp aux plages valides : en vue
+    // monde/globe, getBounds() peut dépasser ±180/±90 et le serveur rejetterait
+    // la bbox (retour silencieux à la France).
+    const emitBounds = () => {
+      if (!onBoundsChange) return;
+      try {
+        const b = map.getBounds();
+        onBoundsChange([
+          Math.max(-180, b.getWest()),
+          Math.max(-90, b.getSouth()),
+          Math.min(180, b.getEast()),
+          Math.min(90, b.getNorth()),
+        ]);
+      } catch { /* carte pas prête → prochain moveend */ }
+    };
+    map.on('load', emitBounds); // emprise initiale (sinon 1er fetch = bbox défaut France)
+    map.on('moveend', () => {
+      const c = map.getCenter();
+      onViewStateChange?.({ zoom: map.getZoom(), latitude: c.lat });
+      emitBounds();
+    });
 
     return () => { map.remove(); mapRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
