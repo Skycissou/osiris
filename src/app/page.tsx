@@ -765,6 +765,7 @@ export default function Dashboard() {
       {activeLayers?.live_alerts && (
         <AlertsControlBar
           alerts={missingAlerts}
+          filtered={filteredAlerts}
           catFilter={alertCatFilter}
           srcFilter={alertSrcFilter}
           onToggleCat={toggleAlertCat}

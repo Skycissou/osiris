@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.051-dev';
+export const OSIRIS_VERSION = 'V4.052-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.052-dev',
+    date: '2026-07-08',
+    resume:
+      "🟡 Alertes — correctifs UX (retours Cissou capture 08/07) : (1) la barre de contrôle " +
+      "CHEVAUCHAIT la barre de recherche → descendue dessous (top 118). (2) « Interpol seul = carte " +
+      "vide » : normal (Interpol Yellow n'a quasi jamais de coordonnées GPS) → ajout d'un compteur " +
+      "« 📍 X sur carte · 📋 Y sans position » + une LISTE dépliable de TOUS les avis filtrés " +
+      "(nom/catégorie/source/lieu + lien avis) → les avis non géolocalisés sont enfin visibles.",
+  },
   {
     version: 'V4.051-dev',
     date: '2026-07-08',

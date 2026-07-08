@@ -29,6 +29,11 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.052-dev — 2026-07-08 — 🟡 Alertes : correctifs UX (chevauchement + liste des non-géolocalisés)
+**Retours Cissou (capture 08/07)** :
+- **La barre de contrôle chevauchait la barre de recherche** → repositionnée **sous** la recherche (`top: 118px`), plus de superposition.
+- **« Quand je mets juste Interpol, il n'y a rien sur la carte »** → **normal** : les avis **Interpol Yellow n'ont presque jamais de coordonnées GPS** (les points visibles = 116000, géolocalisés). Correctifs : (1) compteur explicite **« 📍 X sur carte · 📋 Y sans position »** ; (2) **liste dépliable** (bouton « Liste (N) ») de **TOUS** les avis filtrés — géolocalisés **ou non** — avec nom/catégorie/source/lieu + lien « avis ↗ ». → les avis Interpol sans position sont enfin **consultables** (avant : invisibles).
+
 ### V4.051-dev — 2026-07-08 — 🟡 Alertes disparitions — Lot 2.5 (catégorie + monitoring + filtres)
 **Spec Claude chat v1.1** (§11 monitoring, §12 catégories/filtres). Prérequis avant le déploiement du parser n8n **v3** (extraction catégorie déjà testée 41/41).
 - **① Champ `categorie`** : accepté à l'ingest (`normalizeCategorie` : taxonomie contrôlée `fugue | disparition_inquietante | enlevement_parental | disparition | enlevement | appel_temoins`, **tolérance valeur inconnue → `disparition`**, pas de rejet), **stocké** (store + conservé même après levée) et **exposé** dans `GET /cockpit/alerts`.
