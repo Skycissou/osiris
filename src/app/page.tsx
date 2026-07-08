@@ -13,6 +13,7 @@ import { AIRCRAFT_CAT_COLORS, AIRCRAFT_CAT_LABELS, AIRCRAFT_CAT_ORDER } from '@/
 import { OSIRIS_VERSION, OSIRIS_VERSION_LABEL } from '@/lib/version';
 import { useAlertToasts } from '@/lib/alerts';
 import AlertToasts from '@/components/AlertToasts';
+import AlertsControlBar, { type AlertsHealth } from '@/components/AlertsControlBar';
 import { useRegionDossier } from '@/lib/regionDossier';
 import RegionDossierPanel from '@/components/RegionDossierPanel';
 import { enrichAircraft, type AircraftEnriched } from '@/lib/entityEnrich';
@@ -228,21 +229,34 @@ export default function Dashboard() {
   // ── Couche « Alertes disparitions » (module V4.049) — endpoint dédié
   //  /cockpit/alerts (PAS live-feed). Poll léger (90 s) uniquement si allumée. ──
   const [missingAlerts, setMissingAlerts] = useState<AlertPoint[]>([]);
+  const [alertsHealth, setAlertsHealth] = useState<AlertsHealth | null>(null);
+  // Filtres chips (§12) : vide = tout affiché.
+  const [alertCatFilter, setAlertCatFilter] = useState<string[]>([]);
+  const [alertSrcFilter, setAlertSrcFilter] = useState<string[]>([]);
+  const toggleAlertCat = useCallback((c: string) => setAlertCatFilter((p) => (p.includes(c) ? p.filter((x) => x !== c) : [...p, c])), []);
+  const toggleAlertSrc = useCallback((s: string) => setAlertSrcFilter((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s])), []);
   useEffect(() => {
-    if (!activeLayers.live_alerts) { setMissingAlerts([]); return; }
+    if (!activeLayers.live_alerts) { setMissingAlerts([]); setAlertsHealth(null); return; }
     let stop = false;
     const load = async () => {
       try {
-        const res = await fetch(`${BASE_PATH}/alerts?statut=active`, { cache: 'no-store', credentials: 'include' });
-        if (!res.ok) return;
-        const j = (await res.json()) as { alerts?: AlertPoint[] };
-        if (!stop) setMissingAlerts(Array.isArray(j.alerts) ? j.alerts : []);
+        const [ra, rh] = await Promise.all([
+          fetch(`${BASE_PATH}/alerts?statut=active`, { cache: 'no-store', credentials: 'include' }),
+          fetch(`${BASE_PATH}/alerts/health`, { cache: 'no-store', credentials: 'include' }),
+        ]);
+        if (ra.ok) { const j = (await ra.json()) as { alerts?: AlertPoint[] }; if (!stop) setMissingAlerts(Array.isArray(j.alerts) ? j.alerts : []); }
+        if (rh.ok) { const h = (await rh.json()) as AlertsHealth; if (!stop) setAlertsHealth(h); }
       } catch { /* couche vide, jamais de crash */ }
     };
     void load();
     const id = setInterval(load, 90_000);
     return () => { stop = true; clearInterval(id); };
   }, [activeLayers.live_alerts]);
+  // Avis filtrés par catégorie + source (vide = tout) → passés à la carte.
+  const filteredAlerts = useMemo(() => missingAlerts.filter((a) =>
+    (alertCatFilter.length === 0 || alertCatFilter.includes(a.categorie || 'disparition')) &&
+    (alertSrcFilter.length === 0 || alertSrcFilter.includes(a.source)),
+  ), [missingAlerts, alertCatFilter, alertSrcFilter]);
 
   // ── Couches sensibles (forme 2) — polling séparé /live-feed/sensitive,
   // actif UNIQUEMENT en forme 2 ET si une couche sensible est allumée. ──
@@ -545,7 +559,7 @@ export default function Dashboard() {
           ships={fShips}
           gdelt={fGdelt}
           cyber={fCyber}
-          alerts={missingAlerts}
+          alerts={filteredAlerts}
           sensitive={sensitive}
           onAircraftClick={handleAircraftClick}
           selectedAircraftHex={selectedEntity?.hex ?? null}
@@ -747,6 +761,19 @@ export default function Dashboard() {
       )}
 
       {/* ── LÉGENDE CATÉGORIES AVIONS (visible si la couche Avions est active) ── */}
+      {/* Barre de contrôle Alertes disparitions (chips filtres + badge fraîcheur) */}
+      {activeLayers?.live_alerts && (
+        <AlertsControlBar
+          alerts={missingAlerts}
+          catFilter={alertCatFilter}
+          srcFilter={alertSrcFilter}
+          onToggleCat={toggleAlertCat}
+          onToggleSrc={toggleAlertSrc}
+          health={alertsHealth}
+          isMobile={isMobile}
+        />
+      )}
+
       {!isMobile && activeLayers?.live_aircraft && (
         <div
           className="glass-panel absolute z-[200] pointer-events-none px-3 py-2.5"

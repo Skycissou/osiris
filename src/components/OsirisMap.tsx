@@ -132,6 +132,7 @@ export interface AlertPoint {
   id: string;
   source: string; // interpol_yellow | x116000
   source_id: string;
+  categorie?: string; // fugue | disparition_inquietante | enlevement_parental | disparition | …
   lat?: number;
   lon?: number;
   nom_affiche?: string;
@@ -1015,13 +1016,19 @@ function OsirisMap({
         const coords = geom && geom.type === 'Point' ? (geom.coordinates as [number, number]) : [e.lngLat.lng, e.lngLat.lat];
         const leve = p.statut === 'levee';
         const srcLabel = p.source === 'x116000' ? '116 000 Enfants Disparus' : p.source === 'interpol_yellow' ? 'Interpol (Yellow Notice)' : escapeHtml(p.source || 'source officielle');
+        const catLabels: Record<string, string> = {
+          fugue: 'Fugue', disparition_inquietante: 'Disparition inquiétante',
+          enlevement_parental: 'Enlèvement parental', disparition: 'Disparition',
+          enlevement: 'Enlèvement', appel_temoins: 'Appel à témoins',
+        };
+        const cat = typeof p.categorie === 'string' && catLabels[p.categorie] ? catLabels[p.categorie] : '';
         const safeUrl = typeof p.url_source === 'string' && /^https?:\/\//i.test(p.url_source) ? p.url_source : '';
         const safePhoto = !leve && typeof p.photo_url === 'string' && /^https?:\/\//i.test(p.photo_url) ? p.photo_url : '';
         const line = (label: string, val: unknown) => (val != null && val !== '' ? `${label} : ${escapeHtml(val)}<br>` : '');
         const identite = [p.age ? `${escapeHtml(p.age)} ans` : '', p.sexe ? escapeHtml(p.sexe) : ''].filter(Boolean).join(' · ');
         const html =
           `<div style="${POPUP_STYLE}">` +
-          `<div style="color:#ffb23e;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">🟡 Avis de recherche${leve ? ' · LEVÉ' : ''}</div>` +
+          `<div style="color:#ffb23e;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">🟡 ${cat || 'Avis de recherche'}${leve ? ' · LEVÉ' : ''}</div>` +
           (leve
             ? `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">Cet avis a été <b>levé</b> (personne retrouvée / retiré par la source). Informations anonymisées.</div>`
             : (safePhoto ? `<img src="${escapeHtml(safePhoto)}" alt="" referrerpolicy="no-referrer" style="width:100%;max-height:180px;object-fit:cover;border-radius:6px;margin-bottom:6px;" onerror="this.style.display='none'">` : '') +
@@ -1301,6 +1308,7 @@ function OsirisMap({
         geometry: { type: 'Point' as const, coordinates: [a.lon as number, a.lat as number] },
         properties: {
           statut: a.statut ?? 'active', source: a.source ?? '', source_id: a.source_id ?? '',
+          categorie: a.categorie ?? 'disparition',
           nom_affiche: a.nom_affiche ?? '', age: a.age ?? '', sexe: a.sexe ?? '',
           lieu_texte: a.lieu_texte ?? '', date_publication: a.date_publication ?? '',
           url_source: a.url_source ?? '', photo_url: a.photo_url ?? '',

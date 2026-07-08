@@ -29,6 +29,12 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.051-dev — 2026-07-08 — 🟡 Alertes disparitions — Lot 2.5 (catégorie + monitoring + filtres)
+**Spec Claude chat v1.1** (§11 monitoring, §12 catégories/filtres). Prérequis avant le déploiement du parser n8n **v3** (extraction catégorie déjà testée 41/41).
+- **① Champ `categorie`** : accepté à l'ingest (`normalizeCategorie` : taxonomie contrôlée `fugue | disparition_inquietante | enlevement_parental | disparition | enlevement | appel_temoins`, **tolérance valeur inconnue → `disparition`**, pas de rejet), **stocké** (store + conservé même après levée) et **exposé** dans `GET /cockpit/alerts`.
+- **② Monitoring (§11)** : nouveau **`GET /cockpit/alerts/health`** → `{ last_sync_at, per_source, active_count }` (synchro enregistrée à chaque ingest, même lot vide → détecte workflow off / n8n down / token cassé / source morte). **Badge de fraîcheur** dans l'UI : 🟢 < 20 min · 🟠 20-45 · 🔴 > 45 min / aucune synchro.
+- **③ Filtres (§12)** : `AlertsControlBar` — **chips multi-sélection par catégorie ET par source** avec **compteur par chip** (vide = tout), au-dessus de la carte quand la couche est active. La carte n'affiche que les avis filtrés. Catégorie affichée aussi dans le popup.
+
 ### V4.050-dev — 2026-07-08 — 🟡 Alertes disparitions — Lot 2 (couche carte + fiche au clic)
 **Demande Cissou** : « chaque alerte repérée sur la carte par un logo au point géographique le plus proche ».
 - **Toggle** « Alertes disparitions 🟡 » dans les couches temps réel. Quand actif, `page.tsx` interroge **`/cockpit/alerts?statut=active`** (poll 90 s) et passe les avis à la carte.

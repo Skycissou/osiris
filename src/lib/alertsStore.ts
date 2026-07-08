@@ -25,11 +25,30 @@ export const ALERT_SOURCES = ['interpol_yellow', 'x116000'] as const;
 export type AlertSource = (typeof ALERT_SOURCES)[number];
 const SOURCE_SET: ReadonlySet<string> = new Set(ALERT_SOURCES);
 
-/** Un avis normalisé (schéma spec §4). */
+/** Taxonomie contrôlée des catégories (spec §12, v1.1). Extensible Lot 3. */
+export const ALERT_CATEGORIES = [
+  'fugue',
+  'disparition_inquietante',
+  'enlevement_parental',
+  'disparition',
+  'enlevement',
+  'appel_temoins',
+] as const;
+export type AlertCategorie = (typeof ALERT_CATEGORIES)[number];
+const CAT_SET: ReadonlySet<string> = new Set(ALERT_CATEGORIES);
+
+/** Normalise une catégorie reçue : valeur connue conservée, sinon `disparition`
+ *  (tolérance aux valeurs inconnues, spec §12 — pas de rejet). */
+export function normalizeCategorie(v: unknown): AlertCategorie {
+  return typeof v === 'string' && CAT_SET.has(v) ? (v as AlertCategorie) : 'disparition';
+}
+
+/** Un avis normalisé (schéma spec §4 + §12). */
 export interface Alert {
   id: string; // `${source}:${source_id}` (stable, dédup)
   source: AlertSource;
   source_id: string;
+  categorie: AlertCategorie; // taxonomie contrôlée (défaut `disparition`)
   url_source?: string;
   nom_affiche?: string;
   age?: number;
@@ -47,17 +66,25 @@ export interface Alert {
 const LEVEE_TTL_MS = 24 * 60 * 60_000; // avis levé gardé 24 h (anonymisé) puis DELETE
 const PURGE_INTERVAL_MS = 60 * 60_000; // purge horaire
 
+function dir(): string {
+  return process.env.OSIRIS_ALERTS_DIR || path.join(process.cwd(), 'data');
+}
 function file(): string {
-  const dir = process.env.OSIRIS_ALERTS_DIR || path.join(process.cwd(), 'data');
-  return path.join(dir, 'alerts.json');
+  return path.join(dir(), 'alerts.json');
+}
+/** Fichier séparé : horodatage de dernière synchro PAR SOURCE (monitoring §11). */
+function syncFile(): string {
+  return path.join(dir(), 'alerts-sync.json');
 }
 
 // Cache mémoire (protégé HMR/dev) + purge périodique idempotente.
 const G = globalThis as unknown as {
   __osirisAlerts?: Map<string, Alert> | null;
   __osirisAlertsPurge?: ReturnType<typeof setInterval>;
+  __osirisAlertsSync?: Record<string, number> | null;
 };
 if (G.__osirisAlerts === undefined) G.__osirisAlerts = null;
+if (G.__osirisAlertsSync === undefined) G.__osirisAlertsSync = null;
 
 async function ensureLoaded(): Promise<Map<string, Alert>> {
   if (G.__osirisAlerts) return G.__osirisAlerts;
@@ -92,6 +119,7 @@ function anonymize(a: Alert): Alert {
     id: a.id,
     source: a.source,
     source_id: a.source_id,
+    categorie: a.categorie, // non nominatif → conservé (utile au filtre)
     statut: 'levee',
     fetched_at: a.fetched_at,
     levee_at: a.levee_at ?? Date.now(),
@@ -100,6 +128,50 @@ function anonymize(a: Alert): Alert {
     ...(typeof a.lon === 'number' ? { lon: a.lon } : {}),
     nom_affiche: '(avis levé)',
   };
+}
+
+// ── Suivi de synchro par source (monitoring §11) ────────────────────────────
+async function ensureSyncLoaded(): Promise<Record<string, number>> {
+  if (G.__osirisAlertsSync) return G.__osirisAlertsSync;
+  const s: Record<string, number> = {};
+  try {
+    const raw = await fs.readFile(syncFile(), 'utf8').catch(() => '');
+    if (raw) {
+      const o = JSON.parse(raw) as Record<string, unknown>;
+      for (const src of ALERT_SOURCES) if (typeof o[src] === 'number') s[src] = o[src] as number;
+    }
+  } catch {
+    /* best-effort */
+  }
+  G.__osirisAlertsSync = s;
+  return s;
+}
+
+/** Marque une synchro réussie d'une source (appelé à chaque ingest, même vide). */
+async function recordSync(source: AlertSource): Promise<void> {
+  const s = await ensureSyncLoaded();
+  s[source] = Date.now();
+  try {
+    await fs.mkdir(dir(), { recursive: true });
+    await fs.writeFile(syncFile(), JSON.stringify(s), { encoding: 'utf8', mode: 0o600 });
+  } catch (e) {
+    console.warn('[OSIRIS alerts] sync KO:', e instanceof Error ? e.message : e);
+  }
+}
+
+export interface AlertsHealth {
+  last_sync_at: number | null; // synchro la plus récente toutes sources
+  per_source: Record<string, number>; // ts par source
+  active_count: number; // avis actifs
+}
+
+/** Santé du module (monitoring §11) : dernière synchro + nb d'avis actifs. */
+export async function getHealth(): Promise<AlertsHealth> {
+  const s = await ensureSyncLoaded();
+  const map = await ensureLoaded();
+  const times = Object.values(s).filter((n) => typeof n === 'number');
+  const active_count = [...map.values()].filter((a) => a.statut === 'active').length;
+  return { last_sync_at: times.length ? Math.max(...times) : null, per_source: { ...s }, active_count };
 }
 
 /** Supprime définitivement les avis `levee` de plus de 24 h. Ne throw jamais. */
@@ -161,6 +233,7 @@ export async function upsertSource(source: AlertSource, incoming: Alert[]): Prom
   }
   await persist(map);
   await purge();
+  await recordSync(source); // monitoring §11 : synchro réussie, même lot vide
   const active = [...map.values()].filter((a) => a.statut === 'active').length;
   return { active, upserted, levees };
 }

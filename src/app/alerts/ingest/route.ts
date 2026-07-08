@@ -13,7 +13,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from 'next/server';
-import { upsertSource, isAlertSource, type Alert, type AlertSource } from '@/lib/alertsStore';
+import { upsertSource, isAlertSource, normalizeCategorie, type Alert, type AlertSource } from '@/lib/alertsStore';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs'; // écriture disque
@@ -63,6 +63,7 @@ function sanitize(source: AlertSource, raw: unknown): Alert | null {
     id: `${source}:${source_id}`,
     source,
     source_id,
+    categorie: normalizeCategorie(o.categorie), // §12 : tolérance valeur inconnue → 'disparition'
     url_source: httpUrl(o.url_source),
     nom_affiche: trunc(o.nom_affiche, 200),
     ...(age !== undefined && age >= 0 && age < 130 ? { age: Math.round(age) } : {}),
