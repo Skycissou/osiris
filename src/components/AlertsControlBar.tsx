@@ -106,6 +106,12 @@ function AlertsControlBar({ alerts, filtered, catFilter, srcFilter, onToggleCat,
         </span>
         <span className="text-white/15">|</span>
         <span className="text-[10px] font-mono text-white/70">📍 {onMap} sur carte · 📋 {noPos} sans position</span>
+        {/* Légende récence (échelle de couleur) */}
+        <span className="flex items-center gap-1 text-[9px] font-mono text-[var(--faint)]">
+          récent
+          <span style={{ width: 46, height: 7, borderRadius: 4, display: 'inline-block', background: 'linear-gradient(90deg,#ff2d2d,#ff9f2e,#ffc93e,#e6d27a)' }} />
+          ancien
+        </span>
         <button
           type="button"
           onClick={() => setListOpen((v) => !v)}
@@ -132,16 +138,19 @@ function AlertsControlBar({ alerts, filtered, catFilter, srcFilter, onToggleCat,
           {filtered.map((a) => {
             const leve = a.statut === 'levee';
             const geo = typeof a.lat === 'number' && typeof a.lon === 'number';
+            const t = a.date_publication ? Date.parse(a.date_publication) : NaN;
+            const ageH = Number.isFinite(t) ? (Date.now() - t) / 3_600_000 : Infinity;
+            const rc = leve ? '#7f8da1' : ageH < 24 ? '#ff2d2d' : ageH < 72 ? '#ff9f2e' : ageH < 168 ? '#ffc93e' : '#8a94a3';
             return (
               <div key={a.id} className="flex items-baseline gap-2 py-1 border-b border-white/[0.05]">
-                <span title={geo ? 'sur la carte' : 'sans position'}>{geo ? '📍' : '·'}</span>
+                <span style={{ width: 7, height: 7, borderRadius: 99, background: rc, display: 'inline-block', flexShrink: 0 }} title={geo ? 'sur la carte' : 'sans position'} />
                 <div className="min-w-0 flex-1">
                   <div className="text-[11px] font-mono text-white/90 truncate">
                     {leve ? '(avis levé)' : (a.nom_affiche || 'Personne recherchée')}
                     {a.age ? <span className="text-[var(--faint)]"> · {a.age} ans</span> : null}
                   </div>
                   <div className="text-[9px] font-mono text-[var(--faint)] truncate">
-                    {CAT_LABEL[a.categorie || 'disparition'] || a.categorie} · {SRC_LABEL[a.source] || a.source}
+                    {geo ? '📍 ' : ''}{CAT_LABEL[a.categorie || 'disparition'] || a.categorie} · {SRC_LABEL[a.source] || a.source}
                     {a.lieu_texte ? ` · ${a.lieu_texte}` : ''}
                   </div>
                 </div>

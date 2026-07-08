@@ -29,6 +29,14 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.053-dev — 2026-07-08 — 🟡 Alertes : échelle de couleur par récence/gravité + photos
+**Demande Cissou** : « les dernières alertes en rouge pour voir la gravité et la rapidité de l'annonce → une échelle de couleur » + « récupérer les photos pour que la fiche soit précise ».
+- **Échelle de couleur (récence)** : le marqueur ET son halo prennent une couleur selon l'**âge de l'avis** (`age_h` calculé depuis `date_publication`) : **🔴 rouge vif < 24 h** → orange 1-3 j → jaune ~7 j → jaune pâle au-delà. Le **halo « glow »** d'autant plus fort que c'est frais. Avis levé = gris. Date absente → jaune (pas de faux « urgent »).
+- **Popup** : ligne **« ● publié il y a X »** colorée (même échelle) ; **placeholder « photo non fournie par la source »** quand il n'y a pas d'image (au lieu du vide).
+- **Liste** : **pastille de récence** par avis + 📍 si géolocalisé.
+- **Légende** « récent → ancien » (dégradé) dans la barre de contrôle.
+- **Photos** : l'affichage (hotlink, `no-referrer`, masquage si 404) est prêt ; **le contenu `photo_url` doit être fourni par le workflow n8n** (Interpol : endpoint images ; 116000 : désactivé en v1 pour éviter d'associer la mauvaise photo à un enfant — cf. spec §159). → côté Claude chat.
+
 ### V4.052-dev — 2026-07-08 — 🟡 Alertes : correctifs UX (chevauchement + liste des non-géolocalisés)
 **Retours Cissou (capture 08/07)** :
 - **La barre de contrôle chevauchait la barre de recherche** → repositionnée **sous** la recherche (`top: 118px`), plus de superposition.

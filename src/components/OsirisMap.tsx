@@ -990,8 +990,11 @@ function OsirisMap({
         source: 'live-alerts',
         paint: {
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 10, 10, 22],
-          'circle-color': ['match', ['get', 'statut'], 'levee', '#7f8da1', '#ffb23e'],
-          'circle-opacity': 0.18,
+          'circle-color': ['case', ['==', ['get', 'statut'], 'levee'], '#7f8da1',
+            ['interpolate', ['linear'], ['to-number', ['get', 'age_h'], 100000],
+              0, '#ff2d2d', 24, '#ff5a2e', 72, '#ff9f2e', 168, '#ffc93e', 720, '#e6d27a']],
+          // Halo plus lumineux quand l'avis est RÉCENT (glow d'urgence).
+          'circle-opacity': ['interpolate', ['linear'], ['to-number', ['get', 'age_h'], 100000], 0, 0.4, 48, 0.28, 168, 0.16, 720, 0.08],
           'circle-blur': 0.6,
         },
         layout: { visibility: 'none' },
@@ -1002,7 +1005,9 @@ function OsirisMap({
         source: 'live-alerts',
         paint: {
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 5, 10, 8],
-          'circle-color': ['match', ['get', 'statut'], 'levee', '#7f8da1', '#ffb23e'],
+          'circle-color': ['case', ['==', ['get', 'statut'], 'levee'], '#7f8da1',
+            ['interpolate', ['linear'], ['to-number', ['get', 'age_h'], 100000],
+              0, '#ff2d2d', 24, '#ff5a2e', 72, '#ff9f2e', 168, '#ffc93e', 720, '#e6d27a']],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#1a1205',
           'circle-opacity': 0.95,
@@ -1026,13 +1031,20 @@ function OsirisMap({
         const safePhoto = !leve && typeof p.photo_url === 'string' && /^https?:\/\//i.test(p.photo_url) ? p.photo_url : '';
         const line = (label: string, val: unknown) => (val != null && val !== '' ? `${label} : ${escapeHtml(val)}<br>` : '');
         const identite = [p.age ? `${escapeHtml(p.age)} ans` : '', p.sexe ? escapeHtml(p.sexe) : ''].filter(Boolean).join(' · ');
+        // Récence colorée (même échelle que le marqueur) : rouge = tout frais.
+        const ageH = Number(p.age_h);
+        const recColor = !Number.isFinite(ageH) ? '#8a94a3' : ageH < 24 ? '#ff5a2e' : ageH < 72 ? '#ff9f2e' : ageH < 168 ? '#ffc93e' : '#8a94a3';
+        const recTxt = !Number.isFinite(ageH) || ageH >= 100000 ? '' : ageH < 1 ? "il y a moins d'1 h" : ageH < 48 ? `il y a ${Math.round(ageH)} h` : `il y a ${Math.round(ageH / 24)} j`;
         const html =
           `<div style="${POPUP_STYLE}">` +
           `<div style="color:#ffb23e;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">🟡 ${cat || 'Avis de recherche'}${leve ? ' · LEVÉ' : ''}</div>` +
           (leve
             ? `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">Cet avis a été <b>levé</b> (personne retrouvée / retiré par la source). Informations anonymisées.</div>`
-            : (safePhoto ? `<img src="${escapeHtml(safePhoto)}" alt="" referrerpolicy="no-referrer" style="width:100%;max-height:180px;object-fit:cover;border-radius:6px;margin-bottom:6px;" onerror="this.style.display='none'">` : '') +
+            : (safePhoto
+                ? `<img src="${escapeHtml(safePhoto)}" alt="" referrerpolicy="no-referrer" style="width:100%;max-height:180px;object-fit:cover;border-radius:6px;margin-bottom:6px;" onerror="this.style.display='none'">`
+                : `<div style="width:100%;height:64px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.03);border:1px dashed #24303f;border-radius:6px;margin-bottom:6px;color:#586475;font-size:10px;">photo non fournie par la source</div>`) +
               `<div style="color:#fff;font-size:15px;font-weight:600;margin-bottom:4px;">${escapeHtml(p.nom_affiche || 'Personne recherchée')}</div>` +
+              (recTxt ? `<div style="color:${recColor};font-size:11px;font-weight:600;margin-bottom:4px;">● publié ${recTxt}</div>` : '') +
               `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">` +
               (identite ? `${identite}<br>` : '') +
               line('Lieu', p.lieu_texte) +
@@ -1309,6 +1321,12 @@ function OsirisMap({
         properties: {
           statut: a.statut ?? 'active', source: a.source ?? '', source_id: a.source_id ?? '',
           categorie: a.categorie ?? 'disparition',
+          // Âge de l'avis en HEURES (échelle de couleur récence/gravité). Date
+          // illisible/absente → 100000 (très vieux → jaune, pas de faux « urgent »).
+          age_h: (() => {
+            const t = a.date_publication ? Date.parse(a.date_publication) : NaN;
+            return Number.isFinite(t) ? Math.max(0, (Date.now() - t) / 3_600_000) : 100000;
+          })(),
           nom_affiche: a.nom_affiche ?? '', age: a.age ?? '', sexe: a.sexe ?? '',
           lieu_texte: a.lieu_texte ?? '', date_publication: a.date_publication ?? '',
           url_source: a.url_source ?? '', photo_url: a.photo_url ?? '',

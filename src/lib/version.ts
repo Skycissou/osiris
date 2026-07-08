@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.052-dev';
+export const OSIRIS_VERSION = 'V4.053-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.053-dev',
+    date: '2026-07-08',
+    resume:
+      "🟡 Alertes — ÉCHELLE DE COULEUR par récence/gravité (demande Cissou). Marqueur + halo " +
+      "colorés selon l'âge de l'avis : 🔴 rouge vif <24 h → orange 1-3 j → jaune ~7 j → jaune pâle " +
+      "au-delà (halo qui « glow » d'autant plus que c'est frais). Popup : ligne « publié il y a X » " +
+      "colorée + placeholder « photo non fournie » quand il n'y a pas d'image. Liste : pastille de " +
+      "récence + 📍 si géolocalisé. Légende récent→ancien dans la barre. (Photos = à envoyer par n8n.)",
+  },
   {
     version: 'V4.052-dev',
     date: '2026-07-08',
