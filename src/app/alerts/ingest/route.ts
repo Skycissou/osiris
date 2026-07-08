@@ -53,7 +53,10 @@ const num = (v: unknown): number | undefined => (typeof v === 'number' && Number
 function sanitize(source: AlertSource, raw: unknown): Alert | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
-  const source_id = trunc(o.source_id, 200);
+  // id source : `source_id` (spec §4) + alias tolérés — pour qu'une simple
+  // variance de nom de champ côté parser n8n ne jette PAS tout le lot en silence.
+  const source_id =
+    trunc(o.source_id, 200) || trunc(o.id, 200) || trunc(o.notice_id, 200) || trunc(o.reference, 200) || trunc(o.entity_id, 200);
   if (!source_id) return null; // pas d'id source → inexploitable (dédup impossible)
   const lat = num(o.lat);
   const lon = num(o.lon);
@@ -110,5 +113,11 @@ export async function POST(req: NextRequest) {
   }
 
   const result = await upsertSource(source, clean);
-  return NextResponse.json({ ok: true, source, ...result }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
+  // Diagnostic explicite dans le corps 200 : `received` vs `accepted` tranche
+  // instantanément « bug store » (upserted=0 alors qu'accepted>0) contre « le
+  // parser n'envoie pas d'id exploitable » (accepted=0 alors que received>0).
+  return NextResponse.json(
+    { ok: true, source, received: rawAlerts.length, accepted: clean.length, dropped: rawAlerts.length - clean.length, ...result },
+    { status: 200, headers: { 'Cache-Control': 'no-store' } },
+  );
 }

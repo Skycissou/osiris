@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.055-dev';
+export const OSIRIS_VERSION = 'V4.056-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.056-dev',
+    date: '2026-07-08',
+    resume:
+      "🔧 Alertes — VRAIE cause du « figé à la 1ère insertion » : lecture, pas upsert. " +
+      "ensureLoaded() rechargeait jamais le cache mémoire → avec >1 worker, le GET resservait " +
+      "le snapshot de démarrage (categorie/photo/fetched_at gelés) même après des ingests 200. " +
+      "Fix : rechargement gated par mtime du fichier. + Ingest tolère des alias d'id (source_id/id/" +
+      "notice_id/reference) et renvoie received/accepted/dropped dans le 200 pour diagnostiquer d'un coup. " +
+      "(L'upsert full-replace et le health par POST étaient DÉJÀ corrects.)",
+  },
   {
     version: 'V4.055-dev',
     date: '2026-07-08',

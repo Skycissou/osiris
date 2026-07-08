@@ -80,6 +80,7 @@ function syncFile(): string {
 // Cache mémoire (protégé HMR/dev) + purge périodique idempotente.
 const G = globalThis as unknown as {
   __osirisAlerts?: Map<string, Alert> | null;
+  __osirisAlertsMtime?: number; // mtime du fichier au dernier chargement (anti-figé cross-process)
   __osirisAlertsPurge?: ReturnType<typeof setInterval>;
   __osirisAlertsSync?: Record<string, number> | null;
 };
@@ -87,20 +88,33 @@ if (G.__osirisAlerts === undefined) G.__osirisAlerts = null;
 if (G.__osirisAlertsSync === undefined) G.__osirisAlertsSync = null;
 
 async function ensureLoaded(): Promise<Map<string, Alert>> {
-  if (G.__osirisAlerts) return G.__osirisAlerts;
-  const map = new Map<string, Alert>();
+  // ⚠️ Anti-« figé à la 1ère insertion » (leçon 08/07) : le cache mémoire est
+  // RECHARGÉ dès que le fichier a une mtime plus récente que le dernier
+  // chargement. Sinon, avec >1 worker/instance, l'ingest écrit sur le worker A
+  // (mémoire + disque) mais le GET tombe sur le worker B qui resservirait
+  // éternellement son snapshot de démarrage → categorie/photo/fetched_at gelés.
   try {
-    const raw = await fs.readFile(file(), 'utf8').catch(() => '');
+    const st = await fs.stat(file()).catch(() => null);
+    const mtime = st ? st.mtimeMs : 0;
+    if (G.__osirisAlerts && mtime === (G.__osirisAlertsMtime ?? -1)) return G.__osirisAlerts;
+    const map = new Map<string, Alert>();
+    const raw = mtime ? await fs.readFile(file(), 'utf8').catch(() => '') : '';
     if (raw) {
       const arr = JSON.parse(raw) as Alert[];
       if (Array.isArray(arr)) for (const a of arr) if (a && typeof a.id === 'string') map.set(a.id, a);
     }
+    G.__osirisAlerts = map;
+    G.__osirisAlertsMtime = mtime;
+    ensurePurge();
+    return map;
   } catch {
-    /* fichier corrompu → repart vide (best-effort) */
+    // fichier corrompu / stat KO → garde le cache s'il existe, sinon repart vide
+    if (G.__osirisAlerts) return G.__osirisAlerts;
+    const map = new Map<string, Alert>();
+    G.__osirisAlerts = map;
+    ensurePurge();
+    return map;
   }
-  G.__osirisAlerts = map;
-  ensurePurge();
-  return map;
 }
 
 async function persist(map: Map<string, Alert>): Promise<void> {
@@ -108,6 +122,10 @@ async function persist(map: Map<string, Alert>): Promise<void> {
     const dir = path.dirname(file());
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(file(), JSON.stringify([...map.values()]), { encoding: 'utf8', mode: 0o600 });
+    // Mémorise la mtime post-écriture : ce process ne se rechargera pas pour rien
+    // (les AUTRES process verront une mtime plus récente et rechargeront, eux).
+    const st = await fs.stat(file()).catch(() => null);
+    if (st) G.__osirisAlertsMtime = st.mtimeMs;
   } catch (e) {
     console.warn('[OSIRIS alerts] écriture KO:', e instanceof Error ? e.message : e);
   }
