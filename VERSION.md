@@ -29,6 +29,13 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.050-dev — 2026-07-08 — 🟡 Alertes disparitions — Lot 2 (couche carte + fiche au clic)
+**Demande Cissou** : « chaque alerte repérée sur la carte par un logo au point géographique le plus proche ».
+- **Toggle** « Alertes disparitions 🟡 » dans les couches temps réel. Quand actif, `page.tsx` interroge **`/cockpit/alerts?statut=active`** (poll 90 s) et passe les avis à la carte.
+- **Marqueur** MapLibre jaune/orange à **halo** (`live-alerts-halo` + `live-alerts-dots`) au **point géo** de chaque avis (lat/lon). Avis **sans coordonnées** → **hors carte** (pas de pin fantôme, spec §5). Avis **levé** → marqueur **gris**, sans photo (déjà anonymisé serveur).
+- **Fiche au clic** : photo (hotlink, `referrerpolicy=no-referrer`, masquée si 404), identité (nom/âge/sexe), lieu, date, **« ▶ Voir l'avis officiel ↗ »** + **numéros utiles** (17 · OCRVP 01 40 97 80 16 · 116 000).
+- Nouveau type `AlertPoint` (OsirisMap). Aucune donnée stockée côté client au-delà de l'affichage.
+
 ### V4.049-dev — 2026-07-08 — 🟡 Module « Alertes disparitions » — Lot 1 (endpoints + store)
 **Spec Claude chat 08/07** (`notes/ops/2026-07-08-osiris-veille-alertes-spec.md`, GO Cissou). Nouvelle couche : avis de recherche **officiels** de personnes disparues (Interpol Yellow + 116000 Enfants Disparus) sur la carte.
 - **Endpoints** (côté OSIRIS, ce Lot 1) : **`POST /cockpit/alerts/ingest`** (token `OSIRIS_INGEST_TOKEN`, alimenté par n8n serveur→serveur) + **`GET /cockpit/alerts`** (lu par la couche carto Lot 2).

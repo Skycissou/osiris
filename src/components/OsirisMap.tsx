@@ -124,6 +124,26 @@ export interface CyberPoint {
   lastOnline?: string; // dernière activité
 }
 
+/** Avis de recherche (personne disparue) — module Alertes disparitions (V4.049).
+ *  Sources OFFICIELLES (Interpol Yellow, 116000). Champs nominatifs vidés une
+ *  fois l'avis levé (statut=levee, anonymisé côté serveur). Coordonnées =
+ *  géocodage best-effort ; sans lat/lng → l'avis reste en liste (pas de pin). */
+export interface AlertPoint {
+  id: string;
+  source: string; // interpol_yellow | x116000
+  source_id: string;
+  lat?: number;
+  lon?: number;
+  nom_affiche?: string;
+  age?: number;
+  sexe?: string;
+  lieu_texte?: string;
+  date_publication?: string;
+  url_source?: string;
+  photo_url?: string; // hotlink source uniquement
+  statut: 'active' | 'levee';
+}
+
 /** Navire (source AIS, clé requise — cf. route fast). */
 export interface ShipPoint {
   id: string;
@@ -185,6 +205,8 @@ interface OsirisMapProps {
   gdelt?: GeoEventPoint[];
   /** Serveurs C2 malware (abuse.ch) — rendus si activeLayers.live_cyber. */
   cyber?: CyberPoint[];
+  /** Avis de recherche (personnes disparues) — rendus si activeLayers.live_alerts. */
+  alerts?: AlertPoint[];
   /** Couches sensibles (forme 2) — rendues si activeLayers.sens_* + consentement. */
   sensitive?: SensitiveData;
   /** Clic sur un avion → ouvre la carte-fiche riche (photo + détails). */
@@ -364,6 +386,7 @@ function OsirisMap({
   ships = [],
   gdelt = [],
   cyber = [],
+  alerts = [],
   sensitive = {},
   onAircraftClick,
   selectedAircraftHex = null,
@@ -955,6 +978,70 @@ function OsirisMap({
       map.on('mouseleave', 'live-cyber-dots', () => { map.getCanvas().style.cursor = ''; });
       // ──────────────────────────────────────────────────────────────────
 
+      // ─── COUCHE ALERTES DISPARITIONS (avis officiels — V4.049) ──────────
+      //  Marqueur jaune/orange à halo (repérable), fiche au clic (photo hotlink,
+      //  identité, lieu, source, lien avis + numéros utiles). Avis levé =
+      //  déjà anonymisé côté serveur → marqueur gris discret sans photo.
+      map.addSource('live-alerts', { type: 'geojson', data: EMPTY_FC });
+      map.addLayer({
+        id: 'live-alerts-halo',
+        type: 'circle',
+        source: 'live-alerts',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 10, 10, 22],
+          'circle-color': ['match', ['get', 'statut'], 'levee', '#7f8da1', '#ffb23e'],
+          'circle-opacity': 0.18,
+          'circle-blur': 0.6,
+        },
+        layout: { visibility: 'none' },
+      });
+      map.addLayer({
+        id: 'live-alerts-dots',
+        type: 'circle',
+        source: 'live-alerts',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 5, 10, 8],
+          'circle-color': ['match', ['get', 'statut'], 'levee', '#7f8da1', '#ffb23e'],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#1a1205',
+          'circle-opacity': 0.95,
+        },
+        layout: { visibility: 'none' },
+      });
+      map.on('click', 'live-alerts-dots', (e) => {
+        const f = e.features?.[0]; if (!f) return;
+        const p = f.properties || {};
+        const geom = f.geometry;
+        const coords = geom && geom.type === 'Point' ? (geom.coordinates as [number, number]) : [e.lngLat.lng, e.lngLat.lat];
+        const leve = p.statut === 'levee';
+        const srcLabel = p.source === 'x116000' ? '116 000 Enfants Disparus' : p.source === 'interpol_yellow' ? 'Interpol (Yellow Notice)' : escapeHtml(p.source || 'source officielle');
+        const safeUrl = typeof p.url_source === 'string' && /^https?:\/\//i.test(p.url_source) ? p.url_source : '';
+        const safePhoto = !leve && typeof p.photo_url === 'string' && /^https?:\/\//i.test(p.photo_url) ? p.photo_url : '';
+        const line = (label: string, val: unknown) => (val != null && val !== '' ? `${label} : ${escapeHtml(val)}<br>` : '');
+        const identite = [p.age ? `${escapeHtml(p.age)} ans` : '', p.sexe ? escapeHtml(p.sexe) : ''].filter(Boolean).join(' · ');
+        const html =
+          `<div style="${POPUP_STYLE}">` +
+          `<div style="color:#ffb23e;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">🟡 Avis de recherche${leve ? ' · LEVÉ' : ''}</div>` +
+          (leve
+            ? `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">Cet avis a été <b>levé</b> (personne retrouvée / retiré par la source). Informations anonymisées.</div>`
+            : (safePhoto ? `<img src="${escapeHtml(safePhoto)}" alt="" referrerpolicy="no-referrer" style="width:100%;max-height:180px;object-fit:cover;border-radius:6px;margin-bottom:6px;" onerror="this.style.display='none'">` : '') +
+              `<div style="color:#fff;font-size:15px;font-weight:600;margin-bottom:4px;">${escapeHtml(p.nom_affiche || 'Personne recherchée')}</div>` +
+              `<div style="color:#c2cbd8;font-size:12px;line-height:1.6;">` +
+              (identite ? `${identite}<br>` : '') +
+              line('Lieu', p.lieu_texte) +
+              line('Publié le', p.date_publication) +
+              `</div>` +
+              (safeUrl ? `<div style="margin-top:8px;"><a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer" style="color:#54bdde;font-size:12px;">▶ Voir l'avis officiel ↗</a></div>` : '')) +
+          `<div style="color:#586475;font-size:10px;margin-top:8px;line-height:1.5;">Source : ${srcLabel}<br>Témoignage : <b>17</b> · OCRVP <b>01&nbsp;40&nbsp;97&nbsp;80&nbsp;16</b> · <b>116&nbsp;000</b></div>` +
+          `</div>`;
+        popupRef.current?.remove();
+        popupRef.current = new maplibregl.Popup({ closeButton: true, maxWidth: '320px', offset: 14 })
+          .setLngLat(coords as maplibregl.LngLatLike).setHTML(html).addTo(map);
+      });
+      map.on('mouseenter', 'live-alerts-dots', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'live-alerts-dots', () => { map.getCanvas().style.cursor = ''; });
+      // ──────────────────────────────────────────────────────────────────
+
       setMapReady(true);
     });
 
@@ -1204,7 +1291,24 @@ function OsirisMap({
       }));
     setGeo('live-cyber', cyberFeats);
     setVis(['live-cyber-dots'], !!activeLayers?.live_cyber);
-  }, [mapReady, earthquakes, wildfires, volcanoes, satellites, gdelt, cyber, activeLayers, setGeo, setVis]);
+
+    // Alertes disparitions : marqueur seulement si géolocalisé (lat/lon). Les
+    // avis sans coordonnées restent hors carte (pas de pin fantôme, spec §5).
+    const alertFeats = (Array.isArray(alerts) ? alerts : [])
+      .filter((a) => typeof a?.lat === 'number' && typeof a?.lon === 'number')
+      .map((a) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [a.lon as number, a.lat as number] },
+        properties: {
+          statut: a.statut ?? 'active', source: a.source ?? '', source_id: a.source_id ?? '',
+          nom_affiche: a.nom_affiche ?? '', age: a.age ?? '', sexe: a.sexe ?? '',
+          lieu_texte: a.lieu_texte ?? '', date_publication: a.date_publication ?? '',
+          url_source: a.url_source ?? '', photo_url: a.photo_url ?? '',
+        },
+      }));
+    setGeo('live-alerts', alertFeats);
+    setVis(['live-alerts-halo', 'live-alerts-dots'], !!activeLayers?.live_alerts);
+  }, [mapReady, earthquakes, wildfires, volcanoes, satellites, gdelt, cyber, alerts, activeLayers, setGeo, setVis]);
   // ─────────────────────────────────────────────────────────────────────
 
   // ─── RENDU NAVIRES (AIS) + traînées ──────────────────────────────────

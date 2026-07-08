@@ -8,7 +8,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { search, buildMapData, BASE_PATH, type SearchResponse, type PlotPoint } from '@/lib/api';
 import { useDataPolling, useInterpolation, deadReckon } from '@/lib/liveData';
 import { useDataKey } from '@/lib/store';
-import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint, SatellitePoint, ShipPoint, SensitiveData, SensitivePoint, GeoEventPoint, CyberPoint } from '@/components/OsirisMap';
+import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint, SatellitePoint, ShipPoint, SensitiveData, SensitivePoint, GeoEventPoint, CyberPoint, AlertPoint } from '@/components/OsirisMap';
 import { AIRCRAFT_CAT_COLORS, AIRCRAFT_CAT_LABELS, AIRCRAFT_CAT_ORDER } from '@/components/OsirisMap';
 import { OSIRIS_VERSION, OSIRIS_VERSION_LABEL } from '@/lib/version';
 import { useAlertToasts } from '@/lib/alerts';
@@ -70,6 +70,7 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
   live_ships: false,
   live_gdelt: false,
   live_cyber: false,
+  live_alerts: false,
   // Couches sensibles (forme 2) — jamais actives par défaut.
   sens_military_bases: false,
   sens_cctv: false,
@@ -128,6 +129,7 @@ const LIVE_OPTS: { key: string; label: string; title: string }[] = [
   { key: 'live_ships', label: 'Navires 🚢', title: 'Navires AIS — nécessite une source/clé AIS (AIS_REST_URL)' },
   { key: 'live_gdelt', label: 'Géopolitique 🌍', title: 'Événements mondiaux géolocalisés — GDELT public, sans clé' },
   { key: 'live_cyber', label: 'Cyber (C2) 🛡️', title: 'Serveurs C2 malware — abuse.ch public, sans clé (veille défensive)' },
+  { key: 'live_alerts', label: 'Alertes disparitions 🟡', title: 'Avis de recherche officiels (Interpol Yellow, 116000) — repérés sur la carte' },
 ];
 // Couches sensibles (forme 2 — enquêteur, opt-in + consentement, cadre ARPD).
 const SENSITIVE_OPTS: { key: string; label: string; title: string }[] = [
@@ -222,6 +224,25 @@ export default function Dashboard() {
   const ships = useDataKey<ShipPoint[]>('ships');
   const gdelt = useDataKey<GeoEventPoint[]>('gdelt');
   const cyber = useDataKey<CyberPoint[]>('cyber');
+
+  // ── Couche « Alertes disparitions » (module V4.049) — endpoint dédié
+  //  /cockpit/alerts (PAS live-feed). Poll léger (90 s) uniquement si allumée. ──
+  const [missingAlerts, setMissingAlerts] = useState<AlertPoint[]>([]);
+  useEffect(() => {
+    if (!activeLayers.live_alerts) { setMissingAlerts([]); return; }
+    let stop = false;
+    const load = async () => {
+      try {
+        const res = await fetch(`${BASE_PATH}/alerts?statut=active`, { cache: 'no-store', credentials: 'include' });
+        if (!res.ok) return;
+        const j = (await res.json()) as { alerts?: AlertPoint[] };
+        if (!stop) setMissingAlerts(Array.isArray(j.alerts) ? j.alerts : []);
+      } catch { /* couche vide, jamais de crash */ }
+    };
+    void load();
+    const id = setInterval(load, 90_000);
+    return () => { stop = true; clearInterval(id); };
+  }, [activeLayers.live_alerts]);
 
   // ── Couches sensibles (forme 2) — polling séparé /live-feed/sensitive,
   // actif UNIQUEMENT en forme 2 ET si une couche sensible est allumée. ──
@@ -524,6 +545,7 @@ export default function Dashboard() {
           ships={fShips}
           gdelt={fGdelt}
           cyber={fCyber}
+          alerts={missingAlerts}
           sensitive={sensitive}
           onAircraftClick={handleAircraftClick}
           selectedAircraftHex={selectedEntity?.hex ?? null}
