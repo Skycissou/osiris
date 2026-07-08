@@ -216,6 +216,19 @@ export interface IngestResult {
 export async function upsertSource(source: AlertSource, incoming: Alert[]): Promise<IngestResult> {
   const map = await ensureLoaded();
   const now = Date.now();
+
+  // GARDE-FOU (leçon 08/07) : un lot VIDE ne doit JAMAIS déclencher la
+  // réconciliation — sinon un scrape en échec (réseau, parser cassé, source
+  // amont down) « lève » d'un coup TOUS les avis actifs et vide la carte.
+  // On enregistre quand même la synchro (le monitoring §11 voit que le tour a
+  // tourné) mais on laisse les avis existants intacts. Pour lever réellement
+  // tous les avis d'une source, passer par une purge explicite, jamais par [].
+  if (incoming.length === 0) {
+    await recordSync(source);
+    const active = [...map.values()].filter((a) => a.statut === 'active').length;
+    return { active, upserted: 0, levees: 0 };
+  }
+
   const seen = new Set<string>();
   let upserted = 0;
   for (const a of incoming) {

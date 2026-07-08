@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.053-dev';
+export const OSIRIS_VERSION = 'V4.054-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.054-dev',
+    date: '2026-07-08',
+    resume:
+      "🛡️ Alertes — GARDE-FOU lot vide : un scrape en échec (réseau/parser/source down) qui " +
+      "renvoie [] ne déclenche PLUS la réconciliation → il ne « lève » plus d'un coup tous les avis " +
+      "actifs ni ne vide la carte. La synchro est quand même enregistrée (monitoring §11). Corrige " +
+      "la perte des avis après redéploiement quand le workflow n8n n'a pas encore reposté.",
+  },
   {
     version: 'V4.053-dev',
     date: '2026-07-08',
