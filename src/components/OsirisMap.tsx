@@ -1028,7 +1028,10 @@ function OsirisMap({
         };
         const cat = typeof p.categorie === 'string' && catLabels[p.categorie] ? catLabels[p.categorie] : '';
         const safeUrl = typeof p.url_source === 'string' && /^https?:\/\//i.test(p.url_source) ? p.url_source : '';
-        const safePhoto = !leve && typeof p.photo_url === 'string' && /^https?:\/\//i.test(p.photo_url) ? p.photo_url : '';
+        // Photo : passe par le proxy same-origin (/cockpit/alerts/photo) qui défait
+        // la protection hotlink/mixed-content amont. Streaming pur, zéro copie disque.
+        const rawPhoto = !leve && typeof p.photo_url === 'string' && /^https?:\/\//i.test(p.photo_url) ? p.photo_url : '';
+        const safePhoto = rawPhoto ? `${BASE_PATH}/alerts/photo?u=${encodeURIComponent(rawPhoto)}` : '';
         const line = (label: string, val: unknown) => (val != null && val !== '' ? `${label} : ${escapeHtml(val)}<br>` : '');
         const identite = [p.age ? `${escapeHtml(p.age)} ans` : '', p.sexe ? escapeHtml(p.sexe) : ''].filter(Boolean).join(' · ');
         // Récence colorée (même échelle que le marqueur) : rouge = tout frais.

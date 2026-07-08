@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.054-dev';
+export const OSIRIS_VERSION = 'V4.055-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.055-dev',
+    date: '2026-07-08',
+    resume:
+      "🖼️ Alertes — PROXY PHOTO same-origin (/cockpit/alerts/photo). Les photos des avis " +
+      "(Interpol/116000) qui bloquent le hotlink ou sont servies en http s'affichent enfin : " +
+      "re-servies en HTTPS depuis le cockpit. STREAMING PUR, zéro copie disque (RGPD §6 respecté). " +
+      "Sécurisé anti-SSRF (résolution DNS + refus IP privées/loopback/link-local/métadonnées). " +
+      "La fiche pointe désormais vers le proxy au lieu de l'URL brute.",
+  },
   {
     version: 'V4.054-dev',
     date: '2026-07-08',
