@@ -29,6 +29,16 @@ Le header du cockpit (`src/app/page.tsx`) affiche `OSIRIS_VERSION` → la versio
 
 ## 📜 Changelog
 
+### V4.049-dev — 2026-07-08 — 🟡 Module « Alertes disparitions » — Lot 1 (endpoints + store)
+**Spec Claude chat 08/07** (`notes/ops/2026-07-08-osiris-veille-alertes-spec.md`, GO Cissou). Nouvelle couche : avis de recherche **officiels** de personnes disparues (Interpol Yellow + 116000 Enfants Disparus) sur la carte.
+- **Endpoints** (côté OSIRIS, ce Lot 1) : **`POST /cockpit/alerts/ingest`** (token `OSIRIS_INGEST_TOKEN`, alimenté par n8n serveur→serveur) + **`GET /cockpit/alerts`** (lu par la couche carto Lot 2).
+- ⚠️ **Correction de la spec** : les routes sont sous **`/cockpit`**, PAS `/api/*` (ce dernier est strippé vers la V3 FastAPI). L'URL d'ingest pour le workflow n8n = `https://osiris-v4.cissouhub.cloud/cockpit/alerts/ingest`.
+- **Store** : `lib/alertsStore.ts` — fichier JSON persistant (`OSIRIS_ALERTS_DIR`, volume), dédup `source+source_id`.
+- **RGPD dur (spec §6)** : le workflow envoie le **lot complet courant** d'une source → **réconciliation** (avis absent → `levee` **immédiatement anonymisé** : plus de nom/photo/lieu, juste un pin transitoire) ; **purge 24 h** puis **DELETE** définitif. Photos = **URL hotlink uniquement, jamais copiées**.
+- **Sécurité** : ingest 401 sans token (503 si token non configuré), rate-limit, validation manuelle (pas de zod), photo_url http(s) only.
+- **Test** : `scripts/test-alerts.sh` (auth + ingest + réconciliation, données fictives). **Compose** : `OSIRIS_ALERTS_DIR`.
+- **Reste** : Lot 2 (couche MapLibre + panneau) · le **workflow n8n = Cissou avec Claude chat**.
+
 ### V4.048-dev — 2026-07-07 — 🔓 Outils OSINT enrichis (champs déjà reçus mais jetés)
 Constat de l'audit : la plupart des manques OSINT sont des champs **déjà présents dans la réponse amont**, jetés à la normalisation → gain gratuit, sans nouvelle clé ni appel. Enrichi côté route ET affichage (`OsintPanel.renderData`) :
 - **HIBP (fuites)** : **types de données fuitées** (`DataClasses` → mots de passe/CB/e-mails…, en FR), **volume total** de comptes exposés, titre de la brèche.

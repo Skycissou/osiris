@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.048-dev';
+export const OSIRIS_VERSION = 'V4.049-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.049-dev',
+    date: '2026-07-08',
+    resume:
+      "\u{1F7E1} Module « Alertes disparitions » — Lot 1 (spec Claude chat 08/07). Endpoints côté " +
+      "OSIRIS : POST /cockpit/alerts/ingest (token OSIRIS_INGEST_TOKEN, alimenté par n8n) + GET " +
+      "/cockpit/alerts (couche carto Lot 2). Store JSON persistant, dédup source+source_id, " +
+      "RÉCONCILIATION (avis retiré → levée anonymisée) + PURGE 24 h + DELETE (RGPD dur : photos " +
+      "hotlink jamais copiées, rien de nominatif après levée). n8n workflow = fait avec Claude chat. " +
+      "⚠️ routes sous /cockpit (PAS /api/*, strippé vers V3). test-alerts.sh fourni.",
+  },
   {
     version: 'V4.048-dev',
     date: '2026-07-07',
