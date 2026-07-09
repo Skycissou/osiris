@@ -13,6 +13,7 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import type { AlertPoint } from './OsirisMap';
 import { ALERT_SOURCE_REGISTRY } from '@/lib/alertSources';
+import { BASE_PATH } from '@/lib/api';
 
 export interface AlertsHealth {
   last_sync_at: number | null;
@@ -28,6 +29,7 @@ interface Props {
   onToggleCat: (c: string) => void;
   onToggleSrc: (s: string) => void;
   onRefresh?: () => void; // bouton 🔄 : force un re-poll immédiat
+  onPlace?: (id: string, locality: string) => Promise<{ ok: boolean; error?: string }>; // placement manuel
   health: AlertsHealth | null;
   isMobile?: boolean;
   leftOffset?: number; // largeur sidebar gauche (zone réservée)
@@ -71,7 +73,74 @@ function Chip({ label, count, on, onClick }: { label: string; count: number; on:
   );
 }
 
-function AlertsControlBar({ alerts, filtered, catFilter, srcFilter, onToggleCat, onToggleSrc, onRefresh, health, isMobile, leftOffset = 0, rightInset = 0 }: Props) {
+// ── Une ligne d'avis dans la liste : photo (vérif) + infos + placement manuel ──
+function AlertRow({ a, onPlace }: { a: AlertPoint; onPlace?: Props['onPlace'] }) {
+  const leve = a.statut === 'levee';
+  const geo = typeof a.lat === 'number' && typeof a.lon === 'number';
+  const t = a.date_publication ? Date.parse(a.date_publication) : NaN;
+  const ageH = Number.isFinite(t) ? (Date.now() - t) / 3_600_000 : Infinity;
+  const rc = leve ? '#7f8da1' : ageH < 24 ? '#ff2d2d' : ageH < 72 ? '#ff9f2e' : ageH < 168 ? '#ffc93e' : '#8a94a3';
+  // Photo via le proxy same-origin (défait le hotlink), lazy → ne charge qu'au scroll.
+  const photo = !leve && typeof a.photo_url === 'string' && /^https?:\/\//i.test(a.photo_url)
+    ? `${BASE_PATH}/alerts/photo?u=${encodeURIComponent(a.photo_url)}` : '';
+
+  const [loc, setLoc] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const submit = async () => {
+    if (!onPlace || loc.trim().length < 2 || busy) return;
+    setBusy(true); setErr('');
+    const res = await onPlace(a.id, loc.trim());
+    setBusy(false);
+    if (res.ok) setLoc(''); else setErr(res.error || 'échec');
+  };
+
+  return (
+    <div className="flex flex-col gap-1 py-1.5 border-b border-white/[0.05]">
+      <div className="flex items-start gap-2">
+        {photo
+          ? <img src={photo} alt="" loading="lazy" referrerPolicy="no-referrer" className="w-9 h-9 rounded object-cover bg-black/30 border border-[var(--border-primary)] flex-shrink-0" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+          : <span style={{ width: 7, height: 7, borderRadius: 99, background: rc, marginTop: 5 }} className="inline-block flex-shrink-0" title={geo ? 'sur la carte' : 'sans position'} />}
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] font-mono text-white/90 truncate">
+            {leve ? '(avis levé)' : (a.nom_affiche || 'Personne recherchée')}
+            {a.age ? <span className="text-[var(--faint)]"> · {a.age} ans</span> : null}
+          </div>
+          <div className="text-[9px] font-mono text-[var(--faint)] truncate">
+            {geo ? '📍 ' : '◌ '}{CAT_LABEL[a.categorie || 'disparition'] || a.categorie} · {SRC_LABEL[a.source] || a.source}
+            {a.lieu_texte ? ` · ${a.lieu_texte}` : ''}
+          </div>
+        </div>
+        {!leve && a.url_source && (
+          <a href={a.url_source} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono text-[var(--accent)] hover:text-[var(--accent-bright)] flex-shrink-0">avis ↗</a>
+        )}
+      </div>
+      {/* Placement manuel : seulement pour un avis actif SANS position. */}
+      {!leve && !geo && onPlace && (
+        <div className="flex items-center gap-1 pl-11">
+          <input
+            value={loc}
+            onChange={(e) => setLoc(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }}
+            placeholder="ville / CP / département…"
+            className="flex-1 min-w-0 bg-black/30 border border-[var(--border-primary)] rounded px-2 py-0.5 text-[10px] font-mono text-white/90 placeholder:text-[var(--faint)] focus:border-[var(--accent)]/50 outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={busy || loc.trim().length < 2}
+            className="rounded px-2 py-0.5 text-[10px] font-mono border border-[var(--border-primary)] text-[var(--accent)] hover:text-[var(--accent-bright)] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {busy ? '…' : '📍 placer'}
+          </button>
+        </div>
+      )}
+      {err && <div className="pl-11 text-[9px] font-mono text-[#ff6b74]">{err}</div>}
+    </div>
+  );
+}
+
+function AlertsControlBar({ alerts, filtered, catFilter, srcFilter, onToggleCat, onToggleSrc, onRefresh, onPlace, health, isMobile, leftOffset = 0, rightInset = 0 }: Props) {
   const [listOpen, setListOpen] = useState(false);
   const [spin, setSpin] = useState(false);
   // Fait VIVRE le badge : re-render toutes les 30 s pour que « il y a X min »
@@ -167,31 +236,7 @@ function AlertsControlBar({ alerts, filtered, catFilter, srcFilter, onToggleCat,
       {listOpen && (
         <div className="mt-1 overflow-y-auto styled-scrollbar flex flex-col gap-1" style={{ maxHeight: 'calc(100vh - 300px)' }}>
           {filtered.length === 0 && <div className="text-[11px] font-mono text-[var(--faint)] py-2">Aucun avis pour ce filtre.</div>}
-          {filtered.map((a) => {
-            const leve = a.statut === 'levee';
-            const geo = typeof a.lat === 'number' && typeof a.lon === 'number';
-            const t = a.date_publication ? Date.parse(a.date_publication) : NaN;
-            const ageH = Number.isFinite(t) ? (Date.now() - t) / 3_600_000 : Infinity;
-            const rc = leve ? '#7f8da1' : ageH < 24 ? '#ff2d2d' : ageH < 72 ? '#ff9f2e' : ageH < 168 ? '#ffc93e' : '#8a94a3';
-            return (
-              <div key={a.id} className="flex items-baseline gap-2 py-1 border-b border-white/[0.05]">
-                <span style={{ width: 7, height: 7, borderRadius: 99, background: rc, display: 'inline-block', flexShrink: 0 }} title={geo ? 'sur la carte' : 'sans position'} />
-                <div className="min-w-0 flex-1">
-                  <div className="text-[11px] font-mono text-white/90 truncate">
-                    {leve ? '(avis levé)' : (a.nom_affiche || 'Personne recherchée')}
-                    {a.age ? <span className="text-[var(--faint)]"> · {a.age} ans</span> : null}
-                  </div>
-                  <div className="text-[9px] font-mono text-[var(--faint)] truncate">
-                    {geo ? '📍 ' : ''}{CAT_LABEL[a.categorie || 'disparition'] || a.categorie} · {SRC_LABEL[a.source] || a.source}
-                    {a.lieu_texte ? ` · ${a.lieu_texte}` : ''}
-                  </div>
-                </div>
-                {!leve && a.url_source && (
-                  <a href={a.url_source} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono text-[var(--accent)] hover:text-[var(--accent-bright)] flex-shrink-0">avis ↗</a>
-                )}
-              </div>
-            );
-          })}
+          {filtered.map((a) => <AlertRow key={a.id} a={a} onPlace={onPlace} />)}
         </div>
       )}
     </div>

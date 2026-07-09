@@ -80,6 +80,10 @@ function file(): string {
 function syncFile(): string {
   return path.join(dir(), 'alerts-sync.json');
 }
+/** Fichier séparé : placements MANUELS (override utilisateur) par id d'avis. */
+function manualFile(): string {
+  return path.join(dir(), 'alerts-manual.json');
+}
 
 // Cache mémoire (protégé HMR/dev) + purge périodique idempotente.
 const G = globalThis as unknown as {
@@ -89,6 +93,8 @@ const G = globalThis as unknown as {
   __osirisAlertsSync?: Record<string, number> | null;
   __osirisAlertsSyncMtime?: number; // idem pour alerts-sync.json (badge fraîcheur)
   __osirisAlertsBootPinged?: boolean; // ping resync au boot envoyé une fois
+  __osirisAlertsManual?: Record<string, { lat: number; lon: number }> | null; // placements manuels (override)
+  __osirisAlertsManualMtime?: number;
 };
 if (G.__osirisAlerts === undefined) G.__osirisAlerts = null;
 if (G.__osirisAlertsSync === undefined) G.__osirisAlertsSync = null;
@@ -217,13 +223,21 @@ async function purge(): Promise<void> {
   if (!map) return;
   const cutoff = Date.now() - LEVEE_TTL_MS;
   let changed = false;
+  const deleted: string[] = [];
   for (const [id, a] of map) {
     if (a.statut === 'levee' && (a.levee_at ?? 0) < cutoff) {
       map.delete(id);
+      deleted.push(id);
       changed = true;
     }
   }
   if (changed) await persist(map);
+  // Nettoie les placements manuels orphelins (avis DELETE) — pas d'accumulation.
+  if (deleted.length && G.__osirisAlertsManual) {
+    let mChanged = false;
+    for (const id of deleted) if (id in G.__osirisAlertsManual) { delete G.__osirisAlertsManual[id]; mChanged = true; }
+    if (mChanged) await persistManual(G.__osirisAlertsManual);
+  }
 }
 
 function ensurePurge(): void {
@@ -260,6 +274,66 @@ async function maybeBootResync(): Promise<void> {
   }
 }
 
+// ── Placements MANUELS (demande Cissou 09/07) ───────────────────────────────
+// L'utilisateur place lui-même sur la carte un avis « sans position » (typique :
+// les 80 Interpol sans lieu publié) en saisissant une localité (ville/CP/dépt).
+// Persisté à part → SURVIT au ré-upsert du lot complet (qui, sinon, remettrait
+// lat/lon à null à chaque poll). RGPD : on ne stocke qu'une position (lieu), pas
+// de donnée nominative ; l'entrée est purgée quand l'avis disparaît (DELETE).
+async function ensureManualLoaded(): Promise<Record<string, { lat: number; lon: number }>> {
+  try {
+    const st = await fs.stat(manualFile()).catch(() => null);
+    const mtime = st ? st.mtimeMs : 0;
+    if (G.__osirisAlertsManual && mtime === (G.__osirisAlertsManualMtime ?? -1)) return G.__osirisAlertsManual;
+    const m: Record<string, { lat: number; lon: number }> = {};
+    const raw = mtime ? await fs.readFile(manualFile(), 'utf8').catch(() => '') : '';
+    if (raw) {
+      const o = JSON.parse(raw) as Record<string, unknown>;
+      for (const [id, v] of Object.entries(o)) {
+        const p = v as { lat?: unknown; lon?: unknown };
+        if (typeof p?.lat === 'number' && typeof p?.lon === 'number') m[id] = { lat: p.lat, lon: p.lon };
+      }
+    }
+    G.__osirisAlertsManual = m;
+    G.__osirisAlertsManualMtime = mtime;
+    return m;
+  } catch {
+    if (G.__osirisAlertsManual) return G.__osirisAlertsManual;
+    const m: Record<string, { lat: number; lon: number }> = {};
+    G.__osirisAlertsManual = m;
+    return m;
+  }
+}
+
+async function persistManual(m: Record<string, { lat: number; lon: number }>): Promise<void> {
+  try {
+    await fs.mkdir(dir(), { recursive: true });
+    await fs.writeFile(manualFile(), JSON.stringify(m), { encoding: 'utf8', mode: 0o600 });
+    const st = await fs.stat(manualFile()).catch(() => null);
+    if (st) G.__osirisAlertsManualMtime = st.mtimeMs;
+  } catch (e) {
+    console.warn('[OSIRIS alerts] manual KO:', e instanceof Error ? e.message : e);
+  }
+}
+
+/**
+ * Place manuellement un avis (id) à des coordonnées. Effet immédiat sur l'avis
+ * en base + persistance de l'override. Renvoie false si l'id est inconnu.
+ */
+export async function setManualPlacement(id: string, lat: number, lon: number): Promise<boolean> {
+  if (!(lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180)) return false;
+  const map = await ensureLoaded();
+  const a = map.get(id);
+  if (!a) return false;
+  const m = await ensureManualLoaded();
+  m[id] = { lat, lon };
+  await persistManual(m);
+  // Effet immédiat : l'avis prend la position sans attendre le prochain poll.
+  map.set(id, { ...a, lat, lon });
+  await persist(map);
+  return true;
+}
+
 /** true si `s` est une source gérée (délègue au registre). */
 export function isAlertSource(s: unknown): s is AlertSource {
   return isKnownAlertSource(s);
@@ -294,10 +368,22 @@ export async function upsertSource(source: AlertSource, incoming: Alert[]): Prom
     return { active, upserted: 0, levees: 0 };
   }
 
+  const manual = await ensureManualLoaded(); // overrides de position à ré-appliquer
   const seen = new Set<string>();
   let upserted = 0;
   for (const a of incoming) {
-    map.set(a.id, { ...a, source, statut: 'active', fetched_at: now, levee_at: undefined });
+    const rec: Alert = { ...a, source, statut: 'active', fetched_at: now, levee_at: undefined };
+    // Placement manuel AUTORITAIRE : ré-appliqué à CHAQUE lot (sinon le
+    // remplacement complet remettrait lat/lon à null, ex. Interpol). Comme l'UI
+    // ne propose le placement QUE pour un avis sans position, un override
+    // n'existe que si l'utilisateur l'a voulu → il prime, et l'avis reste où il
+    // l'a mis même si la source renvoyait des coordonnées plus tard.
+    const mp = manual[a.id];
+    if (mp) {
+      rec.lat = mp.lat;
+      rec.lon = mp.lon;
+    }
+    map.set(a.id, rec);
     seen.add(a.id);
     upserted += 1;
   }

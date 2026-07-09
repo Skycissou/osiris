@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.062-dev';
+export const OSIRIS_VERSION = 'V4.063-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.063-dev',
+    date: '2026-07-09',
+    resume:
+      "🖐️ Alertes — PLACEMENT MANUEL + fiche de vérif (demande Cissou). La liste affiche la PHOTO " +
+      "(via proxy, lazy) pour vérifier chaque avis ; pour un avis sans position (ex. Interpol), un champ " +
+      "« ville / CP / département » + bouton 📍 le géocode et le pose sur la carte. Nouveau POST /cockpit/alerts/place " +
+      "+ store d'override persistant (alerts-manual.json) ré-appliqué à chaque upsert → survit au ré-poll, " +
+      "purgé avec l'avis. RGPD : seule la localité sort, jamais le nom.",
+  },
   {
     version: 'V4.062-dev',
     date: '2026-07-09',

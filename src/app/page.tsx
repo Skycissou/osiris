@@ -252,6 +252,21 @@ export default function Dashboard() {
     const id = setInterval(() => void loadAlerts(), 90_000);
     return () => clearInterval(id);
   }, [activeLayers.live_alerts, loadAlerts]);
+  // Placement manuel d'un avis (ville/CP/dépt) → géocodé serveur, posé sur la
+  // carte, puis on recharge. Renvoie l'erreur éventuelle pour l'UI.
+  const placeAlert = useCallback(async (id: string, locality: string): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const r = await fetch(`${BASE_PATH}/alerts/place`, {
+        method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id, locality }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (r.ok && j.ok) { await loadAlerts(); return { ok: true }; }
+      return { ok: false, error: j.error || `erreur ${r.status}` };
+    } catch {
+      return { ok: false, error: 'réseau' };
+    }
+  }, [loadAlerts]);
   // Avis filtrés par catégorie + source (vide = tout) → passés à la carte.
   const filteredAlerts = useMemo(() => missingAlerts.filter((a) =>
     (alertCatFilter.length === 0 || alertCatFilter.includes(a.categorie || 'disparition')) &&
@@ -781,6 +796,7 @@ export default function Dashboard() {
           onToggleCat={toggleAlertCat}
           onToggleSrc={toggleAlertSrc}
           onRefresh={loadAlerts}
+          onPlace={placeAlert}
           health={alertsHealth}
           isMobile={isMobile}
           leftOffset={navOpen ? navW : 0}
