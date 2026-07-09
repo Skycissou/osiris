@@ -43,10 +43,11 @@ function normKey(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 200);
 }
 
-// Version du cache : à incrémenter quand la LOGIQUE de géocodage change → les
-// échecs (null) mémorisés par l'ancienne logique sont ré-essayés (les succès,
-// eux, sont conservés pour épargner le fournisseur). Format : {v, e:{...}}.
-const GEOCACHE_VERSION = 2;
+// Version du cache : à incrémenter quand la LOGIQUE de géocodage change. En v3
+// on a corrigé les FAUX points (BAN franco-français « rapprochait » AUCKLAND/LIMA
+// vers une commune FR) → ces succès ERRONÉS doivent être ré-évalués, donc à un
+// changement de version on repart de ZÉRO (on ne garde aucune entrée). Format {v,e}.
+const GEOCACHE_VERSION = 3;
 
 async function ensureCache(): Promise<Map<string, LatLon | null>> {
   if (G.__osirisGeocache) return G.__osirisGeocache;
@@ -54,17 +55,12 @@ async function ensureCache(): Promise<Map<string, LatLon | null>> {
   try {
     const raw = await fs.readFile(cacheFile(), 'utf8').catch(() => '');
     if (raw) {
-      const parsed = JSON.parse(raw) as { v?: number; e?: Record<string, LatLon | null> } | Record<string, LatLon | null>;
-      const versioned = parsed && typeof parsed === 'object' && 'e' in parsed && (parsed as { e?: unknown }).e;
-      const entries = (versioned ? (parsed as { e: Record<string, LatLon | null> }).e : parsed) as Record<string, LatLon | null>;
-      const sameVersion = versioned && (parsed as { v?: number }).v === GEOCACHE_VERSION;
-      for (const [k, v] of Object.entries(entries)) {
-        const valid = v === null || (v && typeof v.lat === 'number' && typeof v.lon === 'number');
-        if (!valid) continue;
-        // Version différente/ancienne : on GARDE les succès, on JETTE les null
-        // (pour qu'ils soient ré-essayés par la nouvelle logique).
-        if (!sameVersion && v === null) continue;
-        map.set(k, v);
+      const parsed = JSON.parse(raw) as { v?: number; e?: Record<string, LatLon | null> };
+      // Seulement si la version correspond (sinon reset total → re-géocodage propre).
+      if (parsed && parsed.v === GEOCACHE_VERSION && parsed.e) {
+        for (const [k, v] of Object.entries(parsed.e)) {
+          if (v === null || (v && typeof v.lat === 'number' && typeof v.lon === 'number')) map.set(k, v);
+        }
       }
     }
   } catch {
@@ -91,10 +87,30 @@ async function persistSoon(map: Map<string, LatLon | null>): Promise<void> {
   }, 1500);
 }
 
-/** Interroge un endpoint « BAN-like » (BAN ou Géoplateforme, même schéma).
- *  `extra` permet une requête STRUCTURÉE (postcode/type) — bien meilleur taux
- *  que le texte libre pour « Ville (CP) ». */
-async function queryProvider(base: string, q: string, extra?: { postcode?: string; type?: string }): Promise<LatLon | null> {
+interface GeoResult extends LatLon {
+  score: number; // 0..1 (BAN) — confiance du match
+  label: string; // libellé retourné (ex. « Dijon ») pour valider le nom
+}
+
+/** Normalise pour comparaison (minuscule, sans accents/ponctuation). */
+function norm(s: string): string {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/** Le libellé retourné correspond-il vraiment à la localité demandée ? Bloque les
+ *  faux rapprochements franco-français (AUCKLAND→Auchel, LIMA→Lyon). */
+function labelMatches(query: string, label: string): boolean {
+  const q = norm(query);
+  const r = norm(label);
+  if (!q || !r) return false;
+  if (r.includes(q) || q.includes(r)) return true;
+  const rWords = new Set(r.split(' ').filter((w) => w.length >= 4));
+  return q.split(' ').filter((w) => w.length >= 4).some((w) => rWords.has(w) || r.includes(w));
+}
+
+/** Interroge un endpoint « BAN-like » (BAN ou Géoplateforme, France uniquement).
+ *  Renvoie coords + score + libellé pour validation. `extra` = requête structurée. */
+async function queryBan(base: string, q: string, extra?: { postcode?: string; type?: string }): Promise<GeoResult | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -103,12 +119,43 @@ async function queryProvider(base: string, q: string, extra?: { postcode?: strin
     if (extra?.type) url += `&type=${encodeURIComponent(extra.type)}`;
     const res = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json', 'User-Agent': 'OSIRIS-cockpit/geocode' } });
     if (!res.ok) return null;
-    const j = (await res.json()) as { features?: { geometry?: { coordinates?: number[] } }[] };
-    const coords = j.features?.[0]?.geometry?.coordinates;
+    const j = (await res.json()) as { features?: { geometry?: { coordinates?: number[] }; properties?: { score?: number; label?: string; name?: string; city?: string } }[] };
+    const f = j.features?.[0];
+    const coords = f?.geometry?.coordinates;
     if (Array.isArray(coords) && coords.length >= 2 && Number.isFinite(coords[0]) && Number.isFinite(coords[1])) {
-      const [lon, lat] = coords; // GeoJSON : [lon, lat]
-      if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) return { lat, lon };
+      const [lon, lat] = coords;
+      const p = f?.properties || {};
+      if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+        return { lat, lon, score: typeof p.score === 'number' ? p.score : 0, label: p.label || p.name || p.city || '' };
+      }
     }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Nominatim (OSM) = géocodeur MONDIAL pour les lieux hors France. Politesse : 1
+// requête/~1,2 s max + User-Agent identifiant (règle d'usage OSM). Cache → rare.
+let nominatimNext = 0;
+async function queryNominatim(q: string): Promise<{ lat: number; lon: number; label: string } | null> {
+  const now = Date.now();
+  const wait = Math.max(0, nominatimNext - now);
+  nominatimNext = (wait > 0 ? nominatimNext : now) + 1200;
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=fr&q=${encodeURIComponent(q)}`;
+    const res = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json', 'User-Agent': 'OSIRIS-cockpit/1.0 (cissouhub.cloud; ARPD OSINT)' } });
+    if (!res.ok) return null;
+    const arr = (await res.json()) as { lat?: string; lon?: string; display_name?: string }[];
+    const it = Array.isArray(arr) ? arr[0] : undefined;
+    const lat = it ? Number(it.lat) : NaN;
+    const lon = it ? Number(it.lon) : NaN;
+    if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon, label: it?.display_name || '' };
     return null;
   } catch {
     return null;
@@ -139,19 +186,27 @@ export async function geocodeLocality(text: string): Promise<LatLon | null> {
     .replace(/\s+/g, ' ')
     .trim();
 
+  const cityForMatch = city || q;
+  // Un résultat BAN n'est ACCEPTÉ que si le score est correct ET que le libellé
+  // correspond vraiment → bloque les faux rapprochements FR (AUCKLAND→Pas-de-Calais).
+  const tryBan = async (base: string, query: string, extra?: { postcode?: string; type?: string }): Promise<LatLon | null> => {
+    const r = await queryBan(base, query, extra);
+    if (r && r.score >= 0.35 && labelMatches(cityForMatch, r.label)) return { lat: r.lat, lon: r.lon };
+    return null;
+  };
+
   let hit: LatLon | null = null;
-  // 1) requête structurée ville + CP (meilleur taux)
-  if (city && cp) {
-    hit = await queryProvider(BAN, city, { postcode: cp, type: 'municipality' });
-    if (!hit) hit = await queryProvider(IGN, city, { postcode: cp, type: 'municipality' });
+  // 1) FRANCE (BAN/IGN) — structuré ville+CP, puis ville, puis texte libre.
+  if (city && cp) hit = (await tryBan(BAN, city, { postcode: cp, type: 'municipality' })) || (await tryBan(IGN, city, { postcode: cp, type: 'municipality' }));
+  if (!hit && city.length >= 2) hit = await tryBan(BAN, city, { type: 'municipality' });
+  if (!hit) hit = await tryBan(BAN, q);
+
+  // 2) MONDE (Nominatim) — pour les disparus FR à l'étranger (AUCKLAND, LIMA…).
+  //    Validé par le nom aussi → pas de faux point. Échoue → pas de pin (liste).
+  if (!hit) {
+    const nm = await queryNominatim(q);
+    if (nm && labelMatches(cityForMatch, nm.label)) hit = { lat: nm.lat, lon: nm.lon };
   }
-  // 2) ville seule (si pas de CP mais un nom de commune exploitable)
-  if (!hit && city && city.length >= 2 && city !== q) {
-    hit = await queryProvider(BAN, city, { type: 'municipality' });
-  }
-  // 3) repli texte libre (localité complète, ex. adresse précise)
-  if (!hit) hit = await queryProvider(BAN, q);
-  if (!hit) hit = await queryProvider(IGN, q);
 
   cache.set(key, hit); // mémorise le résultat (y compris null pour ne pas boucler)
   void persistSoon(cache);

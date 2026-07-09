@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.064-dev';
+export const OSIRIS_VERSION = 'V4.065-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.065-dev',
+    date: '2026-07-09',
+    resume:
+      "🌍 Géocodage — fini les FAUX points en France. BAN est franco-français et « rapprochait » " +
+      "AUCKLAND→Pas-de-Calais, LIMA→Lyon. Garde-fou : un résultat BAN n'est accepté que si le score ≥ 0,35 " +
+      "ET que le libellé correspond vraiment (labelMatches). Repli MONDIAL Nominatim (rate-limité) pour les " +
+      "disparus FR à l'étranger → vraie position. Si rien ne matche → PAS de pin (reste en liste), jamais un " +
+      "point faux. Cache v3 : reset total (les faux succès sont ré-évalués).",
+  },
   {
     version: 'V4.064-dev',
     date: '2026-07-09',
