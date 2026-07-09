@@ -14,6 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { upsertSource, isAlertSource, normalizeCategorie, type Alert, type AlertSource } from '@/lib/alertsStore';
+import { fillMissingCoords } from '@/lib/geocode';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs'; // écriture disque
@@ -112,12 +113,23 @@ export async function POST(req: NextRequest) {
     if (a) clean.push(a);
   }
 
+  // Géocodage serveur (demande Cissou 09/07) : les avis sans coordonnées mais
+  // avec une localité en clair sont posés sur la carte (cache persistant, RGPD :
+  // seule la localité sort, jamais le nom). Bénéficie aux sources futures (Lot 3)
+  // et rattrape les 116000 que n8n n'avait pas su géocoder.
+  let geocoded = 0;
+  try {
+    geocoded = await fillMissingCoords(clean, (a) => a.lieu_texte || null);
+  } catch {
+    /* le géocodage ne doit jamais bloquer l'ingest */
+  }
+
   const result = await upsertSource(source, clean);
   // Diagnostic explicite dans le corps 200 : `received` vs `accepted` tranche
   // instantanément « bug store » (upserted=0 alors qu'accepted>0) contre « le
   // parser n'envoie pas d'id exploitable » (accepted=0 alors que received>0).
   return NextResponse.json(
-    { ok: true, source, received: rawAlerts.length, accepted: clean.length, dropped: rawAlerts.length - clean.length, ...result },
+    { ok: true, source, received: rawAlerts.length, accepted: clean.length, dropped: rawAlerts.length - clean.length, geocoded, ...result },
     { status: 200, headers: { 'Cache-Control': 'no-store' } },
   );
 }

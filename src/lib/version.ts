@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.057-dev';
+export const OSIRIS_VERSION = 'V4.058-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.058-dev',
+    date: '2026-07-09',
+    resume:
+      "📍 Alertes — GÉOCODAGE SERVEUR de la localité (demande Cissou) : tout avis avec une localité " +
+      "en clair mais sans coordonnées est posé sur la carte automatiquement. Nouveau lib geocode.ts " +
+      "(cache persistant geocache.json, BAN + repli IGN Géoplateforme, concurrence bornée). RGPD : " +
+      "seule la localité sort, jamais le nom. Bénéficie aux sources futures (Lot 3 live) et rattrape " +
+      "les 116000 non géocodés par n8n. Réponse ingest enrichie du compteur `geocoded`.",
+  },
   {
     version: 'V4.057-dev',
     date: '2026-07-08',
