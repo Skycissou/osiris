@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.060-dev';
+export const OSIRIS_VERSION = 'V4.061-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.061-dev',
+    date: '2026-07-09',
+    resume:
+      "🔁 Alertes — badge « non synchronisé » après redeploy corrigé. Fix A : le fichier alerts-sync.json " +
+      "(qui persiste déjà sur le volume) est désormais RELU (gated mtime) comme les avis → un worker booté " +
+      "avant la dernière synchro ne sert plus un timestamp figé. Fix B (bonus) : au (re)démarrage, ping unique " +
+      "d'un webhook n8n de resynchro (env OSIRIS_RESYNC_WEBHOOK, fournie par chat) → resync en ~10 s au lieu " +
+      "d'attendre le cron 15 min. Absente → no-op, ne bloque jamais le boot.",
+  },
   {
     version: 'V4.060-dev',
     date: '2026-07-09',

@@ -87,6 +87,8 @@ const G = globalThis as unknown as {
   __osirisAlertsMtime?: number; // mtime du fichier au dernier chargement (anti-figé cross-process)
   __osirisAlertsPurge?: ReturnType<typeof setInterval>;
   __osirisAlertsSync?: Record<string, number> | null;
+  __osirisAlertsSyncMtime?: number; // idem pour alerts-sync.json (badge fraîcheur)
+  __osirisAlertsBootPinged?: boolean; // ping resync au boot envoyé une fois
 };
 if (G.__osirisAlerts === undefined) G.__osirisAlerts = null;
 if (G.__osirisAlertsSync === undefined) G.__osirisAlertsSync = null;
@@ -153,20 +155,31 @@ function anonymize(a: Alert): Alert {
 }
 
 // ── Suivi de synchro par source (monitoring §11) ────────────────────────────
+// ⚠️ MÊME anti-figé que les avis (leçon 08/07) : le badge fraîcheur lit CE
+// fichier ; sans rechargement gated-mtime, un worker qui a booté avant la
+// dernière synchro resservirait un timestamp périmé → badge « non synchronisé »
+// qui rote au rouge ~15 min après chaque redeploy. (Le fichier PERSISTE déjà sur
+// le volume ; ce qui manquait, c'était la RELECTURE.)
 async function ensureSyncLoaded(): Promise<Record<string, number>> {
-  if (G.__osirisAlertsSync) return G.__osirisAlertsSync;
-  const s: Record<string, number> = {};
   try {
-    const raw = await fs.readFile(syncFile(), 'utf8').catch(() => '');
+    const st = await fs.stat(syncFile()).catch(() => null);
+    const mtime = st ? st.mtimeMs : 0;
+    if (G.__osirisAlertsSync && mtime === (G.__osirisAlertsSyncMtime ?? -1)) return G.__osirisAlertsSync;
+    const s: Record<string, number> = {};
+    const raw = mtime ? await fs.readFile(syncFile(), 'utf8').catch(() => '') : '';
     if (raw) {
       const o = JSON.parse(raw) as Record<string, unknown>;
       for (const src of ALERT_SOURCES) if (typeof o[src] === 'number') s[src] = o[src] as number;
     }
+    G.__osirisAlertsSync = s;
+    G.__osirisAlertsSyncMtime = mtime;
+    return s;
   } catch {
-    /* best-effort */
+    if (G.__osirisAlertsSync) return G.__osirisAlertsSync;
+    const s: Record<string, number> = {};
+    G.__osirisAlertsSync = s;
+    return s;
   }
-  G.__osirisAlertsSync = s;
-  return s;
 }
 
 /** Marque une synchro réussie d'une source (appelé à chaque ingest, même vide). */
@@ -176,6 +189,8 @@ async function recordSync(source: AlertSource): Promise<void> {
   try {
     await fs.mkdir(dir(), { recursive: true });
     await fs.writeFile(syncFile(), JSON.stringify(s), { encoding: 'utf8', mode: 0o600 });
+    const st = await fs.stat(syncFile()).catch(() => null); // mémorise la mtime post-écriture
+    if (st) G.__osirisAlertsSyncMtime = st.mtimeMs;
   } catch (e) {
     console.warn('[OSIRIS alerts] sync KO:', e instanceof Error ? e.message : e);
   }
@@ -214,7 +229,35 @@ async function purge(): Promise<void> {
 function ensurePurge(): void {
   if (G.__osirisAlertsPurge) return;
   void purge();
+  void maybeBootResync(); // Fix B : resynchro immédiate après un (re)démarrage
   G.__osirisAlertsPurge = setInterval(() => void purge(), PURGE_INTERVAL_MS);
+}
+
+/**
+ * Fix B (bonus) : au 1er chargement du store (donc à chaque (re)démarrage du
+ * conteneur), pinge UNE fois un webhook n8n de resynchro → le workflow re-poste
+ * le lot complet en ~10 s au lieu d'attendre le cron (jusqu'à 15 min). URL dans
+ * `OSIRIS_RESYNC_WEBHOOK` (fournie par Claude chat). Absente → no-op. Ne throw
+ * jamais, ne bloque rien (fire-and-forget).
+ */
+async function maybeBootResync(): Promise<void> {
+  if (G.__osirisAlertsBootPinged) return;
+  G.__osirisAlertsBootPinged = true;
+  const url = (process.env.OSIRIS_RESYNC_WEBHOOK || '').trim();
+  if (!/^https?:\/\//i.test(url)) return;
+  try {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 5000);
+    await fetch(url, {
+      method: 'POST',
+      signal: c.signal,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ reason: 'osiris-boot-resync' }),
+    }).catch(() => {});
+    clearTimeout(t);
+  } catch {
+    /* jamais bloquer un démarrage pour un ping */
+  }
 }
 
 /** true si `s` est une source gérée (délègue au registre). */
