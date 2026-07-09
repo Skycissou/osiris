@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.059-dev';
+export const OSIRIS_VERSION = 'V4.060-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.060-dev',
+    date: '2026-07-09',
+    resume:
+      "🧭 Cockpit — DISPO « zones fixes » (demande Cissou) : fini le chevauchement des fenêtres. " +
+      "① Rail droit à UN SEUL panneau outil à la fois (ouvrir News ferme OSINT/Graphe, via openTool). " +
+      "② La barre Alertes vit dans la bande LIBRE entre la sidebar et le rail droit (props leftOffset/" +
+      "rightInset) → ne passe plus jamais sous un panneau ouvert, chips lisibles. Zones réservées.",
+  },
   {
     version: 'V4.059-dev',
     date: '2026-07-09',

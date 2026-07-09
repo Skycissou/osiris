@@ -290,11 +290,21 @@ export default function Dashboard() {
   // ── Modes visuels (CRT / NVG / thermique) ──
   const [visualMode, setVisualMode] = useState<VisualMode>('normal');
 
-  // ── Panneaux ouvrables depuis la sidebar ──
+  // ── Panneaux outils (rail droit) — UN SEUL ouvert à la fois (dispo « zones
+  //  fixes », demande Cissou 09/07) : ouvrir l'un ferme les autres → plus
+  //  d'empilement. `openTool(null)` ferme tout. ──
   const [osintOpen, setOsintOpen] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
+  const openTool = useCallback((tool: 'osint' | 'graph' | 'news' | null) => {
+    setOsintOpen(tool === 'osint');
+    setGraphOpen(tool === 'graph');
+    setNewsOpen(tool === 'news');
+  }, []);
+  // Un panneau du RAIL DROIT (News/OSINT) est ouvert → la barre Alertes se
+  // réserve la place (le Graphe est plein écran, il couvre → non concerné ici).
+  const railOpen = osintOpen || newsOpen;
 
   // ── Deep-link « ?panel=… » depuis la sidebar de l'accueil ──────────────────
   // Les boutons Outils vivent sur l'accueil (leur vraie place, pas sur la
@@ -304,13 +314,14 @@ export default function Dashboard() {
     if (typeof window === 'undefined') return;
     const panel = new URLSearchParams(window.location.search).get('panel');
     if (!panel) return;
-    if (panel === 'osint') setOsintOpen(true);
-    else if (panel === 'graph') setGraphOpen(true);
-    else if (panel === 'news') setNewsOpen(true);
+    if (panel === 'osint') openTool('osint');
+    else if (panel === 'graph') openTool('graph');
+    else if (panel === 'news') openTool('news');
     // Clés API = page dédiée depuis le 07/07 (les anciens liens ?panel=keys
     // continuent de fonctionner : on redirige).
     else if (panel === 'keys') window.location.replace(`${BASE_PATH}/cles-api`);
-  }, []);
+    // openTool est stable (useCallback []) → exécution unique au montage voulue.
+  }, [openTool]);
 
   // ── Filtres d'attributs (filtrer DANS une couche affichée) ──
   const [filters, setFilters] = useState<LayerFilters>(DEFAULT_FILTERS);
@@ -395,15 +406,14 @@ export default function Dashboard() {
   const shortcutHandlers = useMemo(() => ({
     onToggleLayers: () => setLayersOpen((v) => !v),
     onRecenterFR: () => setFlyToLocation({ lat: 46.6, lng: 2.35, ts: Date.now() }),
-    onOpenOsint: () => setOsintOpen(true),
+    onOpenOsint: () => openTool('osint'),
     onOpenFilters: () => setFilterOpen((v) => !v),
     onCycleVisual: () => setVisualMode((m) => nextMode(m)),
     onShare: () => { void handleShare(); },
     onEscape: () => {
-      setLayersOpen(false); setFilterOpen(false); setOsintOpen(false); setKeysOpen(false);
-      setGraphOpen(false); setNewsOpen(false);
+      setLayersOpen(false); setFilterOpen(false); setKeysOpen(false); openTool(null);
     },
-  }), [handleShare]);
+  }), [handleShare, openTool]);
   useKeyboardShortcuts(shortcutHandlers);
 
   // ── Recherche cible (search-first) : appelle le backend puis plotte ──
@@ -773,6 +783,8 @@ export default function Dashboard() {
           onRefresh={loadAlerts}
           health={alertsHealth}
           isMobile={isMobile}
+          leftOffset={navOpen ? navW : 0}
+          rightInset={railOpen ? 432 : 0}
         />
       )}
 
@@ -998,7 +1010,7 @@ export default function Dashboard() {
         </button>
         {/* Boîte à outils OSINT (whois, dns, ip, cve, leaks, shodan…) */}
         <button
-          onClick={() => setOsintOpen(true)}
+          onClick={() => openTool(osintOpen ? null : 'osint')}
           className={`glass-panel hover-lift rounded-[12px] px-3.5 py-2 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors text-[9px] font-mono tracking-widest ${osintOpen ? 'text-[var(--accent)] border-[var(--accent)]/50' : 'text-[var(--accent-bright)]'}`}
           title="Boîte à outils OSINT (whois, DNS, IP, CVE, fuites, Shodan…)"
         >
@@ -1042,9 +1054,9 @@ export default function Dashboard() {
         <CockpitSidebar
           version={OSIRIS_VERSION}
           onCollapse={() => setNavOpen(false)}
-          onOpenOsint={() => setOsintOpen(true)}
-          onOpenGraph={() => setGraphOpen(true)}
-          onOpenNews={() => setNewsOpen(true)}
+          onOpenOsint={() => openTool('osint')}
+          onOpenGraph={() => openTool('graph')}
+          onOpenNews={() => openTool('news')}
         />
       )}
 

@@ -30,6 +30,8 @@ interface Props {
   onRefresh?: () => void; // bouton 🔄 : force un re-poll immédiat
   health: AlertsHealth | null;
   isMobile?: boolean;
+  leftOffset?: number; // largeur sidebar gauche (zone réservée)
+  rightInset?: number; // largeur du rail droit ouvert (zone réservée) → jamais dessous
 }
 
 const CATS: { slug: string; label: string }[] = [
@@ -69,7 +71,7 @@ function Chip({ label, count, on, onClick }: { label: string; count: number; on:
   );
 }
 
-function AlertsControlBar({ alerts, filtered, catFilter, srcFilter, onToggleCat, onToggleSrc, onRefresh, health, isMobile }: Props) {
+function AlertsControlBar({ alerts, filtered, catFilter, srcFilter, onToggleCat, onToggleSrc, onRefresh, health, isMobile, leftOffset = 0, rightInset = 0 }: Props) {
   const [listOpen, setListOpen] = useState(false);
   const [spin, setSpin] = useState(false);
   // Fait VIVRE le badge : re-render toutes les 30 s pour que « il y a X min »
@@ -106,9 +108,12 @@ function AlertsControlBar({ alerts, filtered, catFilter, srcFilter, onToggleCat,
       className="absolute z-[206] pointer-events-auto glass-panel border border-[var(--border-primary)] rounded-lg px-3 py-2 flex flex-col gap-1.5"
       style={{
         top: isMobile ? '110px' : '118px', // SOUS la barre de recherche (fini le chevauchement)
-        left: isMobile ? '12px' : '50%',
-        transform: isMobile ? 'none' : 'translateX(-50%)',
-        right: isMobile ? '12px' : 'auto',
+        // Dispo « zones fixes » : la barre vit dans la bande LIBRE entre la
+        // sidebar (gauche) et le rail droit (droite). `margin:auto` la centre
+        // dans cette bande → elle ne passe JAMAIS sous un panneau outil ouvert.
+        left: isMobile ? '12px' : `${leftOffset + 16}px`,
+        right: isMobile ? '12px' : `${rightInset + 16}px`,
+        margin: isMobile ? undefined : '0 auto',
         maxWidth: isMobile ? undefined : '660px',
         maxHeight: 'calc(100vh - 200px)',
       }}
