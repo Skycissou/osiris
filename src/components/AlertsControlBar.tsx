@@ -10,7 +10,7 @@
 //  invisibles sur la carte).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import type { AlertPoint } from './OsirisMap';
 
 export interface AlertsHealth {
@@ -26,6 +26,7 @@ interface Props {
   srcFilter: string[];
   onToggleCat: (c: string) => void;
   onToggleSrc: (s: string) => void;
+  onRefresh?: () => void; // bouton 🔄 : force un re-poll immédiat
   health: AlertsHealth | null;
   isMobile?: boolean;
 }
@@ -68,8 +69,22 @@ function Chip({ label, count, on, onClick }: { label: string; count: number; on:
   );
 }
 
-function AlertsControlBar({ alerts, filtered, catFilter, srcFilter, onToggleCat, onToggleSrc, health, isMobile }: Props) {
+function AlertsControlBar({ alerts, filtered, catFilter, srcFilter, onToggleCat, onToggleSrc, onRefresh, health, isMobile }: Props) {
   const [listOpen, setListOpen] = useState(false);
+  const [spin, setSpin] = useState(false);
+  // Fait VIVRE le badge : re-render toutes les 30 s pour que « il y a X min »
+  // avance à l'écran sans attendre le prochain poll (preuve visuelle de liveness).
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => (t + 1) % 1_000_000), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const doRefresh = () => {
+    if (!onRefresh) return;
+    onRefresh();
+    setSpin(true);
+    setTimeout(() => setSpin(false), 700);
+  };
 
   const { catCounts, srcCounts } = useMemo(() => {
     const cc: Record<string, number> = {};
@@ -104,6 +119,18 @@ function AlertsControlBar({ alerts, filtered, catFilter, srcFilter, onToggleCat,
           <span style={{ width: 7, height: 7, borderRadius: 99, background: fr.color, display: 'inline-block' }} />
           {fr.label}
         </span>
+        {onRefresh && (
+          <button
+            type="button"
+            onClick={doRefresh}
+            title="Rafraîchir maintenant (maj auto toutes les 90 s)"
+            aria-label="Rafraîchir les alertes"
+            className="text-[11px] leading-none text-[var(--faint)] hover:text-white/90 transition"
+            style={{ transform: spin ? 'rotate(360deg)' : 'none', transition: 'transform .6s ease' }}
+          >
+            🔄
+          </button>
+        )}
         <span className="text-white/15">|</span>
         <span className="text-[10px] font-mono text-white/70">📍 {onMap} sur carte · 📋 {noPos} sans position</span>
         {/* Légende récence (échelle de couleur) */}

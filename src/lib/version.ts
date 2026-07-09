@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.056-dev';
+export const OSIRIS_VERSION = 'V4.057-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.057-dev',
+    date: '2026-07-08',
+    resume:
+      "🔄 Alertes — « preuve de vie » de la couche : bouton 🔄 (re-poll immédiat, feedback rotation) " +
+      "+ badge « synchro il y a X min » qui avance tout seul à l'écran (re-render 30 s) sans attendre " +
+      "le poll 90 s. Répond à l'impression « ça ne se met pas à jour » alors que la donnée est stable " +
+      "(les avis ne changent qu'à une nouvelle disparition / une levée). Pipeline confirmé live : cron " +
+      "n8n auto 15 min + poll client 90 s.",
+  },
   {
     version: 'V4.056-dev',
     date: '2026-07-08',

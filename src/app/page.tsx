@@ -235,23 +235,23 @@ export default function Dashboard() {
   const [alertSrcFilter, setAlertSrcFilter] = useState<string[]>([]);
   const toggleAlertCat = useCallback((c: string) => setAlertCatFilter((p) => (p.includes(c) ? p.filter((x) => x !== c) : [...p, c])), []);
   const toggleAlertSrc = useCallback((s: string) => setAlertSrcFilter((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s])), []);
+  // Chargement des avis + santé (réutilisable : poll auto ET bouton 🔄 manuel).
+  const loadAlerts = useCallback(async () => {
+    try {
+      const [ra, rh] = await Promise.all([
+        fetch(`${BASE_PATH}/alerts?statut=active`, { cache: 'no-store', credentials: 'include' }),
+        fetch(`${BASE_PATH}/alerts/health`, { cache: 'no-store', credentials: 'include' }),
+      ]);
+      if (ra.ok) { const j = (await ra.json()) as { alerts?: AlertPoint[] }; setMissingAlerts(Array.isArray(j.alerts) ? j.alerts : []); }
+      if (rh.ok) { const h = (await rh.json()) as AlertsHealth; setAlertsHealth(h); }
+    } catch { /* couche vide, jamais de crash */ }
+  }, []);
   useEffect(() => {
     if (!activeLayers.live_alerts) { setMissingAlerts([]); setAlertsHealth(null); return; }
-    let stop = false;
-    const load = async () => {
-      try {
-        const [ra, rh] = await Promise.all([
-          fetch(`${BASE_PATH}/alerts?statut=active`, { cache: 'no-store', credentials: 'include' }),
-          fetch(`${BASE_PATH}/alerts/health`, { cache: 'no-store', credentials: 'include' }),
-        ]);
-        if (ra.ok) { const j = (await ra.json()) as { alerts?: AlertPoint[] }; if (!stop) setMissingAlerts(Array.isArray(j.alerts) ? j.alerts : []); }
-        if (rh.ok) { const h = (await rh.json()) as AlertsHealth; if (!stop) setAlertsHealth(h); }
-      } catch { /* couche vide, jamais de crash */ }
-    };
-    void load();
-    const id = setInterval(load, 90_000);
-    return () => { stop = true; clearInterval(id); };
-  }, [activeLayers.live_alerts]);
+    void loadAlerts();
+    const id = setInterval(() => void loadAlerts(), 90_000);
+    return () => clearInterval(id);
+  }, [activeLayers.live_alerts, loadAlerts]);
   // Avis filtrés par catégorie + source (vide = tout) → passés à la carte.
   const filteredAlerts = useMemo(() => missingAlerts.filter((a) =>
     (alertCatFilter.length === 0 || alertCatFilter.includes(a.categorie || 'disparition')) &&
@@ -770,6 +770,7 @@ export default function Dashboard() {
           srcFilter={alertSrcFilter}
           onToggleCat={toggleAlertCat}
           onToggleSrc={toggleAlertSrc}
+          onRefresh={loadAlerts}
           health={alertsHealth}
           isMobile={isMobile}
         />
