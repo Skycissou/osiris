@@ -249,8 +249,12 @@ export default function Dashboard() {
   useEffect(() => {
     if (!activeLayers.live_alerts) { setMissingAlerts([]); setAlertsHealth(null); return; }
     void loadAlerts();
+    // Kick de rattrapage (fix « il faut cliquer 🔄 deux fois ») : au tout premier
+    // affichage la carte n'est pas encore prête quand la 1ʳᵉ réponse arrive → un
+    // 2ᵉ chargement peu après garantit que les marqueurs apparaissent seuls.
+    const kick = setTimeout(() => void loadAlerts(), 1600);
     const id = setInterval(() => void loadAlerts(), 90_000);
-    return () => clearInterval(id);
+    return () => { clearTimeout(kick); clearInterval(id); };
   }, [activeLayers.live_alerts, loadAlerts]);
   // Placement manuel d'un avis (ville/CP/dépt) → géocodé serveur, posé sur la
   // carte, puis on recharge. Renvoie l'erreur éventuelle pour l'UI.

@@ -143,6 +143,7 @@ export interface AlertPoint {
   date_publication?: string;
   url_source?: string;
   photo_url?: string; // hotlink source uniquement
+  details?: { label: string; value: string }[]; // fiche enrichie (identique toutes sources)
   statut: 'active' | 'levee';
 }
 
@@ -1053,6 +1054,16 @@ function OsirisMap({
               (identite ? `${identite}<br>` : '') +
               line('Lieu', p.lieu_texte) +
               line('Publié le', p.date_publication) +
+              (() => {
+                // Détails de fiche (identique toutes sources) : ex. Interpol signes
+                // distinctifs, taille, yeux… Sérialisés en JSON dans la propriété.
+                try {
+                  const ds = JSON.parse(String(p.details || '[]')) as { label?: unknown; value?: unknown }[];
+                  return Array.isArray(ds)
+                    ? ds.filter((d) => d && d.label && d.value).map((d) => line(String(d.label), d.value)).join('')
+                    : '';
+                } catch { return ''; }
+              })() +
               `</div>` +
               (safeUrl ? `<div style="margin-top:8px;"><a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer" style="color:#54bdde;font-size:12px;">▶ Voir l'avis officiel ↗</a></div>` : '')) +
           `<div style="color:#586475;font-size:10px;margin-top:8px;line-height:1.5;">Source : ${srcLabel}<br>Témoignage : <b>17</b> · OCRVP <b>01&nbsp;40&nbsp;97&nbsp;80&nbsp;16</b> · <b>116&nbsp;000</b></div>` +
@@ -1334,6 +1345,7 @@ function OsirisMap({
           nom_affiche: a.nom_affiche ?? '', age: a.age ?? '', sexe: a.sexe ?? '',
           lieu_texte: a.lieu_texte ?? '', date_publication: a.date_publication ?? '',
           url_source: a.url_source ?? '', photo_url: a.photo_url ?? '',
+          details: JSON.stringify(Array.isArray(a.details) ? a.details : []),
         },
       }));
     setGeo('live-alerts', alertFeats);

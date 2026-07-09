@@ -62,6 +62,10 @@ export interface Alert {
   lat?: number;
   lon?: number;
   photo_url?: string; // HOTLINK source uniquement, jamais de copie locale
+  // Détails libres pour la FICHE (identique toutes sources) : paires label→valeur
+  // affichées telles quelles (ex. Interpol : « Signes distinctifs », « Taille »,
+  // « Yeux », « Événement le »). Source-agnostique → une seule mise en page.
+  details?: { label: string; value: string }[];
   statut: 'active' | 'levee';
   fetched_at: number;
   levee_at?: number; // horodatage de passage en `levee` (base de la purge 24 h)

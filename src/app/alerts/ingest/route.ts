@@ -51,6 +51,23 @@ const httpUrl = (v: unknown): string | undefined => {
 };
 const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 
+// Détails de fiche : accepte soit un objet {label:valeur}, soit un tableau
+// [{label,value}]. Whitelisté (strings), borné (12 max) → fiche identique.
+function sanitizeDetails(v: unknown): { label: string; value: string }[] | undefined {
+  const out: { label: string; value: string }[] = [];
+  const push = (label: unknown, value: unknown) => {
+    const l = trunc(label, 40);
+    const val = trunc(value, 200);
+    if (l && val && out.length < 12) out.push({ label: l, value: val });
+  };
+  if (Array.isArray(v)) {
+    for (const it of v) if (it && typeof it === 'object') push((it as Record<string, unknown>).label, (it as Record<string, unknown>).value);
+  } else if (v && typeof v === 'object') {
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) push(k, val);
+  }
+  return out.length ? out : undefined;
+}
+
 /** Nettoie un avis brut du payload → Alert (champs whitelistés, id stable). */
 function sanitize(source: AlertSource, raw: unknown): Alert | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -78,6 +95,7 @@ function sanitize(source: AlertSource, raw: unknown): Alert | null {
     ...(lat !== undefined && lat >= -90 && lat <= 90 ? { lat } : {}),
     ...(lon !== undefined && lon >= -180 && lon <= 180 ? { lon } : {}),
     photo_url: httpUrl(o.photo_url), // JAMAIS de copie locale — URL source only
+    ...(sanitizeDetails(o.details) ? { details: sanitizeDetails(o.details) } : {}),
     statut: 'active',
     fetched_at: Date.now(),
   };

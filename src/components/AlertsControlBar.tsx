@@ -108,8 +108,18 @@ function AlertRow({ a, onPlace }: { a: AlertPoint; onPlace?: Props['onPlace'] })
           </div>
           <div className="text-[9px] font-mono text-[var(--faint)] truncate">
             {geo ? '📍 ' : '◌ '}{CAT_LABEL[a.categorie || 'disparition'] || a.categorie} · {SRC_LABEL[a.source] || a.source}
-            {a.lieu_texte ? ` · ${a.lieu_texte}` : ''}
+            {a.lieu_texte ? ` · ${a.lieu_texte}` : ''}{a.date_publication ? ` · ${a.date_publication}` : ''}
           </div>
+          {/* Détails de fiche (identique toutes sources) : signes distinctifs, taille… */}
+          {!leve && Array.isArray(a.details) && a.details.length > 0 && (
+            <div className="mt-0.5 flex flex-col gap-0.5">
+              {a.details.map((d, i) => (
+                <div key={i} className="text-[9px] font-mono text-[var(--faint)] truncate">
+                  <span className="text-white/50">{d.label}</span> : {d.value}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         {!leve && a.url_source && (
           <a href={a.url_source} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono text-[var(--accent)] hover:text-[var(--accent-bright)] flex-shrink-0">avis ↗</a>

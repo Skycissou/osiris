@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.063-dev';
+export const OSIRIS_VERSION = 'V4.064-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.064-dev',
+    date: '2026-07-09',
+    resume:
+      "🪪 Alertes — FICHE ENRICHIE + identique toutes sources + fix « 2 clics ». Champ générique `details` " +
+      "(paires label→valeur, ex. Interpol signes distinctifs/taille/yeux/événement) accepté à l'ingest " +
+      "(objet ou tableau, borné 12, anonymisé à la levée) et rendu à l'IDENTIQUE dans la fiche carte ET " +
+      "la liste. Fix : kick de rechargement 1,6 s au 1er affichage → les alertes apparaissent sans devoir " +
+      "cliquer 🔄 deux fois. Date d'événement affichée en liste.",
+  },
   {
     version: 'V4.063-dev',
     date: '2026-07-09',
