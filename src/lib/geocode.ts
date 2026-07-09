@@ -43,15 +43,28 @@ function normKey(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 200);
 }
 
+// Version du cache : à incrémenter quand la LOGIQUE de géocodage change → les
+// échecs (null) mémorisés par l'ancienne logique sont ré-essayés (les succès,
+// eux, sont conservés pour épargner le fournisseur). Format : {v, e:{...}}.
+const GEOCACHE_VERSION = 2;
+
 async function ensureCache(): Promise<Map<string, LatLon | null>> {
   if (G.__osirisGeocache) return G.__osirisGeocache;
   const map = new Map<string, LatLon | null>();
   try {
     const raw = await fs.readFile(cacheFile(), 'utf8').catch(() => '');
     if (raw) {
-      const obj = JSON.parse(raw) as Record<string, LatLon | null>;
-      for (const [k, v] of Object.entries(obj)) {
-        if (v === null || (v && typeof v.lat === 'number' && typeof v.lon === 'number')) map.set(k, v);
+      const parsed = JSON.parse(raw) as { v?: number; e?: Record<string, LatLon | null> } | Record<string, LatLon | null>;
+      const versioned = parsed && typeof parsed === 'object' && 'e' in parsed && (parsed as { e?: unknown }).e;
+      const entries = (versioned ? (parsed as { e: Record<string, LatLon | null> }).e : parsed) as Record<string, LatLon | null>;
+      const sameVersion = versioned && (parsed as { v?: number }).v === GEOCACHE_VERSION;
+      for (const [k, v] of Object.entries(entries)) {
+        const valid = v === null || (v && typeof v.lat === 'number' && typeof v.lon === 'number');
+        if (!valid) continue;
+        // Version différente/ancienne : on GARDE les succès, on JETTE les null
+        // (pour qu'ils soient ré-essayés par la nouvelle logique).
+        if (!sameVersion && v === null) continue;
+        map.set(k, v);
       }
     }
   } catch {
@@ -70,7 +83,7 @@ async function persistSoon(map: Map<string, LatLon | null>): Promise<void> {
     void (async () => {
       try {
         await fs.mkdir(dir(), { recursive: true });
-        await fs.writeFile(cacheFile(), JSON.stringify(Object.fromEntries(map)), { encoding: 'utf8', mode: 0o600 });
+        await fs.writeFile(cacheFile(), JSON.stringify({ v: GEOCACHE_VERSION, e: Object.fromEntries(map) }), { encoding: 'utf8', mode: 0o600 });
       } catch {
         /* best-effort */
       }
@@ -78,12 +91,16 @@ async function persistSoon(map: Map<string, LatLon | null>): Promise<void> {
   }, 1500);
 }
 
-/** Interroge un endpoint « BAN-like » (BAN ou Géoplateforme, même schéma). */
-async function queryProvider(base: string, q: string): Promise<LatLon | null> {
+/** Interroge un endpoint « BAN-like » (BAN ou Géoplateforme, même schéma).
+ *  `extra` permet une requête STRUCTURÉE (postcode/type) — bien meilleur taux
+ *  que le texte libre pour « Ville (CP) ». */
+async function queryProvider(base: string, q: string, extra?: { postcode?: string; type?: string }): Promise<LatLon | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const url = `${base}?q=${encodeURIComponent(q)}&limit=1`;
+    let url = `${base}?q=${encodeURIComponent(q)}&limit=1`;
+    if (extra?.postcode) url += `&postcode=${encodeURIComponent(extra.postcode)}`;
+    if (extra?.type) url += `&type=${encodeURIComponent(extra.type)}`;
     const res = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json', 'User-Agent': 'OSIRIS-cockpit/geocode' } });
     if (!res.ok) return null;
     const j = (await res.json()) as { features?: { geometry?: { coordinates?: number[] } }[] };
@@ -108,9 +125,33 @@ export async function geocodeLocality(text: string): Promise<LatLon | null> {
   const cache = await ensureCache();
   if (cache.has(key)) return cache.get(key) ?? null;
 
-  // BAN d'abord (proven depuis le VPS), repli IGN Géoplateforme.
-  let hit = await queryProvider('https://api-adresse.data.gouv.fr/search/', q);
-  if (!hit) hit = await queryProvider('https://data.geopf.fr/geocodage/search', q);
+  const BAN = 'https://api-adresse.data.gouv.fr/search/';
+  const IGN = 'https://data.geopf.fr/geocodage/search';
+
+  // Parse « Ville (75011) - Région » → ville="Ville", cp="75011". Le texte libre
+  // brut fait souvent caler BAN (parenthèses/région parasites) → on privilégie la
+  // requête STRUCTURÉE ville+CP (même approche que le parser 116000).
+  const cp = q.match(/\b(\d{5})\b/)?.[1] ?? '';
+  const city = q
+    .replace(/\(.*$/, '') // coupe à la parenthèse
+    .replace(/\b\d{5}\b.*$/, '') // ou au code postal
+    .replace(/[-–—].*$/, '') // enlève « - Région »
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  let hit: LatLon | null = null;
+  // 1) requête structurée ville + CP (meilleur taux)
+  if (city && cp) {
+    hit = await queryProvider(BAN, city, { postcode: cp, type: 'municipality' });
+    if (!hit) hit = await queryProvider(IGN, city, { postcode: cp, type: 'municipality' });
+  }
+  // 2) ville seule (si pas de CP mais un nom de commune exploitable)
+  if (!hit && city && city.length >= 2 && city !== q) {
+    hit = await queryProvider(BAN, city, { type: 'municipality' });
+  }
+  // 3) repli texte libre (localité complète, ex. adresse précise)
+  if (!hit) hit = await queryProvider(BAN, q);
+  if (!hit) hit = await queryProvider(IGN, q);
 
   cache.set(key, hit); // mémorise le résultat (y compris null pour ne pas boucler)
   void persistSoon(cache);

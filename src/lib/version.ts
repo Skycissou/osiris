@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.061-dev';
+export const OSIRIS_VERSION = 'V4.062-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.062-dev',
+    date: '2026-07-09',
+    resume:
+      "📍 Alertes — géocodeur plus MALIN pour combler les « sans position ». Parse « Ville (CP) - Région » " +
+      "→ requête STRUCTURÉE ville+CP (type=municipality) avant le texte libre → rattrape les 116000 que BAN " +
+      "calait sur le format. Cache versionné (v2) : les échecs mémorisés par l'ancienne logique sont ré-essayés, " +
+      "les succès conservés. (Les ~80 Interpol restent sans position : notices internationales sans lieu publié.)",
+  },
   {
     version: 'V4.061-dev',
     date: '2026-07-09',
