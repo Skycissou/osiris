@@ -12,6 +12,7 @@
 
 import { memo, useEffect, useMemo, useState } from 'react';
 import type { AlertPoint } from './OsirisMap';
+import { ALERT_SOURCE_REGISTRY } from '@/lib/alertSources';
 
 export interface AlertsHealth {
   last_sync_at: number | null;
@@ -40,10 +41,9 @@ const CATS: { slug: string; label: string }[] = [
   { slug: 'appel_temoins', label: 'Appel témoins' },
 ];
 const CAT_LABEL: Record<string, string> = Object.fromEntries(CATS.map((c) => [c.slug, c.label]));
-const SRCS: { slug: string; label: string }[] = [
-  { slug: 'interpol_yellow', label: 'Interpol' },
-  { slug: 'x116000', label: '116000' },
-];
+// Sources = registre unique (src/lib/alertSources.ts). Une nouvelle source y
+// apparaît automatiquement (chip affichée seulement si elle a des avis).
+const SRCS: { slug: string; label: string }[] = ALERT_SOURCE_REGISTRY.map((s) => ({ slug: s.slug, label: s.label }));
 const SRC_LABEL: Record<string, string> = Object.fromEntries(SRCS.map((s) => [s.slug, s.label]));
 
 function freshness(lastSync: number | null): { color: string; label: string } {

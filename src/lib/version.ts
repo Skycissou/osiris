@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.058-dev';
+export const OSIRIS_VERSION = 'V4.059-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.059-dev',
+    date: '2026-07-09',
+    resume:
+      "🗂️ Alertes — REGISTRE UNIQUE des sources (src/lib/alertSources.ts) : ajouter une source = " +
+      "1 ligne, tout en dérive (whitelist ingest, chips filtres, libellé fiche, catégorie par défaut). " +
+      "Fini l'éparpillement dans 3 fichiers. 4 sources live prêtes à recevoir : Alerte Enlèvement, " +
+      "Gendarmerie, Police nationale, Presse locale (chat branche les scrapers n8n ; OSIRIS géocode " +
+      "leur lieu_texte tout seul via V4.058). Catégorie par défaut par source (ex. alerte_enlevement → enlevement).",
+  },
   {
     version: 'V4.058-dev',
     date: '2026-07-09',

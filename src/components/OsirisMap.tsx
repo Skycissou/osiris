@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, memo } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { BASE_PATH } from '@/lib/api';
+import { alertSourceFullLabel } from '@/lib/alertSources';
 // (pruneEntities volontairement plus importé — cf. notes 07/07 sur les traînées)
 import { recordPositions, buildTrails } from '@/lib/trails';
 // Couleur des avions par catégorie — logique PURE et testée dans aircraftCategory.ts.
@@ -1020,7 +1021,7 @@ function OsirisMap({
         const geom = f.geometry;
         const coords = geom && geom.type === 'Point' ? (geom.coordinates as [number, number]) : [e.lngLat.lng, e.lngLat.lat];
         const leve = p.statut === 'levee';
-        const srcLabel = p.source === 'x116000' ? '116 000 Enfants Disparus' : p.source === 'interpol_yellow' ? 'Interpol (Yellow Notice)' : escapeHtml(p.source || 'source officielle');
+        const srcLabel = escapeHtml(alertSourceFullLabel(p.source || '') || 'source officielle');
         const catLabels: Record<string, string> = {
           fugue: 'Fugue', disparition_inquietante: 'Disparition inquiétante',
           enlevement_parental: 'Enlèvement parental', disparition: 'Disparition',

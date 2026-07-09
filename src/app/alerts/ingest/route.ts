@@ -14,6 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { upsertSource, isAlertSource, normalizeCategorie, type Alert, type AlertSource } from '@/lib/alertsStore';
+import { alertSourceDefaultCategorie } from '@/lib/alertSources';
 import { fillMissingCoords } from '@/lib/geocode';
 
 export const dynamic = 'force-dynamic';
@@ -67,7 +68,7 @@ function sanitize(source: AlertSource, raw: unknown): Alert | null {
     id: `${source}:${source_id}`,
     source,
     source_id,
-    categorie: normalizeCategorie(o.categorie), // §12 : tolérance valeur inconnue → 'disparition'
+    categorie: normalizeCategorie(o.categorie, alertSourceDefaultCategorie(source)), // §12 : sinon défaut de la source
     url_source: httpUrl(o.url_source),
     nom_affiche: trunc(o.nom_affiche, 200),
     ...(age !== undefined && age >= 0 && age < 130 ? { age: Math.round(age) } : {}),

@@ -19,11 +19,12 @@
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { ALERT_SOURCE_SLUGS, isKnownAlertSource, type AlertSource } from './alertSources';
 
-/** Sources d'avis autorisées (whitelist stricte). */
-export const ALERT_SOURCES = ['interpol_yellow', 'x116000'] as const;
-export type AlertSource = (typeof ALERT_SOURCES)[number];
-const SOURCE_SET: ReadonlySet<string> = new Set(ALERT_SOURCES);
+// Whitelist des sources = le REGISTRE (src/lib/alertSources.ts). Ajouter une
+// source se fait LÀ-BAS, pas ici. On ré-exporte pour les imports existants.
+export const ALERT_SOURCES = ALERT_SOURCE_SLUGS;
+export type { AlertSource };
 
 /** Taxonomie contrôlée des catégories (spec §12, v1.1). Extensible Lot 3. */
 export const ALERT_CATEGORIES = [
@@ -37,10 +38,13 @@ export const ALERT_CATEGORIES = [
 export type AlertCategorie = (typeof ALERT_CATEGORIES)[number];
 const CAT_SET: ReadonlySet<string> = new Set(ALERT_CATEGORIES);
 
-/** Normalise une catégorie reçue : valeur connue conservée, sinon `disparition`
- *  (tolérance aux valeurs inconnues, spec §12 — pas de rejet). */
-export function normalizeCategorie(v: unknown): AlertCategorie {
-  return typeof v === 'string' && CAT_SET.has(v) ? (v as AlertCategorie) : 'disparition';
+/** Normalise une catégorie reçue : valeur connue conservée, sinon le repli
+ *  fourni (catégorie par défaut de la source), sinon `disparition`. Tolérance
+ *  aux valeurs inconnues (spec §12 — pas de rejet). */
+export function normalizeCategorie(v: unknown, fallback = 'disparition'): AlertCategorie {
+  if (typeof v === 'string' && CAT_SET.has(v)) return v as AlertCategorie;
+  if (CAT_SET.has(fallback)) return fallback as AlertCategorie;
+  return 'disparition';
 }
 
 /** Un avis normalisé (schéma spec §4 + §12). */
@@ -213,9 +217,9 @@ function ensurePurge(): void {
   G.__osirisAlertsPurge = setInterval(() => void purge(), PURGE_INTERVAL_MS);
 }
 
-/** true si `s` est une source gérée. */
+/** true si `s` est une source gérée (délègue au registre). */
 export function isAlertSource(s: unknown): s is AlertSource {
-  return typeof s === 'string' && SOURCE_SET.has(s);
+  return isKnownAlertSource(s);
 }
 
 export interface IngestResult {
