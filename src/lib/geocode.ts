@@ -47,7 +47,7 @@ function normKey(s: string): string {
 // on a corrigé les FAUX points (BAN franco-français « rapprochait » AUCKLAND/LIMA
 // vers une commune FR) → ces succès ERRONÉS doivent être ré-évalués, donc à un
 // changement de version on repart de ZÉRO (on ne garde aucune entrée). Format {v,e}.
-const GEOCACHE_VERSION = 3;
+const GEOCACHE_VERSION = 4;
 
 async function ensureCache(): Promise<Map<string, LatLon | null>> {
   if (G.__osirisGeocache) return G.__osirisGeocache;
@@ -172,7 +172,8 @@ export async function geocodeLocality(text: string): Promise<LatLon | null> {
   const cache = await ensureCache();
   if (cache.has(key)) return cache.get(key) ?? null;
 
-  const BAN = 'https://api-adresse.data.gouv.fr/search/';
+  // Géocodeur FRANCE = IGN Géoplateforme. L'ancien BAN (api-adresse.data.gouv.fr)
+  // est DÉCOMMISSIONNÉ (redirection IGN stoppée le 14/04/2026) → on ne l'appelle plus.
   const IGN = 'https://data.geopf.fr/geocodage/search';
 
   // Parse « Ville (75011) - Région » → ville="Ville", cp="75011". Le texte libre
@@ -196,10 +197,10 @@ export async function geocodeLocality(text: string): Promise<LatLon | null> {
   };
 
   let hit: LatLon | null = null;
-  // 1) FRANCE (BAN/IGN) — structuré ville+CP, puis ville, puis texte libre.
-  if (city && cp) hit = (await tryBan(BAN, city, { postcode: cp, type: 'municipality' })) || (await tryBan(IGN, city, { postcode: cp, type: 'municipality' }));
-  if (!hit && city.length >= 2) hit = await tryBan(BAN, city, { type: 'municipality' });
-  if (!hit) hit = await tryBan(BAN, q);
+  // 1) FRANCE (IGN Géoplateforme) — structuré ville+CP, puis ville, puis texte libre.
+  if (city && cp) hit = await tryBan(IGN, city, { postcode: cp, type: 'municipality' });
+  if (!hit && city.length >= 2) hit = await tryBan(IGN, city, { type: 'municipality' });
+  if (!hit) hit = await tryBan(IGN, q);
 
   // 2) MONDE (Nominatim) — pour les disparus FR à l'étranger (AUCKLAND, LIMA…).
   //    Validé par le nom aussi → pas de faux point. Échoue → pas de pin (liste).
