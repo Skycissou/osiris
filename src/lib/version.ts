@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.078-dev';
+export const OSIRIS_VERSION = 'V4.079-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.079-dev',
+    date: '2026-07-12',
+    resume:
+      "🚦 Contours d'alertes HIÉRARCHISÉS (retour Cissou : « tout clignote → pas pertinent »). Gravité par avis " +
+      "(catégorie + récence + statut) : 🔴 critique (enlèvement / disparition inquiétante) = rouge épais qui CLIGNOTE · " +
+      "🟠 moyen (disparition < 7 j) = orange statique · ⚪ bas (fugue / ancien / levée) = gris discret statique. Un département " +
+      "prend la gravité MAX de ses avis. Deux couches (`alert-zones-static` filtrée + `alert-zones-blink` animée) → seul le " +
+      "critique clignote, l'œil va à l'urgent.",
+  },
   {
     version: 'V4.078-dev',
     date: '2026-07-12',

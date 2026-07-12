@@ -54,16 +54,44 @@ function pointInFeature(lng: number, lat: number, f: DeptFeature): boolean {
   return false;
 }
 
+// ── Hiérarchie de gravité (demande Cissou 12/07 : « ne pas tout faire clignoter ») ──
+//  3 = critique (clignote) · 2 = moyen (statique) · 1 = bas (discret). Un avis LEVÉ
+//  n'est jamais urgent. Les enlèvements / disparitions inquiétantes priment ; sinon
+//  la récence (< 7 j) fait monter d'un cran. Pur & testable.
+export function alertSeverity(categorie: string | undefined, statut: string | undefined, ageH: number): number {
+  if (statut === 'levee') return 1;
+  const c = (categorie ?? '').toLowerCase();
+  if (/enlev|inquiet|alerte/.test(c)) return 3;
+  if (Number.isFinite(ageH) && ageH < 24 * 7) return 2;
+  return 1;
+}
+export type AlertTier = 'critical' | 'medium' | 'low';
+export function tierOf(sev: number): AlertTier {
+  return sev >= 3 ? 'critical' : sev >= 2 ? 'medium' : 'low';
+}
+
 /**
- * Départements contenant AU MOINS un des points (dédupliqués par code), renvoyés
- * en FeatureCollection prête pour MapLibre (une entrée = un contour à dessiner).
+ * Départements contenant ≥1 alerte (dédupliqués par code), avec la gravité MAX
+ * de leurs avis (`sev` numérique + `tier` texte), en FeatureCollection MapLibre.
+ * Un département dessiné 1 fois, au niveau de sa alerte la plus grave.
  */
-export function departementsForPoints(points: { lng: number; lat: number }[], fc: DeptFC): DeptFC {
-  const codes = new Set<string>();
+export function departementsForPoints(points: { lng: number; lat: number; sev?: number }[], fc: DeptFC): DeptFC {
+  const sevByCode = new Map<string, number>();
   for (const p of points) {
     if (!Number.isFinite(p.lng) || !Number.isFinite(p.lat)) continue;
     const f = fc.features.find((ft) => pointInFeature(p.lng, p.lat, ft));
-    if (f) codes.add(f.properties.code);
+    if (f) {
+      const code = f.properties.code;
+      sevByCode.set(code, Math.max(sevByCode.get(code) ?? 0, p.sev ?? 1));
+    }
   }
-  return { type: 'FeatureCollection', features: fc.features.filter((ft) => codes.has(ft.properties.code)) };
+  return {
+    type: 'FeatureCollection',
+    features: fc.features
+      .filter((ft) => sevByCode.has(ft.properties.code))
+      .map((ft) => {
+        const sev = sevByCode.get(ft.properties.code) as number;
+        return { ...ft, properties: { ...ft.properties, sev, tier: tierOf(sev) } };
+      }),
+  };
 }
