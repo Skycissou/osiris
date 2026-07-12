@@ -61,12 +61,16 @@ export const dynamic = 'force-dynamic';
 const USGS_ALL_DAY =
   'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson';
 /**
- * Endpoint NASA FIRMS « area CSV » monde, capteur VIIRS S-NPP NRT, fenêtre 1 j.
- * {KEY} = FIRMS_MAP_KEY (clé gratuite obtenue sur firms.modaps.eosdis.nasa.gov).
- * Sans clé → on n'appelle même pas et la couche wildfires est vide.
+ * Endpoint NASA FIRMS « area CSV » monde, fenêtre 1 j. {KEY} = FIRMS_MAP_KEY,
+ * {SENSOR} = capteur. Sans clé → on n'appelle même pas (couche vide).
+ * MULTI-CAPTEURS (leçon 10/07) : le flux NRT d'un capteur peut être À SEC
+ * (constaté : VIIRS S-NPP renvoyait 0 ligne, clé pourtant valide/quota 0). On
+ * cumule NOAA-20 (le plus fiable) + S-NPP + MODIS → si l'un est vide, les autres
+ * remplissent. Résultats fusionnés + dédupliqués par id (lat/lng/heure).
  */
 const FIRMS_AREA_CSV_TMPL =
-  'https://firms.modaps.eosdis.nasa.gov/api/area/csv/{KEY}/VIIRS_SNPP_NRT/world/1';
+  'https://firms.modaps.eosdis.nasa.gov/api/area/csv/{KEY}/{SENSOR}/world/1';
+const FIRMS_SENSORS = ['VIIRS_NOAA20_NRT', 'VIIRS_SNPP_NRT', 'MODIS_NRT'];
 /** Plafond de points feux retenus (protège le client d'un CSV énorme). */
 const FIRMS_MAX_POINTS = 2000;
 /**
@@ -707,9 +711,23 @@ export async function GET(request: NextRequest) {
   // keyOf). Absente → on n'appelle PAS l'API, couche wildfires vide.
   const firmsKey = keyOf(request, 'firms', 'FIRMS_MAP_KEY');
   if (firmsKey) {
-    const firmsUrl = FIRMS_AREA_CSV_TMPL.replace('{KEY}', encodeURIComponent(firmsKey));
-    const firmsText = await fetchText(firmsUrl, 'FIRMS');
-    if (firmsText) wildfires = parseFirmsCsv(firmsText);
+    const encKey = encodeURIComponent(firmsKey);
+    // Les capteurs sont interrogés EN PARALLÈLE (latence = le plus lent, pas la
+    // somme), puis fusionnés + dédupliqués. Un capteur à sec renvoie juste 0 ligne.
+    const texts = await Promise.all(
+      FIRMS_SENSORS.map((sensor) => fetchText(FIRMS_AREA_CSV_TMPL.replace('{KEY}', encKey).replace('{SENSOR}', sensor), 'FIRMS')),
+    );
+    const seen = new Set<string>();
+    for (const text of texts) {
+      if (!text) continue;
+      for (const w of parseFirmsCsv(text)) {
+        if (seen.has(w.id)) continue;
+        seen.add(w.id);
+        wildfires.push(w);
+        if (wildfires.length >= FIRMS_MAX_POINTS) break;
+      }
+      if (wildfires.length >= FIRMS_MAX_POINTS) break;
+    }
   }
 
   // ── 3) VOLCANS — pas d'API no-key fiable → couche vide (structure prévue) ──

@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.065-dev';
+export const OSIRIS_VERSION = 'V4.066-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.066-dev',
+    date: '2026-07-10',
+    resume:
+      "🔥 Feux — MULTI-CAPTEURS FIRMS. Diagnostiqué avec Cissou : clé valide (quota 0/5000) mais VIIRS " +
+      "S-NPP renvoyait 0 ligne (flux NRT à sec). La couche interroge désormais NOAA-20 + S-NPP + MODIS " +
+      "en parallèle et fusionne/déduplique → si un capteur est vide, les autres remplissent. Corrige " +
+      "« feux absents malgré clé OK ».",
+  },
   {
     version: 'V4.065-dev',
     date: '2026-07-09',
