@@ -5,6 +5,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { BASE_PATH } from '@/lib/api';
 import { alertSourceFullLabel } from '@/lib/alertSources';
+import { spotlightMask, type SpotlightRegion } from '@/lib/spotlightMasks';
 // (pruneEntities volontairement plus importé — cf. notes 07/07 sur les traînées)
 import { recordPositions, buildTrails } from '@/lib/trails';
 // Couleur des avions par catégorie — logique PURE et testée dans aircraftCategory.ts.
@@ -228,6 +229,7 @@ interface OsirisMapProps {
    *  (avions…) suivent la carte au lieu de rester figées sur la France. */
   onBoundsChange?: (bbox: [number, number, number, number]) => void;
   flyToLocation?: { lat: number; lng: number; ts: number; zoom?: number } | null;
+  spotlight?: SpotlightRegion; // masque « projecteur » : 'france' | 'europe' | null
   projection?: 'mercator' | 'globe';
   /** Fond : 'dark' (CARTO) · 'satellite' (ArcGIS) · 'ign' (Plan IGN) · 'scan25' · 'ortho' (ortho IGN). */
   mapStyle?: string;
@@ -400,6 +402,7 @@ function OsirisMap({
   onViewStateChange,
   onBoundsChange,
   flyToLocation,
+  spotlight = null,
   projection = 'mercator',
   mapStyle = 'dark',
   timeLayer = 'none',
@@ -509,6 +512,12 @@ function OsirisMap({
         createIcon(map, `plane-${key}`, col, 26);
       }
       createDot(map, 'dot-gold', '#54bdde', 8);
+
+      // Masque « projecteur » des vues (France/Europe) — assombrit le monde SAUF
+      // la région. Ajouté ICI (au-dessus du fond, SOUS toutes les données) → les
+      // marqueurs restent nets, seule la géographie autour s'assombrit.
+      map.addSource('spotlight-mask', { type: 'geojson', data: EMPTY_FC });
+      map.addLayer({ id: 'spotlight-mask-fill', type: 'fill', source: 'spotlight-mask', paint: { 'fill-color': '#04070d', 'fill-opacity': 0.72 } });
 
       // Source jour/nuit (couche d'affichage optionnelle conservée).
       map.addSource('day-night', { type: 'geojson', data: EMPTY_FC });
@@ -1410,6 +1419,13 @@ function OsirisMap({
     // simple recentrage (recherche, clic « voler vers »).
     mapRef.current.flyTo({ center: [flyToLocation.lng, flyToLocation.lat], zoom: flyToLocation.zoom ?? 8, duration: 2000 });
   }, [mapReady, flyToLocation]);
+
+  // Masque « projecteur » : assombrit le monde sauf la région (France/Europe).
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const src = mapRef.current.getSource('spotlight-mask') as maplibregl.GeoJSONSource | undefined;
+    src?.setData(spotlightMask(spotlight) as GeoJSON.FeatureCollection);
+  }, [mapReady, spotlight]);
 
   // ── Bascule projection globe / mercator (+ sky sur globe) ──
   useEffect(() => {

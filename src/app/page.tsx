@@ -26,6 +26,7 @@ import ConsentModal from '@/components/ConsentModal';
 import { applyFilter, DEFAULT_FILTERS, type LayerFilters } from '@/lib/layerFilters';
 import { useKeyboardShortcuts } from '@/lib/shortcuts';
 import type { ViewPreset } from '@/lib/viewPresets';
+import type { SpotlightRegion } from '@/lib/spotlightMasks';
 import { buildShareUrl, copyShareUrl } from '@/lib/shareLink';
 
 // Cockpit servi sous basePath (/cockpit) → l'utilisateur arrive DÉJÀ loggué via la
@@ -217,6 +218,7 @@ export default function Dashboard() {
   const [showResults, setShowResults] = useState(false);
 
   const [flyToLocation, setFlyToLocation] = useState<{ lat: number; lng: number; ts: number; zoom?: number } | null>(null);
+  const [spotlight, setSpotlight] = useState<SpotlightRegion>(null); // masque projecteur France/Europe
   const [locationLabel, setLocationLabel] = useState('');
   const [mapProjection, setMapProjection] = useState<'globe' | 'mercator'>('mercator');
   // ── Menu de couches (panneau dépliable) ──
@@ -476,6 +478,9 @@ export default function Dashboard() {
 
   const handleSelectPreset = useCallback((p: ViewPreset) => {
     setFlyToLocation({ lat: p.lat, lng: p.lng, ts: Date.now(), zoom: p.zoom });
+    // Masque « projecteur » (demande Cissou) : France/Europe assombrissent le
+    // reste du monde ; Monde et toute autre vue → pas de masque.
+    setSpotlight(p.id === 'france' ? 'france' : p.id === 'europe' ? 'europe' : null);
   }, []);
 
   // ── Raccourcis clavier (c/r/o/t/v/p/Échap) — cf. lib/shortcuts.ts. Objet
@@ -660,6 +665,7 @@ export default function Dashboard() {
           onRightClick={handleRightClick}
           onBoundsChange={handleBoundsChange}
           flyToLocation={flyToLocation}
+          spotlight={spotlight}
         />
       </ErrorBoundary>
 

@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.067-dev';
+export const OSIRIS_VERSION = 'V4.068-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,14 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.068-dev',
+    date: '2026-07-12',
+    resume:
+      "🔦 Vues — masque « projecteur » (demande Cissou) : la vue France assombrit TOUT le monde sauf la " +
+      "France (métropole + Corse) → on ne voit QUE la France ; idem Europe ; Monde = sans masque. " +
+      "Polygone à trous (monde - région) sous les données (marqueurs restent nets). `src/lib/spotlightMasks.ts`.",
+  },
   {
     version: 'V4.067-dev',
     date: '2026-07-12',
