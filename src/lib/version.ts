@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.069-dev';
+export const OSIRIS_VERSION = 'V4.070-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.070-dev',
+    date: '2026-07-12',
+    resume:
+      "⚡ Data régional (demande Cissou) : les FEUX (FIRMS) sont scopés à la bbox du viewport au lieu du " +
+      "monde → bien moins de data/ping en vue France/Europe (le CSV monde était énorme). `world` conservé " +
+      "en vue Monde/zoom arrière. Les avions étaient déjà scopés au viewport. ⚠️ ALERTES disparitions " +
+      "restent TOUJOURS mondiales (endpoint séparé, jamais scopé) → basculer en vue Monde les montre toutes.",
+  },
   {
     version: 'V4.069-dev',
     date: '2026-07-12',

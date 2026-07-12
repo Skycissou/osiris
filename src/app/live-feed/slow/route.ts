@@ -70,7 +70,7 @@ const USGS_ALL_DAY =
  * remplissent. Résultats fusionnés + dédupliqués par id (lat/lng/heure).
  */
 const FIRMS_AREA_CSV_TMPL =
-  'https://firms.modaps.eosdis.nasa.gov/api/area/csv/{KEY}/{SENSOR}/world/1';
+  'https://firms.modaps.eosdis.nasa.gov/api/area/csv/{KEY}/{SENSOR}/{AREA}/1';
 const FIRMS_SENSORS = ['VIIRS_NOAA20_NRT', 'VIIRS_SNPP_NRT', 'MODIS_NRT'];
 /** Plafond de points feux retenus (protège le client d'un CSV énorme). */
 const FIRMS_MAX_POINTS = 2000;
@@ -692,9 +692,22 @@ function computeETag(
 // ── Handler ─────────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  // On lit le param bbox pour ne pas planter s'il est fourni, mais on ne
-  // l'exploite pas (couches globales/nationales — voir en-tête du fichier).
-  void request.nextUrl.searchParams.get('bbox');
+  // bbox du viewport (demande Cissou 12/07 « data régional ») : sert à SCOPER
+  // les FEUX (FIRMS) à la zone regardée au lieu du monde → beaucoup moins de
+  // data/ping en vue France/Europe. `world` si absent ou quasi-mondial (zoom
+  // arrière). Séismes/cyber sont légers et restent globaux ; ALERTES sont sur un
+  // autre endpoint → jamais scopées (toujours mondiales, voulu par Cissou).
+  const firmsArea = ((): string => {
+    const raw = request.nextUrl.searchParams.get('bbox');
+    if (!raw) return 'world';
+    const p = raw.split(',').map(Number);
+    if (p.length !== 4 || !p.every((n) => Number.isFinite(n))) return 'world';
+    const [w, s, e, n] = p;
+    const width = Math.abs(e - w);
+    const height = Math.abs(n - s);
+    if (width <= 0 || height <= 0 || width >= 170 || height >= 150) return 'world'; // quasi-mondial → world
+    return `${w.toFixed(3)},${s.toFixed(3)},${e.toFixed(3)},${n.toFixed(3)}`; // west,south,east,north
+  })();
 
   // Coffre serveur chargé → keyOf peut lire les clés « couches » (FIRMS) saisies
   // par l'admin dans l'app, sans SSH ni .env (retour Cissou 07/07).
@@ -716,7 +729,7 @@ export async function GET(request: NextRequest) {
     // Les capteurs sont interrogés EN PARALLÈLE (latence = le plus lent, pas la
     // somme), puis fusionnés + dédupliqués. Un capteur à sec renvoie juste 0 ligne.
     const texts = await Promise.all(
-      FIRMS_SENSORS.map((sensor) => fetchText(FIRMS_AREA_CSV_TMPL.replace('{KEY}', encKey).replace('{SENSOR}', sensor), 'FIRMS')),
+      FIRMS_SENSORS.map((sensor) => fetchText(FIRMS_AREA_CSV_TMPL.replace('{KEY}', encKey).replace('{SENSOR}', sensor).replace('{AREA}', firmsArea), 'FIRMS')),
     );
     const seen = new Set<string>();
     for (const text of texts) {
