@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.070-dev';
+export const OSIRIS_VERSION = 'V4.071-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.071-dev',
+    date: '2026-07-12',
+    resume:
+      "🌍 Géopolitique OPEN (décision Cissou : OSIRIS = ARPD + potentiellement commercial). ACLED = licence " +
+      "non-commerciale → réservé ARPD (si clé). Build général = source OPEN/commercial-safe : actu conflits " +
+      "(Google News RSS, marche depuis le VPS) + gazetteer déterministe de ~25 zones de conflit → points sur " +
+      "la carte, keyless, temps réel, filtre jamais vide. `src/lib/geopoliticsOpen.ts`.",
+  },
   {
     version: 'V4.070-dev',
     date: '2026-07-12',

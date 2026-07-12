@@ -129,7 +129,7 @@ const LIVE_OPTS: { key: string; label: string; title: string }[] = [
   { key: 'live_volcanoes', label: 'Volcans', title: 'Volcans — à brancher (Smithsonian GVP)' },
   { key: 'live_satellites', label: 'Satellites 🛰', title: 'Satellites notables (celestrak + calcul SGP4, public sans clé)' },
   { key: 'live_ships', label: 'Navires 🚢', title: 'Navires AIS — nécessite une source/clé AIS (AIS_REST_URL)' },
-  { key: 'live_gdelt', label: 'Géopolitique 🌍', title: 'Conflits armés géolocalisés — ACLED (clé) en priorité, sinon GDELT (bloqué VPS)' },
+  { key: 'live_gdelt', label: 'Géopolitique 🌍', title: 'Conflits mondiaux — ACLED (clé, build ARPD) ou actu conflits open-source (build général)' },
   { key: 'live_cyber', label: 'Cyber (C2) 🛡️', title: 'Serveurs C2 malware — abuse.ch public, sans clé (veille défensive)' },
   { key: 'live_alerts', label: 'Alertes disparitions 🟡', title: 'Avis de recherche officiels (Interpol Yellow, 116000) — repérés sur la carte' },
 ];
@@ -141,7 +141,7 @@ const CONN_SOURCES: Record<string, string[]> = {
   live_earthquakes: ['USGS'],
   live_wildfires: ['FIRMS'],
   live_satellites: ['celestrak'],
-  live_gdelt: ['acled', 'gdelt-export'],
+  live_gdelt: ['acled', 'geo-news', 'gdelt-export'],
   live_cyber: ['abuse.ch'],
 };
 type ConnState = 'ok' | 'fail' | 'wait';

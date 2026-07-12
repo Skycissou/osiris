@@ -50,6 +50,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { safeFetch } from '@/lib/ssrf-guard';
 import { getGdeltEvents } from '@/lib/gdeltEvents';
 import { getAcledEvents, acledConfigured } from '@/lib/acledEvents';
+import { getOpenGeopoliticsEvents } from '@/lib/geopoliticsOpen';
 import { computeSatellites, SATS_SUIVIS, type SatPosition } from '@/lib/satellites';
 import { recordCall } from '@/lib/telemetry';
 import { ensureKeysLoaded, getServerKey } from '@/lib/serverKeyStore';
@@ -780,11 +781,15 @@ export async function GET(request: NextRequest) {
   //  → FICHIERS export 15-min de data.gdeltproject.org via lib/gdeltEvents
   //  (cache 15 min + stale-on-error, même forme GdeltEvent — carte inchangée).
   //  L'ancien chemin (GDELT_GEO_TMPL/GDELT_QUERY/parseGdelt) reste archivé ici.
-  //  GÉOPO : ACLED (conflits armés, clé) en PRIORITÉ — GDELT étant bloqué depuis
-  //  l'IP du VPS. Sans clé ACLED → on retombe sur GDELT (souvent vide côté VPS).
+  //  GÉOPO — deux régimes (décision Cissou 12/07) :
+  //   • clé ACLED présente → ACLED (conflits armés, à jour) = build ARPD (licence
+  //     NON-commerciale, réservé à l'usage association).
+  //   • sinon → source OPEN / commercial-safe (actu conflits + gazetteer), qui
+  //     marche depuis le VPS (contrairement à GDELT, bloqué) → filtre jamais vide.
   const gdelt: GdeltEvent[] = acledConfigured()
     ? await getAcledEvents().catch(() => [])
-    : await getGdeltEvents().catch(() => []);
+    : await getOpenGeopoliticsEvents().catch(() => []);
+  void getGdeltEvents; // ancien chemin GDELT conservé pour référence (bloqué VPS)
 
   // ── 6) CYBER — abuse.ch Feodo Tracker (JSON, gratuit, sans clé) ───────────
   //  CADRE DÉFENSIF : indicateurs PUBLICS de menace (serveurs C2 de botnets),
