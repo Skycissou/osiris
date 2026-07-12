@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.075-dev';
+export const OSIRIS_VERSION = 'V4.076-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.076-dev',
+    date: '2026-07-12',
+    resume:
+      "🧹 Nettoyage bruit debug (2e rapport capsule) — BONNE NOUVELLE au passage : `geo-news` marche (lastCount 22, 100 articles). " +
+      "(1) Capsule v1.2 : ignore les `AbortError` (annulations volontaires : tuiles carte MapLibre, timeouts, démontage) → " +
+      "c'était la 1re source de FAUX bugs (15 « Réseau KO » sur des tuiles geopf). (2) Circuit-breaker celestrak : bloqué depuis " +
+      "l'IP VPS → après 1 échec, on ne re-tente pas avant 30 min (fini les 90 appels KO en boucle), réarmé auto s'il revient.",
+  },
   {
     version: 'V4.075-dev',
     date: '2026-07-12',

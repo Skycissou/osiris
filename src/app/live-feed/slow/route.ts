@@ -102,7 +102,12 @@ const SAT_MAX_POINTS = 300;
 //  Résultat : celestrak appelé ~quelques fois/jour au lieu de centaines. ──────────
 const TLE_TTL_MS = 6 * 60 * 60_000; // fraîcheur 6 h
 const TLE_STALE_MAX_MS = 3 * 24 * 60 * 60_000; // stale servi jusqu'à 3 j
-const G_TLE = globalThis as unknown as { __osirisTleCache?: { ts: number; blob: string } | null; __osirisTleInflight?: Promise<string> | null };
+// Circuit-breaker : celestrak est bloqué depuis l'IP VPS → après un échec on n'y
+// RETOUCHE PAS avant 30 min (sinon on martèle : 90 appels KO en boucle, constat
+// capsule 12/07 — chaque cycle = 2 groupes + N seed, tous en timeout). On rebranche
+// tout seul si celestrak redevient accessible (débloqué/proxy).
+const CELESTRAK_RETRY_MS = 30 * 60_000;
+const G_TLE = globalThis as unknown as { __osirisTleCache?: { ts: number; blob: string } | null; __osirisTleInflight?: Promise<string> | null; __osirisTleFailAt?: number };
 if (G_TLE.__osirisTleCache === undefined) G_TLE.__osirisTleCache = null;
 
 /** Téléchargement réel du blob TLE (groupes, repli seed CATNR). Throw si vide. */
@@ -138,13 +143,23 @@ async function downloadTleBlob(): Promise<string> {
 async function getTleBlob(): Promise<string> {
   const hit = G_TLE.__osirisTleCache;
   if (hit && Date.now() - hit.ts < TLE_TTL_MS) return hit.blob;
+  // Circuit-breaker : échec récent (< 30 min) → on ne re-tente PAS celestrak
+  // (bloqué VPS). Sert le stale s'il existe, sinon vide. Zéro appel gaspillé.
+  const recentlyFailed = G_TLE.__osirisTleFailAt && Date.now() - G_TLE.__osirisTleFailAt < CELESTRAK_RETRY_MS;
+  if (recentlyFailed) {
+    return hit && Date.now() - hit.ts < TLE_STALE_MAX_MS ? hit.blob : '';
+  }
   if (!G_TLE.__osirisTleInflight) {
     G_TLE.__osirisTleInflight = downloadTleBlob()
       .then((blob) => {
         G_TLE.__osirisTleCache = { ts: Date.now(), blob };
+        G_TLE.__osirisTleFailAt = undefined; // celestrak est revenu → on réarme
         return blob;
       })
-      .catch(() => '') // échec → on gère le stale ci-dessous
+      .catch(() => {
+        G_TLE.__osirisTleFailAt = Date.now(); // arme le circuit-breaker 30 min
+        return '';
+      })
       .finally(() => {
         G_TLE.__osirisTleInflight = null;
       });

@@ -1,9 +1,11 @@
 "use client";
-// 🐞 DebugCapsule v1.1 — capsule debug standard (invention #15 devenue composant)
+// 🐞 DebugCapsule v1.2 — capsule debug standard (invention #15 devenue composant)
 // Source canonique : claude-brain → capsules/debug-capsule/ · Règle : améliorer ICI puis re-copier, jamais de fork.
 // Zéro dépendance · styles inline · lecture seule · rien ne quitte l'appareil.
 // v1.1 : onglet App en LIVE (auto-refresh) — le rapport à l'ouverture était un
 //        snapshot du warmup (faux bugs / manques le temps que l'app charge).
+// v1.2 : ignore les AbortError (annulations volontaires : tuiles carte, timeouts,
+//        démontage) — c'était la 1re source de FAUX bugs dans le rapport.
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { CSSProperties, ReactNode } from "react";
@@ -96,7 +98,11 @@ export default function DebugCapsule({
         if (res.status >= 400) push("http", `HTTP ${res.status} → ${truncate(url, 140)}`);
         return res;
       } catch (err) {
-        push("network", `Réseau KO → ${truncate(url, 140)}`, toStr(err));
+        // Les AbortError sont des annulations VOLONTAIRES (MapLibre annule les
+        // tuiles quand la carte bouge, timeouts applicatifs, démontage React…) →
+        // PAS des bugs. On ne pollue pas le rapport avec (sinon faux bugs en pagaille).
+        const aborted = err instanceof Error && (err.name === "AbortError" || /abort/i.test(err.message));
+        if (!aborted) push("network", `Réseau KO → ${truncate(url, 140)}`, toStr(err));
         throw err;
       }
     };
