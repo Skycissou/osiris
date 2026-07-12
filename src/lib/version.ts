@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.077-dev';
+export const OSIRIS_VERSION = 'V4.078-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.078-dev',
+    date: '2026-07-12',
+    resume:
+      "🚨 Alertes = CONTOUR du département (demande Cissou) : chaque avis de disparition géolocalisé matérialise en plus " +
+      "le tracé RÉEL de son département en rouge CLIGNOTANT (opacité pulsée ~1,4 s). 100 % hors-ligne : GeoJSON départements " +
+      "FR embarqué (~248 Ko, chunk séparé chargé à la demande) + point-dans-polygone depuis la lat/lon de l'avis, zéro API " +
+      "(gouv souvent bloqué VPS). V1 = niveau département + le pin gardé pour la localité exacte. Un département dessiné 1 fois même à 3 avis.",
+  },
   {
     version: 'V4.077-dev',
     date: '2026-07-12',

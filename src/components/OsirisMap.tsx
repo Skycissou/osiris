@@ -6,6 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { BASE_PATH } from '@/lib/api';
 import { alertSourceFullLabel } from '@/lib/alertSources';
 import { spotlightMask, type SpotlightRegion } from '@/lib/spotlightMasks';
+import { loadDepartements, departementsForPoints } from '@/lib/alertZones';
 // (pruneEntities volontairement plus importé — cf. notes 07/07 sur les traînées)
 import { recordPositions, buildTrails } from '@/lib/trails';
 // Couleur des avions par catégorie — logique PURE et testée dans aircraftCategory.ts.
@@ -412,6 +413,7 @@ function OsirisMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
+  const zoneBlinkRafRef = useRef(0); // clignotement du contour d'alerte
   const [mapReady, setMapReady] = useState(false);
   const prevStyleRef = useRef(mapStyle);
   // Ref sur onEntityClick : les handlers de clic sont posés une seule fois au
@@ -996,6 +998,34 @@ function OsirisMap({
       //  Marqueur jaune/orange à halo (repérable), fiche au clic (photo hotlink,
       //  identité, lieu, source, lien avis + numéros utiles). Avis levé =
       //  déjà anonymisé côté serveur → marqueur gris discret sans photo.
+      // ── Contour du DÉPARTEMENT de chaque alerte (demande Cissou 12/07) ──────
+      //  Tracé rouge clignotant, SOUS les pins (ajouté avant → dessiné dessous).
+      //  Données calculées hors-ligne (point-dans-polygone) dans la synchro data.
+      map.addSource('alert-zones', { type: 'geojson', data: EMPTY_FC });
+      map.addLayer({
+        id: 'alert-zones-line',
+        type: 'line',
+        source: 'alert-zones',
+        paint: {
+          'line-color': '#ff2d2d',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.5, 8, 3.5, 11, 5],
+          'line-opacity': 0.8, // animé (clignotement) par requestAnimationFrame
+          'line-blur': 0.4,
+        },
+        layout: { visibility: 'none', 'line-join': 'round', 'line-cap': 'round' },
+      });
+      // Clignotement : opacité qui pulse (~1,4 s), lisible sans être agressif.
+      const blink = () => {
+        const m = mapRef.current;
+        if (m && m.getLayer('alert-zones-line') && m.getLayoutProperty('alert-zones-line', 'visibility') === 'visible') {
+          const phase = (performance.now() % 1400) / 1400; // 0..1
+          const opacity = 0.3 + 0.55 * (0.5 - 0.5 * Math.cos(phase * 2 * Math.PI)); // 0.3..0.85
+          try { m.setPaintProperty('alert-zones-line', 'line-opacity', opacity); } catch { /* couche pas prête */ }
+        }
+        zoneBlinkRafRef.current = requestAnimationFrame(blink);
+      };
+      zoneBlinkRafRef.current = requestAnimationFrame(blink);
+
       map.addSource('live-alerts', { type: 'geojson', data: EMPTY_FC });
       map.addLayer({
         id: 'live-alerts-halo',
@@ -1123,7 +1153,7 @@ function OsirisMap({
       emitBounds();
     });
 
-    return () => { map.remove(); mapRef.current = null; };
+    return () => { cancelAnimationFrame(zoneBlinkRafRef.current); map.remove(); mapRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1365,6 +1395,23 @@ function OsirisMap({
       }));
     setGeo('live-alerts', alertFeats);
     setVis(['live-alerts-halo', 'live-alerts-dots'], !!activeLayers?.live_alerts);
+
+    // Contour du DÉPARTEMENT de chaque alerte géolocalisée (V1, demande Cissou).
+    // Hors-ligne : point-dans-polygone depuis le GeoJSON embarqué (chargé à la
+    // demande). Un département dessiné une seule fois même s'il porte 3 avis.
+    if (activeLayers?.live_alerts && alertFeats.length > 0) {
+      const pts = alertFeats.map((f) => ({ lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }));
+      void loadDepartements()
+        .then((fc) => {
+          if (!mapRef.current) return;
+          setGeo('alert-zones', departementsForPoints(pts, fc).features);
+        })
+        .catch(() => { /* GeoJSON indisponible → pas de contour, la carte tient */ });
+      setVis(['alert-zones-line'], true);
+    } else {
+      setGeo('alert-zones', []);
+      setVis(['alert-zones-line'], false);
+    }
   }, [mapReady, earthquakes, wildfires, volcanoes, satellites, gdelt, cyber, alerts, activeLayers, setGeo, setVis]);
   // ─────────────────────────────────────────────────────────────────────
 
