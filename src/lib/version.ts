@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.076-dev';
+export const OSIRIS_VERSION = 'V4.077-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.077-dev',
+    date: '2026-07-12',
+    resume:
+      "🎨 Points géopolitiques VISIBLES (débug capsule : « pings noirs » + warning `Expected value to be of type number, " +
+      "but found string`). Cause : la couleur de la couche `live-gdelt` = `step` sur `tone`, or geo-news n'a pas de `tone` → " +
+      "mis à `''` (chaîne) → `step` plante → MapLibre retombe sur sa couleur par défaut NOIRE. Fix : `tone` piloté par un " +
+      "NOMBRE (repli sur `goldstein` = −6 conflit → rouge) + `to-number` de blindage dans l'expression + points plus " +
+      "opaques/gros (0.85, r4→8). Géopolitique enfin lisible sur la carte.",
+  },
   {
     version: 'V4.076-dev',
     date: '2026-07-12',

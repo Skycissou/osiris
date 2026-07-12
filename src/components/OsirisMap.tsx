@@ -898,12 +898,14 @@ function OsirisMap({
         type: 'circle',
         source: 'live-gdelt',
         paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 3, 8, 7],
-          // tonalité GDELT : très négatif → rouge, positif → vert, sinon ambre.
-          'circle-color': ['step', ['coalesce', ['get', 'tone'], 0], '#db6f78', -2, '#d6a445', 2, '#5bc78d'],
-          'circle-opacity': 0.6,
-          'circle-stroke-width': 1,
-          'circle-stroke-color': '#070a0f',
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 4, 8, 8],
+          // Gravité : très négatif → rouge, positif → vert, sinon ambre. `to-number`
+          // avec repli 0 = BLINDAGE (une valeur non-numérique, ex. '' quand la source
+          // n'a pas de `tone`, ferait planter `step` → points NOIRS par défaut, bug 12/07).
+          'circle-color': ['step', ['to-number', ['get', 'tone'], 0], '#db6f78', -2, '#d6a445', 2, '#5bc78d'],
+          'circle-opacity': 0.85,
+          'circle-stroke-width': 1.2,
+          'circle-stroke-color': '#0b0f16',
         },
         layout: { visibility: 'none' },
       });
@@ -1313,7 +1315,11 @@ function OsirisMap({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: [g.lng, g.lat] },
         properties: {
-          title: g.title ?? '', name: g.name ?? '', tone: g.tone ?? '', url: g.url ?? '',
+          title: g.title ?? '', name: g.name ?? '', url: g.url ?? '',
+          // `tone` DOIT rester un NOMBRE (piloté par le style `step`). La source
+          // geo-news n'a pas de `tone` → on retombe sur `goldstein` (−6 = conflit
+          // → rouge), sinon 0 (ambre). Jamais de chaîne ici (sinon points noirs).
+          tone: typeof g.tone === 'number' ? g.tone : (typeof g.goldstein === 'number' ? g.goldstein : 0),
           goldstein: g.goldstein ?? '', actor1: g.actor1 ?? '', actor2: g.actor2 ?? '',
         },
       }));
