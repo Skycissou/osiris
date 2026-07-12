@@ -19,9 +19,10 @@
 import { recordCall } from '@/lib/telemetry';
 import type { GeoConflictEvent } from '@/lib/acledEvents';
 
+// Requête simple et robuste (même pattern que le fil News qui MARCHE depuis le VPS).
 const RSS_URL =
   'https://news.google.com/rss/search?q=' +
-  encodeURIComponent('guerre OR conflit OR frappe OR offensive OR bombardement OR affrontements OR "cessez-le-feu" when:3d') +
+  encodeURIComponent('guerre OR conflit OR frappe OR offensive when:7d') +
   '&hl=fr&gl=FR&ceid=FR:fr';
 const TIMEOUT_MS = 12000;
 const CACHE_TTL_MS = 20 * 60_000;

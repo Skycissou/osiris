@@ -46,6 +46,32 @@ const EUROPE_RING: Ring = [
 
 const EMPTY_FC = { type: 'FeatureCollection' as const, features: [] as unknown[] };
 
+// ── Test « point dans la région » (pour SCOPER les données, pas juste la vue) ──
+function pointInRing(lng: number, lat: number, ring: Ring): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    const hit = yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+    if (hit) inside = !inside;
+  }
+  return inside;
+}
+function pointInBox(lng: number, lat: number, ring: Ring): boolean {
+  let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;
+  for (const [x, y] of ring) { w = Math.min(w, x); e = Math.max(e, x); s = Math.min(s, y); n = Math.max(n, y); }
+  return lng >= w && lng <= e && lat >= s && lat <= n;
+}
+
+/** Un point est-il DANS la région ? France = forme réelle (métropole + Corse) →
+ *  « que la France ». Europe = fenêtre. null (Monde) = tout passe. */
+export function isInRegion(lng: number, lat: number, region: SpotlightRegion): boolean {
+  if (!region) return true;
+  if (typeof lng !== 'number' || typeof lat !== 'number' || !Number.isFinite(lng) || !Number.isFinite(lat)) return false;
+  if (region === 'france') return pointInRing(lng, lat, FRANCE_RING) || pointInBox(lng, lat, CORSICA_RING);
+  return pointInBox(lng, lat, EUROPE_RING);
+}
+
 /** GeoJSON du masque pour la région (ou vide si aucune → pas d'assombrissement). */
 export function spotlightMask(region: SpotlightRegion) {
   if (!region) return EMPTY_FC;

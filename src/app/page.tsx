@@ -27,6 +27,7 @@ import { applyFilter, DEFAULT_FILTERS, type LayerFilters } from '@/lib/layerFilt
 import { useKeyboardShortcuts } from '@/lib/shortcuts';
 import type { ViewPreset } from '@/lib/viewPresets';
 import type { SpotlightRegion } from '@/lib/spotlightMasks';
+import { isInRegion } from '@/lib/spotlightMasks';
 import { buildShareUrl, copyShareUrl } from '@/lib/shareLink';
 
 // Cockpit servi sous basePath (/cockpit) → l'utilisateur arrive DÉJÀ loggué via la
@@ -294,14 +295,17 @@ export default function Dashboard() {
       try {
         const r = await fetch(`${BASE_PATH}/live-feed/diag`, { cache: 'no-store', credentials: 'include' });
         if (!r.ok) return;
-        const j = (await r.json()) as { telemetry?: { sources?: Record<string, { ok?: number; lastStatus?: number; lastNote?: string }> } };
+        const j = (await r.json()) as { telemetry?: { sources?: Record<string, { ok?: number; lastStatus?: number; lastNote?: string; lastCount?: number }> } };
         const src = j.telemetry?.sources || {};
         const statusOf = (names: string[]): ConnState => {
-          const items = names.map((n) => src[n]).filter(Boolean) as { ok?: number; lastStatus?: number; lastNote?: string }[];
+          const items = names.map((n) => src[n]).filter(Boolean) as { ok?: number; lastStatus?: number; lastNote?: string; lastCount?: number }[];
           if (!items.length) return 'wait';
-          const bad = (s: { ok?: number; lastNote?: string }) => (s.ok || 0) === 0 || /fail|abort|timeout/i.test(s.lastNote || '');
-          if (items.some((s) => s.lastStatus === 200 && (s.ok || 0) > 0 && !/fail|abort|timeout/i.test(s.lastNote || ''))) return 'ok';
-          if (items.every(bad)) return 'fail';
+          const failed = (s: { ok?: number; lastNote?: string }) => (s.ok || 0) === 0 || /fail|abort|timeout/i.test(s.lastNote || '');
+          // 🟢 connecté ET des données ; 🟠 connecté mais 0 donnée (lastCount===0) ;
+          // 🔴 aucune source ne répond. (Honnête : « 200 mais vide » ≠ ops.)
+          if (items.some((s) => s.lastStatus === 200 && (s.ok || 0) > 0 && s.lastCount !== 0 && !/fail|abort|timeout/i.test(s.lastNote || ''))) return 'ok';
+          if (items.some((s) => s.lastStatus === 200 && !/fail|abort|timeout/i.test(s.lastNote || ''))) return 'wait';
+          if (items.every(failed)) return 'fail';
           return 'wait';
         };
         const next: Record<string, ConnState> = {};
@@ -628,6 +632,16 @@ export default function Dashboard() {
     openDossier(coords);
   }, [openDossier]);
 
+  // Scope RÉGIONAL (demande Cissou) : en vue France/Europe, on ne garde QUE les
+  // points DANS la région (forme réelle de la France) pour les couches d'ambiance
+  // → « que la France » + gain de puissance. Les ALERTES ne sont JAMAIS filtrées
+  // (toujours mondiales). null (Monde) → tout passe (early-return, coût nul).
+  const inReg = <T extends { lat?: number; lng?: number; lon?: number }>(arr: T[] | undefined): T[] => {
+    const a = Array.isArray(arr) ? arr : [];
+    if (!spotlight) return a;
+    return a.filter((p) => isInRegion((typeof p.lng === 'number' ? p.lng : p.lon) as number, p.lat as number, spotlight));
+  };
+
   // Écran d'accès tant que non authentifié (null = check en cours → rien).
   if (authed === null) return <main className="fixed inset-0 bg-[var(--bg)]" />;
   if (!authed) return <LoginGate onAuthed={handleAuthed} />;
@@ -643,14 +657,14 @@ export default function Dashboard() {
         <OsirisMap
           data={data}
           activeLayers={activeLayers}
-          aircraft={fAircraft}
-          earthquakes={fEarthquakes}
-          wildfires={wildfires}
-          volcanoes={volcanoes}
-          satellites={satellites}
-          ships={fShips}
-          gdelt={fGdelt}
-          cyber={fCyber}
+          aircraft={inReg(fAircraft)}
+          earthquakes={inReg(fEarthquakes)}
+          wildfires={inReg(wildfires)}
+          volcanoes={inReg(volcanoes)}
+          satellites={inReg(satellites)}
+          ships={inReg(fShips)}
+          gdelt={inReg(fGdelt)}
+          cyber={inReg(fCyber)}
           alerts={filteredAlerts}
           sensitive={sensitive}
           onAircraftClick={handleAircraftClick}
@@ -1019,7 +1033,13 @@ export default function Dashboard() {
                     {activeLayers[o.key] && <span className="w-1.5 h-1.5 bg-[var(--bg)] rounded-[1px]" />}
                   </span>
                   <span className={`text-[11px] font-mono ${activeLayers[o.key] ? 'text-white' : 'text-white/60'}`}>{o.label}</span>
-                  <ConnLED status={connStatus[o.key]} />
+                  {/* Alertes : voyant dérivé de la fraîcheur de synchro (health),
+                      pas du diag live-feed (endpoint séparé). */}
+                  <ConnLED status={o.key === 'live_alerts'
+                    ? (alertsHealth?.last_sync_at
+                        ? (Date.now() - alertsHealth.last_sync_at < 45 * 60_000 ? 'ok' : 'wait')
+                        : (alertsHealth ? 'fail' : undefined))
+                    : connStatus[o.key]} />
                 </button>
               ))}
             </div>
