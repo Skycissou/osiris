@@ -29,6 +29,7 @@ import type { ViewPreset } from '@/lib/viewPresets';
 import type { SpotlightRegion } from '@/lib/spotlightMasks';
 import { isInRegion } from '@/lib/spotlightMasks';
 import { buildShareUrl, copyShareUrl } from '@/lib/shareLink';
+import DebugPanel from '@/components/DebugPanel';
 
 // Cockpit servi sous basePath (/cockpit) → l'utilisateur arrive DÉJÀ loggué via la
 // V3 (cookie httponly même-domaine couvre /search). Dans ce mode on court-circuite
@@ -1177,6 +1178,10 @@ export default function Dashboard() {
           ☰
         </button>
       )}
+
+      {/* ── Panneau de debug interne (invention #15) — bouton discret bas-droite,
+          rend lisible la télémétrie du diag DANS l'app. ── */}
+      <DebugPanel />
     </main>
   );
 }

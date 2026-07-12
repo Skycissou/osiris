@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.072-dev';
+export const OSIRIS_VERSION = 'V4.073-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.073-dev',
+    date: '2026-07-12',
+    resume:
+      "🐞 Panneau de debug interne (invention #15 du Brain, standard phase BUILD) : bouton discret 🐞 en bas de page → " +
+      "rend LISIBLE la télémétrie du diag DANS l'app (source amont, lastCount, ok/ko, HTTP, âge, clés .env). Verdict par " +
+      "source : 🟢 données · 🟠 200-mais-vide · 🔴 échec · ⚪ jamais appelée. Répond à « je ne vois pas l'onglet diag » et " +
+      "sert à débugger la géopolitique (geo-news lastCount visible d'un coup d'œil). Lecture seule, valeurs de clés jamais exposées.",
+  },
   {
     version: 'V4.072-dev',
     date: '2026-07-12',
