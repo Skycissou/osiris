@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.074-dev';
+export const OSIRIS_VERSION = 'V4.075-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,18 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.075-dev',
+    date: '2026-07-12',
+    resume:
+      "🌍 Géopolitique réparée (diagnostic capsule debug V4.074) : la couche géo (geo-news) était STARVÉE — dans le feed lent, " +
+      "elle s'exécutait séquentiellement APRÈS celestrak, bloqué depuis l'IP VPS (~60 s de timeout) → geo-news + cyber jamais " +
+      "atteints (0 point, absents de la télémétrie). Fix : (1) satellites/géopolitique/cyber fetchés EN PARALLÈLE (une source " +
+      "morte ne prive plus les autres) ; (2) timeout celestrak court (8 s au lieu de 30) ; (3) bug `/live-feed/critical` 404 " +
+      "à chaque montage → seed via `/live-feed/slow` (plus de 404 + couches lourdes affichées dès le montage, pas après 120 s). " +
+      "+ 🐞 Capsule debug v1.1 : onglet App en LIVE (auto-refresh 5 s) — le rapport à l'ouverture était un snapshot du warmup " +
+      "(faux bugs 404/429 transitoires ou bugs ratés). Badge « 🟢 LIVE ».",
+  },
   {
     version: 'V4.074-dev',
     date: '2026-07-12',

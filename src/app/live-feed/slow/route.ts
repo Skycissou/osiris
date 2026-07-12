@@ -106,17 +106,23 @@ const G_TLE = globalThis as unknown as { __osirisTleCache?: { ts: number; blob: 
 if (G_TLE.__osirisTleCache === undefined) G_TLE.__osirisTleCache = null;
 
 /** Téléchargement réel du blob TLE (groupes, repli seed CATNR). Throw si vide. */
+// Celestrak est BLOQUÉ depuis l'IP VPS (constat diag 12/07) → chaque appel part
+// en timeout. Avec le timeout global de 30 s, `getTleBlob` bloquait ~60 s et
+// PRIVAIT la géopolitique + le cyber (fetchés après lui). Timeout court dédié →
+// échec rapide, la couche satellites dégrade en vide sans pénaliser les autres.
+const CELESTRAK_TIMEOUT_MS = 8_000;
+
 async function downloadTleBlob(): Promise<string> {
   const tleTexts = await Promise.all(
     CELESTRAK_GROUPS.map((g) =>
-      fetchText(CELESTRAK_GROUP_TMPL.replace('{GROUP}', encodeURIComponent(g)), 'celestrak'),
+      fetchText(CELESTRAK_GROUP_TMPL.replace('{GROUP}', encodeURIComponent(g)), 'celestrak', CELESTRAK_TIMEOUT_MS),
     ),
   );
   let blob = tleTexts.filter((t): t is string => t !== null).join('\n');
   if (blob.trim().length === 0) {
     const seed = await Promise.all(
       SATS_SUIVIS.map((s) =>
-        fetchText(CELESTRAK_GP_TMPL.replace('{CATNR}', encodeURIComponent(s.id)), 'celestrak'),
+        fetchText(CELESTRAK_GP_TMPL.replace('{CATNR}', encodeURIComponent(s.id)), 'celestrak', CELESTRAK_TIMEOUT_MS),
       ),
     );
     blob = seed.filter((t): t is string => t !== null).join('\n');
@@ -398,9 +404,9 @@ const keyOf = (req: Request, service: string, env?: string) =>
   (env ? process.env[env] : undefined) ||
   '';
 
-async function fetchText(url: string, source?: string): Promise<string | null> {
+async function fetchText(url: string, source?: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<string | null> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const started = Date.now();
   try {
     const res = await safeFetch(url, {
@@ -760,43 +766,33 @@ export async function GET(request: NextRequest) {
   //  computeSatellites(). Fetchs en parallèle (poignée de sats, poll 120 s).
   //  Dégradation douce : une source morte → ce satellite manque simplement ;
   //  toutes mortes ou lib qui jette → satellites = []. Jamais de 500.
+  //  ── 4/5/6) SATELLITES · GÉOPOLITIQUE · CYBER — EN PARALLÈLE ──────────────
+  //  Ces 3 sources sont INDÉPENDANTES. Avant (fix 12/07) elles étaient `await`
+  //  séquentiels : celestrak bloqué depuis le VPS (~60 s de timeout) PRIVAIT la
+  //  géopolitique + le cyber, qui ne s'exécutaient jamais → 0 point géopo, et
+  //  `geo-news` n'apparaissait même pas dans la télémétrie. En parallèle, une
+  //  source lente/morte ne pénalise plus les autres (latence = la plus lente,
+  //  bornée par les timeouts). Chacune dégrade en couche vide sur erreur.
+  //  GÉOPO — deux régimes (décision Cissou 12/07) :
+  //   • clé ACLED présente → ACLED (conflits armés) = build ARPD (licence non-commerciale).
+  //   • sinon → source OPEN / commercial-safe (actu conflits + gazetteer), qui
+  //     marche depuis le VPS (contrairement à GDELT, bloqué) → filtre jamais vide.
+  const [tleBlob, gdelt, feodoText] = await Promise.all([
+    // TLE via cache 6 h + stale 3 j ; celestrak bloqué VPS → timeout court, vide.
+    getTleBlob().catch(() => ''),
+    (acledConfigured() ? getAcledEvents() : getOpenGeopoliticsEvents()).catch(() => [] as GdeltEvent[]),
+    // CYBER — abuse.ch Feodo Tracker : indicateurs PUBLICS de C2 (cadre DÉFENSIF).
+    fetchText(FEODO_C2_JSON, 'abuse.ch'),
+  ]);
+  void getGdeltEvents; // ancien chemin GDELT conservé pour référence (bloqué VPS)
+
   let satellites: SatPosition[] = [];
   try {
-    // TLE via cache 6 h + stale 3 j (fini le martelage de celestrak, fix 07/07).
-    // Positions RECALCULÉES à chaque requête (SGP4, instant unique) depuis le blob
-    // caché → mouvement live conservé sans re-télécharger.
-    const blob = await getTleBlob();
-    if (blob.trim().length > 0) {
-      satellites = computeSatellites(blob, new Date()).slice(0, SAT_MAX_POINTS);
-    }
+    // Positions RECALCULÉES à chaque requête (SGP4, instant unique) depuis le blob.
+    if (tleBlob.trim().length > 0) satellites = computeSatellites(tleBlob, new Date()).slice(0, SAT_MAX_POINTS);
   } catch {
     satellites = []; // toute erreur inattendue → couche vide, la route tient
   }
-
-  // ── 5) GÉOPOLITIQUE — GDELT 2.0 GEO (GeoJSON, gratuit, sans clé) ──────────
-  //  Points chauds média mondiaux < 24 h pour GDELT_QUERY (configurable en tête
-  //  de fichier). Source KO / JSON invalide → couche vide, la route tient.
-  //  ⚠️ SOURCE CHANGÉE le 07/07 (V4.020, GO Cissou) : l'API GEO interactive de
-  //  GDELT renvoie un vrai 404 (morte/retirée — la couche n'a jamais affiché).
-  //  → FICHIERS export 15-min de data.gdeltproject.org via lib/gdeltEvents
-  //  (cache 15 min + stale-on-error, même forme GdeltEvent — carte inchangée).
-  //  L'ancien chemin (GDELT_GEO_TMPL/GDELT_QUERY/parseGdelt) reste archivé ici.
-  //  GÉOPO — deux régimes (décision Cissou 12/07) :
-  //   • clé ACLED présente → ACLED (conflits armés, à jour) = build ARPD (licence
-  //     NON-commerciale, réservé à l'usage association).
-  //   • sinon → source OPEN / commercial-safe (actu conflits + gazetteer), qui
-  //     marche depuis le VPS (contrairement à GDELT, bloqué) → filtre jamais vide.
-  const gdelt: GdeltEvent[] = acledConfigured()
-    ? await getAcledEvents().catch(() => [])
-    : await getOpenGeopoliticsEvents().catch(() => []);
-  void getGdeltEvents; // ancien chemin GDELT conservé pour référence (bloqué VPS)
-
-  // ── 6) CYBER — abuse.ch Feodo Tracker (JSON, gratuit, sans clé) ───────────
-  //  CADRE DÉFENSIF : indicateurs PUBLICS de menace (serveurs C2 de botnets),
-  //  destinés à la veille / au blocage / à la cartographie de la menace — JAMAIS
-  //  à une exploitation offensive. Pas de coordonnées dans la source → géoloc
-  //  par centroïde pays (COUNTRY_CENTROIDS). Source KO → couche vide.
-  const feodoText = await fetchText(FEODO_C2_JSON, 'abuse.ch');
   const cyber: CyberC2[] = feodoText ? parseFeodo(feodoText) : [];
 
   // ── ETag conditionnel : 304 si le client renvoie l'ETag courant ───────────

@@ -68,7 +68,11 @@ export interface DataPollingOptions {
 const DEFAULTS = {
   fastUrl: '/live-feed/fast',
   slowUrl: '/live-feed/slow',
-  criticalUrl: '/live-feed/critical',
+  // Seed au montage. `/live-feed/critical` n'a JAMAIS existé → 404 à chaque mount
+  // (repéré via la capsule debug, 12/07). On seed avec `/live-feed/slow` : plus de
+  // 404 ET les couches lourdes (géopolitique, séismes, cyber…) s'affichent dès le
+  // montage au lieu d'attendre le 1er poll lent (jusqu'à 120 s).
+  criticalUrl: '/live-feed/slow',
   fastIntervalMs: 15_000,
   slowIntervalMs: 120_000,
   denseEndpoints: ['fast'] as ('fast' | 'slow')[],

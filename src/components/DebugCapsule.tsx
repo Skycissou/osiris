@@ -1,7 +1,9 @@
 "use client";
-// 🐞 DebugCapsule v1.0 — capsule debug standard (invention #15 devenue composant)
+// 🐞 DebugCapsule v1.1 — capsule debug standard (invention #15 devenue composant)
 // Source canonique : claude-brain → capsules/debug-capsule/ · Règle : améliorer ICI puis re-copier, jamais de fork.
 // Zéro dépendance · styles inline · lecture seule · rien ne quitte l'appareil.
+// v1.1 : onglet App en LIVE (auto-refresh) — le rapport à l'ouverture était un
+//        snapshot du warmup (faux bugs / manques le temps que l'app charge).
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { CSSProperties, ReactNode } from "react";
@@ -19,6 +21,8 @@ type Props = {
   getAppDiag?: () => Promise<unknown>;
   /** Rendu custom de l'onglet App (ex. OSIRIS : table sources/verdicts/âge). Défaut = JSON brut. Le rapport copié reste le JSON (agent-friendly). */
   renderAppDiag?: (diag: unknown) => ReactNode;
+  /** Rafraîchit le diag de l'onglet App à cet intervalle (ms) tant qu'il est ouvert → vue LIVE, pas le snapshot du warmup. 0 = off. Défaut 5 s. */
+  liveRefreshMs?: number;
 };
 
 const truncate = (s: string, n: number) => (s.length > n ? s.slice(0, n) + "…" : s);
@@ -41,12 +45,14 @@ export default function DebugCapsule({
   maxEvents = 80,
   getAppDiag,
   renderAppDiag,
+  liveRefreshMs = 5000,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"events" | "app" | "infos">("events");
   const [tick, setTick] = useState(0); // re-render quand le buffer bouge
   const [copied, setCopied] = useState(false);
   const [appDiag, setAppDiag] = useState<unknown>(null);
+  const [diagAt, setDiagAt] = useState<number>(0); // horodatage du dernier diag (badge LIVE)
   const buf = useRef<Item[]>([]);
 
   const push = useCallback(
@@ -111,8 +117,20 @@ export default function DebugCapsule({
       setAppDiag(await getAppDiag());
     } catch (e) {
       setAppDiag({ erreur: "getAppDiag KO", detail: toStr(e) });
+    } finally {
+      setDiagAt(Date.now());
     }
   }, [getAppDiag]);
+
+  // Onglet App en LIVE : tant que le panneau est ouvert SUR l'onglet App, on
+  // re-fetch le diag à intervalle → la vue reflète l'état COURANT, pas le snapshot
+  // du chargement (sinon faux bugs / manques pendant le warmup de l'app).
+  useEffect(() => {
+    if (!open || tab !== "app" || !getAppDiag || liveRefreshMs <= 0) return;
+    void refreshDiag();
+    const id = setInterval(() => void refreshDiag(), liveRefreshMs);
+    return () => clearInterval(id);
+  }, [open, tab, getAppDiag, liveRefreshMs, refreshDiag]);
 
   const buildReport = useCallback(() => {
     const items = buf.current;
@@ -196,7 +214,17 @@ export default function DebugCapsule({
                 {it.detail && <div style={{ color: "#94a3b8" }}>{it.detail}</div>}
               </div>
             )))}
-            {tab === "app" && (appDiag == null ? "Chargement du diag…" : renderAppDiag ? renderAppDiag(appDiag) : toStr(appDiag, 6000))}
+            {tab === "app" && (
+              <>
+                {getAppDiag && liveRefreshMs > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontSize: 11, color: "#7cffb2" }}>
+                    <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: 99, background: "#7cffb2", boxShadow: "0 0 6px #7cffb2" }} />
+                    LIVE — auto {Math.round(liveRefreshMs / 1000)} s{diagAt ? ` · maj il y a ${Math.max(0, Math.round((Date.now() - diagAt) / 1000))} s` : ""}
+                  </div>
+                )}
+                {appDiag == null ? "Chargement du diag…" : renderAppDiag ? renderAppDiag(appDiag) : toStr(appDiag, 6000)}
+              </>
+            )}
             {tab === "infos" && [`App : ${appName} v${version}`, `URL : ${typeof window !== "undefined" ? window.location.href : ""}`, `UA : ${typeof navigator !== "undefined" ? navigator.userAgent : ""}`, `Écran : ${typeof window !== "undefined" ? window.innerWidth + "×" + window.innerHeight : ""}`].join("\n")}
           </div>
           <div style={S.foot}>
