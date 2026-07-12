@@ -227,7 +227,7 @@ interface OsirisMapProps {
    *  chaque fin de déplacement. Branchée sur live.setBBox : les couches denses
    *  (avions…) suivent la carte au lieu de rester figées sur la France. */
   onBoundsChange?: (bbox: [number, number, number, number]) => void;
-  flyToLocation?: { lat: number; lng: number; ts: number } | null;
+  flyToLocation?: { lat: number; lng: number; ts: number; zoom?: number } | null;
   projection?: 'mercator' | 'globe';
   /** Fond : 'dark' (CARTO) · 'satellite' (ArcGIS) · 'ign' (Plan IGN) · 'scan25' · 'ortho' (ortho IGN). */
   mapStyle?: string;
@@ -1406,7 +1406,9 @@ function OsirisMap({
   // ── Fly-to ──
   useEffect(() => {
     if (!mapReady || !mapRef.current || !flyToLocation) return;
-    mapRef.current.flyTo({ center: [flyToLocation.lng, flyToLocation.lat], zoom: 8, duration: 2000 });
+    // Zoom du preset (France ~5, Europe ~3.6, Monde ~1.6) ; repli 8 pour un
+    // simple recentrage (recherche, clic « voler vers »).
+    mapRef.current.flyTo({ center: [flyToLocation.lng, flyToLocation.lat], zoom: flyToLocation.zoom ?? 8, duration: 2000 });
   }, [mapReady, flyToLocation]);
 
   // ── Bascule projection globe / mercator (+ sky sur globe) ──

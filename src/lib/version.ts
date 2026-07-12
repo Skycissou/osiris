@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.066-dev';
+export const OSIRIS_VERSION = 'V4.067-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,14 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.067-dev',
+    date: '2026-07-12',
+    resume:
+      "🧭 Cockpit — 3 VUES (🇫🇷 France / 🇪🇺 Europe / 🌍 Monde) avec le bon zoom (le zoom des presets était " +
+      "ignoré, tout allait à zoom 8) + VOYANTS de connexion LIVE à côté des couches temps réel : 🟢 connecté/ops " +
+      "· 🔴 pas connecté · 🟠 en cours, animés (vert/orange moulinent), dérivés du diag (poll 20 s). Demandes Cissou.",
+  },
   {
     version: 'V4.066-dev',
     date: '2026-07-10',

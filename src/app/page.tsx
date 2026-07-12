@@ -132,6 +132,34 @@ const LIVE_OPTS: { key: string; label: string; title: string }[] = [
   { key: 'live_cyber', label: 'Cyber (C2) 🛡️', title: 'Serveurs C2 malware — abuse.ch public, sans clé (veille défensive)' },
   { key: 'live_alerts', label: 'Alertes disparitions 🟡', title: 'Avis de recherche officiels (Interpol Yellow, 116000) — repérés sur la carte' },
 ];
+// ── Voyants de connexion (demande Cissou) : chaque couche live → source(s)
+//  amont dans la télémétrie du diag. 🟢 connecté/ops · 🔴 pas connecté · 🟠 en
+//  cours/incertain. Volcans/Navires/Alertes n'ont pas de source télémétrée ici. ──
+const CONN_SOURCES: Record<string, string[]> = {
+  live_aircraft: ['adsb.lol', 'opensky'],
+  live_earthquakes: ['USGS'],
+  live_wildfires: ['FIRMS'],
+  live_satellites: ['celestrak'],
+  live_gdelt: ['gdelt-export'],
+  live_cyber: ['abuse.ch'],
+};
+type ConnState = 'ok' | 'fail' | 'wait';
+
+/** Petit voyant animé : vert/orange « moulinent » (vivant), rouge statique. */
+function ConnLED({ status }: { status?: ConnState }) {
+  if (!status) return null;
+  const color = status === 'ok' ? '#7cffb2' : status === 'fail' ? '#ff5a5a' : '#ffb23e';
+  const label = status === 'ok' ? 'connecté (ops)' : status === 'fail' ? 'pas connecté' : 'en cours…';
+  return (
+    <span
+      title={label}
+      aria-label={label}
+      className={'ml-auto ' + (status === 'fail' ? '' : 'animate-pulse')}
+      style={{ width: 8, height: 8, borderRadius: 99, background: color, boxShadow: `0 0 6px ${color}`, display: 'inline-block', flexShrink: 0 }}
+    />
+  );
+}
+
 // Couches sensibles (forme 2 — enquêteur, opt-in + consentement, cadre ARPD).
 const SENSITIVE_OPTS: { key: string; label: string; title: string }[] = [
   { key: 'sens_military_bases', label: 'Bases militaires', title: 'Bases militaires — OpenStreetMap/Overpass (public, sans clé)' },
@@ -188,7 +216,7 @@ export default function Dashboard() {
   const [plottedCount, setPlottedCount] = useState<number | null>(null);
   const [showResults, setShowResults] = useState(false);
 
-  const [flyToLocation, setFlyToLocation] = useState<{ lat: number; lng: number; ts: number } | null>(null);
+  const [flyToLocation, setFlyToLocation] = useState<{ lat: number; lng: number; ts: number; zoom?: number } | null>(null);
   const [locationLabel, setLocationLabel] = useState('');
   const [mapProjection, setMapProjection] = useState<'globe' | 'mercator'>('mercator');
   // ── Menu de couches (panneau dépliable) ──
@@ -256,6 +284,36 @@ export default function Dashboard() {
     const id = setInterval(() => void loadAlerts(), 90_000);
     return () => { clearTimeout(kick); clearInterval(id); };
   }, [activeLayers.live_alerts, loadAlerts]);
+  // ── Voyants de connexion : poll léger du diag (20 s) → statut par couche. ──
+  const [connStatus, setConnStatus] = useState<Record<string, ConnState>>({});
+  useEffect(() => {
+    let stop = false;
+    const load = async () => {
+      try {
+        const r = await fetch(`${BASE_PATH}/live-feed/diag`, { cache: 'no-store', credentials: 'include' });
+        if (!r.ok) return;
+        const j = (await r.json()) as { telemetry?: { sources?: Record<string, { ok?: number; lastStatus?: number; lastNote?: string }> } };
+        const src = j.telemetry?.sources || {};
+        const statusOf = (names: string[]): ConnState => {
+          const items = names.map((n) => src[n]).filter(Boolean) as { ok?: number; lastStatus?: number; lastNote?: string }[];
+          if (!items.length) return 'wait';
+          const bad = (s: { ok?: number; lastNote?: string }) => (s.ok || 0) === 0 || /fail|abort|timeout/i.test(s.lastNote || '');
+          if (items.some((s) => s.lastStatus === 200 && (s.ok || 0) > 0 && !/fail|abort|timeout/i.test(s.lastNote || ''))) return 'ok';
+          if (items.every(bad)) return 'fail';
+          return 'wait';
+        };
+        const next: Record<string, ConnState> = {};
+        for (const [layer, names] of Object.entries(CONN_SOURCES)) next[layer] = statusOf(names);
+        if (!stop) setConnStatus(next);
+      } catch {
+        /* voyants inconnus, jamais de crash */
+      }
+    };
+    void load();
+    const id = setInterval(() => void load(), 20_000);
+    return () => { stop = true; clearInterval(id); };
+  }, []);
+
   // Placement manuel d'un avis (ville/CP/dépt) → géocodé serveur, posé sur la
   // carte, puis on recharge. Renvoie l'erreur éventuelle pour l'UI.
   const placeAlert = useCallback(async (id: string, locality: string): Promise<{ ok: boolean; error?: string }> => {
@@ -417,7 +475,7 @@ export default function Dashboard() {
   }, [activeLayers, lastQuery]);
 
   const handleSelectPreset = useCallback((p: ViewPreset) => {
-    setFlyToLocation({ lat: p.lat, lng: p.lng, ts: Date.now() });
+    setFlyToLocation({ lat: p.lat, lng: p.lng, ts: Date.now(), zoom: p.zoom });
   }, []);
 
   // ── Raccourcis clavier (c/r/o/t/v/p/Échap) — cf. lib/shortcuts.ts. Objet
@@ -955,6 +1013,7 @@ export default function Dashboard() {
                     {activeLayers[o.key] && <span className="w-1.5 h-1.5 bg-[var(--bg)] rounded-[1px]" />}
                   </span>
                   <span className={`text-[11px] font-mono ${activeLayers[o.key] ? 'text-white' : 'text-white/60'}`}>{o.label}</span>
+                  <ConnLED status={connStatus[o.key]} />
                 </button>
               ))}
             </div>

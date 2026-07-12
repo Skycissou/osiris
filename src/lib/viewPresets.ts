@@ -54,18 +54,15 @@ export interface ViewPreset {
  * géographiques usuels), zoom indicatif adapté à l'emprise de chaque zone.
  */
 export const VIEW_PRESETS: readonly ViewPreset[] = [
-  // Vue nationale par défaut — même point que le bouton « FR » du cockpit.
-  { id: 'france', label: 'France entière', lat: 46.6, lng: 2.35, zoom: 5.2 },
-  // Capitale.
+  // ── 3 vues principales (demande Cissou) : France · Europe · Monde ──────────
+  { id: 'france', label: '🇫🇷 France', lat: 46.6, lng: 2.35, zoom: 5.2 },
+  { id: 'europe', label: '🇪🇺 Europe', lat: 50, lng: 10, zoom: 3.6 },
+  { id: 'monde', label: '🌍 Monde', lat: 20, lng: 5, zoom: 1.6 },
+  // ── Zones fréquentes (bonus ARPD / Occitanie) ─────────────────────────────
   { id: 'paris', label: 'Paris', lat: 48.8566, lng: 2.3522, zoom: 11 },
-  // Occitanie (centrée sur Toulouse) — territoire de référence ARPD.
   { id: 'occitanie', label: 'Occitanie (Toulouse)', lat: 43.6045, lng: 1.444, zoom: 8 },
-  // Façade méditerranéenne (golfe du Lion).
   { id: 'mediterranee', label: 'Méditerranée', lat: 42.5, lng: 4.5, zoom: 6 },
-  // Façade Manche / Atlantique (approche des côtes ouest et nord).
   { id: 'manche_atlantique', label: 'Manche / Atlantique', lat: 47.5, lng: -3.5, zoom: 6 },
-  // Vue planétaire (dézoom maximal, centre nul).
-  { id: 'monde', label: 'Monde', lat: 0, lng: 0, zoom: 1.4 },
 ] as const;
 
 // ── Stockage des presets custom (SSR-safe, jamais de throw) ───────────────────
