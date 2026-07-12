@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.073-dev';
+export const OSIRIS_VERSION = 'V4.074-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.074-dev',
+    date: '2026-07-12',
+    resume:
+      "🐞 Fusion capsule debug (invention #15 devenue composant canonique du brain `capsules/debug-capsule/`, v1.0) : " +
+      "UN seul bouton 🐞 en bas-gauche remplace le panneau V4.073. La capsule capture les erreurs client " +
+      "(console, exceptions JS, promesses rejetées, fetch HTTP≥400/réseau) et génère un 📋 rapport markdown copiable " +
+      "prêt à coller à un agent — plus besoin de copier du JSON à la main. L'onglet « App » rend le moniteur des sources " +
+      "V4.073 (lastCount/HTTP/âge/verdicts + clés .env) via renderAppDiag. ON par défaut (staging), gate NEXT_PUBLIC_DEBUG_CAPSULE=0.",
+  },
   {
     version: 'V4.073-dev',
     date: '2026-07-12',

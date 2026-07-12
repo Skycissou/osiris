@@ -29,7 +29,8 @@ import type { ViewPreset } from '@/lib/viewPresets';
 import type { SpotlightRegion } from '@/lib/spotlightMasks';
 import { isInRegion } from '@/lib/spotlightMasks';
 import { buildShareUrl, copyShareUrl } from '@/lib/shareLink';
-import DebugPanel from '@/components/DebugPanel';
+import DebugCapsule from '@/components/DebugCapsule';
+import OsirisDiagView from '@/components/OsirisDiagView';
 
 // Cockpit servi sous basePath (/cockpit) → l'utilisateur arrive DÉJÀ loggué via la
 // V3 (cookie httponly même-domaine couvre /search). Dans ce mode on court-circuite
@@ -1179,9 +1180,20 @@ export default function Dashboard() {
         </button>
       )}
 
-      {/* ── Panneau de debug interne (invention #15) — bouton discret bas-droite,
-          rend lisible la télémétrie du diag DANS l'app. ── */}
-      <DebugPanel />
+      {/* ── Capsule debug (invention #15, composant canonique du brain
+          `capsules/debug-capsule/`) — UN bouton 🐞 bas-gauche : capture les
+          erreurs client + 📋 rapport copiable pour les agents + onglet « App »
+          qui rend le moniteur des sources (ex-V4.073) via renderAppDiag.
+          ON par défaut (staging/pré-auth) ; passer NEXT_PUBLIC_DEBUG_CAPSULE=0
+          pour l'éteindre. À gater par rôle admin quand l'auth V4 sera en place. ── */}
+      <DebugCapsule
+        appName="OSIRIS V4"
+        version={OSIRIS_VERSION}
+        enabled={process.env.NEXT_PUBLIC_DEBUG_CAPSULE !== '0'}
+        position="bottom-left"
+        getAppDiag={() => fetch(`${BASE_PATH}/live-feed/diag`, { cache: 'no-store', credentials: 'include' }).then((r) => r.json())}
+        renderAppDiag={(d) => <OsirisDiagView diag={d} />}
+      />
     </main>
   );
 }

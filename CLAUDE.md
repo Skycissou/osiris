@@ -2,6 +2,20 @@
 
 > Lu automatiquement par Claude Code à chaque session. NE PAS SUPPRIMER.
 
+> ## 🆔 DEUX ENTITÉS DISTINCTES — lis ça avant tout
+>
+> | | 🟢 **OSIRIS V3 — PROD (gelée)** | 🚀 **OSIRIS V4 — DEV (l'avenir)** |
+> |---|---|---|
+> | Rôle | Prod stable des 3 testeurs · **maintenance only** | **Seule version en développement actif** |
+> | Stack | Python/FastAPI + HTML statique | Next.js 16 + MapLibre |
+> | Code | brain `claude-brain` → `projects/open-radar-fr/` | repo **`Skycissou/osiris`** · branche **`master`** |
+> | URL | `osiris.cissouhub.cloud` (+ `openradar.`) | `osiris-v4.cissouhub.cloud` |
+> | Conteneur | `osiris-v3` | `osiris-v4-cockpit` → cible : app autonome (chantier Émancipation) |
+> | Auth | login cookie V3 (comptes `.env`) | Better Auth + Postgres (brief 2026-07-12) |
+> | Interdits | ❌ aucun nouveau dev ❌ jamais toucher sans GO Cissou | ❌ ne JAMAIS builder/servir depuis les dossiers ou statics V3 |
+>
+> **Règle de langage (tous agents)** : jamais « OSIRIS » tout court dans un handoff/une note → toujours « **V3 (prod)** » ou « **V4 (dev)** ». État courant → brain `notes/infra/deployments-registry.md`.
+
 ## 🗺️ Topologie — règle n°1
 - `master` = V4 courante = LA référence (branche par défaut du repo). Le staging déploie CETTE branche.
 - Branches `backup/*` = points de restauration — ne jamais supprimer.
