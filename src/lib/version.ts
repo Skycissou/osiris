@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.068-dev';
+export const OSIRIS_VERSION = 'V4.069-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.069-dev',
+    date: '2026-07-12',
+    resume:
+      "🌍 Géopolitique — connecteur ACLED (conflits armés mondiaux) à la place de GDELT (bloqué depuis " +
+      "l'IP VPS). Même forme de données (carte inchangée), gravité `goldstein` synthétique depuis le type " +
+      "d'événement + morts. Clé gratuite : ACLED_KEY + ACLED_EMAIL (.env). Sans clé → repli GDELT. " +
+      "Diag + voyant géopo câblés sur `acled`.",
+  },
   {
     version: 'V4.068-dev',
     date: '2026-07-12',

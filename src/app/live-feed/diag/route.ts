@@ -25,6 +25,8 @@ export const dynamic = 'force-dynamic';
 // tronqué ou une variable vide).
 const EXPECTED_ENV_KEYS: { env: string; usage: string }[] = [
   { env: 'FIRMS_MAP_KEY', usage: 'Feux (NASA FIRMS)' },
+  { env: 'ACLED_KEY', usage: 'Géopolitique / conflits (ACLED)' },
+  { env: 'ACLED_EMAIL', usage: 'Géopolitique / conflits (ACLED — email associé)' },
   { env: 'OPENSKY_CLIENT_ID', usage: 'Avions vue monde (OpenSky)' },
   { env: 'OPENSKY_CLIENT_SECRET', usage: 'Avions vue monde (OpenSky)' },
   { env: 'AIS_REST_URL', usage: 'Navires (AIS) — gabarit URL' },

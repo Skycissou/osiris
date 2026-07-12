@@ -49,6 +49,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { safeFetch } from '@/lib/ssrf-guard';
 import { getGdeltEvents } from '@/lib/gdeltEvents';
+import { getAcledEvents, acledConfigured } from '@/lib/acledEvents';
 import { computeSatellites, SATS_SUIVIS, type SatPosition } from '@/lib/satellites';
 import { recordCall } from '@/lib/telemetry';
 import { ensureKeysLoaded, getServerKey } from '@/lib/serverKeyStore';
@@ -766,7 +767,11 @@ export async function GET(request: NextRequest) {
   //  → FICHIERS export 15-min de data.gdeltproject.org via lib/gdeltEvents
   //  (cache 15 min + stale-on-error, même forme GdeltEvent — carte inchangée).
   //  L'ancien chemin (GDELT_GEO_TMPL/GDELT_QUERY/parseGdelt) reste archivé ici.
-  const gdelt: GdeltEvent[] = await getGdeltEvents().catch(() => []);
+  //  GÉOPO : ACLED (conflits armés, clé) en PRIORITÉ — GDELT étant bloqué depuis
+  //  l'IP du VPS. Sans clé ACLED → on retombe sur GDELT (souvent vide côté VPS).
+  const gdelt: GdeltEvent[] = acledConfigured()
+    ? await getAcledEvents().catch(() => [])
+    : await getGdeltEvents().catch(() => []);
 
   // ── 6) CYBER — abuse.ch Feodo Tracker (JSON, gratuit, sans clé) ───────────
   //  CADRE DÉFENSIF : indicateurs PUBLICS de menace (serveurs C2 de botnets),
