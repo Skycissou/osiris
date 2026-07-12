@@ -71,22 +71,25 @@ export async function GET(request: NextRequest) {
 
   const url = `https://api.opensanctions.org/search/default?q=${encodeURIComponent(q)}&limit=${MAX_HITS}`;
 
-  const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': USER_AGENT };
+  const baseHeaders: Record<string, string> = { Accept: 'application/json', 'User-Agent': USER_AGENT };
   // Clé effective (OPTIONNELLE) : en-tête user `x-osiris-key-opensanctions` OU
   // env OPENSANCTIONS_KEY (voir keyOf). Absente → appel anonyme (quota bas).
   const key = keyOf(request, 'opensanctions', 'OPENSANCTIONS_KEY');
-  if (key) headers.Authorization = `ApiKey ${key}`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await safeFetch(url, {
-      method: 'GET',
-      signal: controller.signal,
-      headers,
-      maxRedirects: 2,
-    });
-    if (res.status === 429) return softError('quota OpenSanctions atteint (ajouter OPENSANCTIONS_KEY)');
+    const call = (useKey: boolean) => {
+      const headers = { ...baseHeaders };
+      if (useKey && key) headers.Authorization = `ApiKey ${key}`;
+      return safeFetch(url, { method: 'GET', signal: controller.signal, headers, maxRedirects: 2 });
+    };
+    let res = await call(true);
+    // Clé REJETÉE (401/403) → repli en ANONYME plutôt qu'un échec dur : la requête
+    // a atteint OpenSanctions (donc pas de blocage réseau), l'anonyme marche (quota
+    // bas). La clé de Cissou est probablement invalide/expirée → à régénérer.
+    if ((res.status === 401 || res.status === 403) && key) res = await call(false);
+    if (res.status === 429) return softError('quota OpenSanctions atteint (clé rejetée ou quota anonyme épuisé — vérifier OPENSANCTIONS_KEY)');
     if (!res.ok) return softError(`amont OpenSanctions ${res.status}`);
 
     const payload = (await res.json()) as { results?: RawResult[] };

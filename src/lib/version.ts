@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.079-dev';
+export const OSIRIS_VERSION = 'V4.080-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.080-dev',
+    date: '2026-07-12',
+    resume:
+      "🕵️ OSINT réparé (débug capsule) : (1) BUG — le graphe d'entités appelait `/entity/expand` SANS le basePath " +
+      "`/cockpit` → la requête sortait de l'app Next et tombait sur le backend V3 → **401** ; corrigé (`${BASE_PATH}/entity/expand`). " +
+      "(2) OpenSanctions renvoyait 401 (clé rejetée) → **repli anonyme automatique** (la requête atteint bien OpenSanctions, " +
+      "l'anonyme marche en quota bas) — la clé `OPENSANCTIONS_KEY` de Cissou est à régénérer. (3) HIBP « échec réseau » = " +
+      "haveibeenpwned bloqué depuis l'IP VPS (comme celestrak/GDELT) → infra, pas de fix code (dégrade déjà proprement).",
+  },
   {
     version: 'V4.079-dev',
     date: '2026-07-12',

@@ -47,6 +47,7 @@
 import { memo, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Search, Loader2, Crosshair, RotateCcw } from 'lucide-react';
+import { BASE_PATH } from '@/lib/api';
 
 // ── Types (miroir du contrat de /entity/expand) ──────────────────────────────
 type NodeKind = 'domaine' | 'ip' | 'asn' | 'cert' | 'person' | 'org' | 'registrar' | 'email';
@@ -238,7 +239,9 @@ function EntityGraphPanel({ seed, onClose, isMobile }: EntityGraphPanelProps) {
     const params = new URLSearchParams({ q });
     if (type) params.set('type', type);
     try {
-      const res = await fetch(`/entity/expand?${params.toString()}`, { cache: 'no-store' });
+      // ⚠️ BASE_PATH obligatoire : sans le préfixe `/cockpit`, la requête sort de
+      //  l'app Next et tombe sur le backend V3 (racine) → 401 (bug repéré 12/07).
+      const res = await fetch(`${BASE_PATH}/entity/expand?${params.toString()}`, { cache: 'no-store' });
       if (!res.ok) return null;
       return (await res.json()) as ApiGraph;
     } catch {
