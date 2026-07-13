@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.090-dev';
+export const OSIRIS_VERSION = 'V4.091-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,18 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.091-dev',
+    date: '2026-07-13',
+    resume:
+      "🔎 Moteur de recherche natif — chantier ② Phase 2 (enrichissements, portage `open_radar`, parité stricte). Connecteurs " +
+      "`src/lib/search/connectors2.ts` : **BODACC** (annonces civiles/commerciales par SIREN, alerte procédure collective) · " +
+      "**DVF** (`api.cquest.org`, synthèse territoriale médiane €/m² + mutations, **posture non-nominative** : aucune donnée " +
+      "acheteur/vendeur) · **RNA** (associations via Recherche-Entreprises `est_association=true`, identifiant W). Câblés dans " +
+      "l'orchestrateur (routes rna/bodacc/foncier) → un SIREN rend entreprise + BODACC, une asso rend RNA, un « immobilier <CP> » " +
+      "rend la synthèse foncière. Nouvelle route **`/company/{siren}`** (fiche SIREN = recherche standard). Build vert. Reste : " +
+      "Phase 3 (person/investigate) + Phase 4 (exports/feedback).",
+  },
   {
     version: 'V4.090-dev',
     date: '2026-07-13',
