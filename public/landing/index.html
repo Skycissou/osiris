@@ -8,10 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Orbitron:wght@700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/landing/style.css">
   <meta name="theme-color" content="#070a0f">
-  <link rel="icon" type="image/png" href="assets/favicon.png">
-  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="/landing/assets/favicon.png">
+  <link rel="apple-touch-icon" href="/landing/assets/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="OSIRIS">
@@ -24,19 +24,19 @@
 </head>
 <body>
   <div id="splash">
-    <video id="splash-logo" muted playsinline autoplay preload="auto"><source src="assets/logo.mp4" type="video/mp4"></video>
+    <video id="splash-logo" muted playsinline autoplay preload="auto"><source src="/landing/assets/logo.mp4" type="video/mp4"></video>
     <div class="splash-inner">
       <button id="splash-enter" style="display:none" onclick="enterApp()">ENTRER ▸</button>
     </div>
   </div>
-  <div class="bg" aria-hidden="true"><video class="bg-video" autoplay muted loop playsinline preload="auto"><source src="assets/bg.mp4" type="video/mp4"></video><canvas id="netbg" class="bg-net"></canvas><span class="bg-aura a1"></span><span class="bg-aura a2"></span><span class="bg-scan"></span><span class="bg-vignette"></span></div>
+  <div class="bg" aria-hidden="true"><video class="bg-video" autoplay muted loop playsinline preload="auto"><source src="/landing/assets/bg.mp4" type="video/mp4"></video><canvas id="netbg" class="bg-net"></canvas><span class="bg-aura a1"></span><span class="bg-aura a2"></span><span class="bg-scan"></span><span class="bg-vignette"></span></div>
   <div class="appshell">
     <input type="checkbox" id="navcol" class="navcol-cb" aria-hidden="true">
     <label for="navcol" class="nav-reopen" title="Afficher le menu" aria-label="Afficher le menu">☰</label>
     <nav class="sidenav">
-      <div class="brand"><span class="mark logo-mark"><img class="logo-vid" src="assets/logo-cut.png" alt="OSIRIS"></span><span class="wordmark"><img class="wordmark-img" src="assets/osiris-cut.png" alt="OSIRIS"><span class="wordmark-v">V4</span></span><label for="navcol" class="nav-collapse" title="Replier le menu" aria-label="Replier le menu">«</label></div>
+      <div class="brand"><span class="mark logo-mark"><img class="logo-vid" src="/landing/assets/logo-cut.png" alt="OSIRIS"></span><span class="wordmark"><img class="wordmark-img" src="/landing/assets/osiris-cut.png" alt="OSIRIS"><span class="wordmark-v">V4</span></span><label for="navcol" class="nav-collapse" title="Replier le menu" aria-label="Replier le menu">«</label></div>
       <div class="sidenav-label">Navigation</div>
-      <div class="navlinks"><a href="#accueil">Accueil</a><a href="../">🗺️ Cockpit carte</a><a href="#chercher">Chercher</a><a href="#sources">Sources</a><a href="#recettes">Recettes</a><a href="#prototype">Prototype</a><a href="#rgpd">Garde-fous</a></div>
+      <div class="navlinks"><a href="#accueil">Accueil</a><a href="/cockpit">🗺️ Cockpit carte</a><a href="#chercher">Chercher</a><a href="#sources">Sources</a><a href="#recettes">Recettes</a><a href="#prototype">Prototype</a><a href="#rgpd">Garde-fous</a></div>
       <button type="button" class="nav-fb" onclick="openFeedback()">💬 Feedback / Questions</button>
       <button type="button" class="nav-logout" onclick="osirisLogout()">⏻ Se déconnecter</button>
       <div class="sidenav-foot"><span class="pulse"></span> Données publiques FR</div>
@@ -48,10 +48,10 @@
         <div class="eyebrow"><span class="pulse"></span> Cockpit français des données publiques</div>
         <h1>Le radar simple pour explorer <span class="grad">l’open data FR</span>.</h1>
         <p class="lead">Une interface fun, guidée et lisible pour interroger les API publiques : entreprises, adresses, communes, BODACC, transport, cadastre et datasets data.gouv — avec les limites clairement affichées.</p>
-        <div class="hero-actions"><a class="btn primary" href="../">🗺️ Ouvrir le cockpit carte</a><a class="btn" href="#prototype">Voir la fiche exemple</a><a class="btn" href="#sources">Cartographie API</a></div>
+        <div class="hero-actions"><a class="btn primary" href="/cockpit">🗺️ Ouvrir le cockpit carte</a><a class="btn" href="#prototype">Voir la fiche exemple</a><a class="btn" href="#sources">Cartographie API</a></div>
       </div>
       <div class="radar" aria-label="Radar visuel des sources publiques">
-        <video class="radar-logo" autoplay muted loop playsinline preload="auto"><source src="assets/logo.mp4" type="video/mp4"></video>
+        <video class="radar-logo" autoplay muted loop playsinline preload="auto"><source src="/landing/assets/logo.mp4" type="video/mp4"></video>
         <div class="radar-grid"></div>
         <div class="globe" aria-hidden="true">
           <div class="globe-spin">
@@ -268,6 +268,6 @@
       <div id="fb-status"></div>
     </div>
   </div>
-  <script src="app.js"></script>
+  <script src="/landing/app.js"></script>
 </body>
 </html>

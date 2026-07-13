@@ -207,11 +207,13 @@ export default function Dashboard() {
   // souple en localStorage ; un 401 sur /search y ramène (session expirée).
   const [authed, setAuthed] = useState<boolean | null>(null);
   useEffect(() => {
-    // Sous /cockpit : on considère l'utilisateur authentifié d'emblée (cookie V3).
-    // Un 401 sur une requête le renverra vers /login (V3) — cf. runSearch.
-    // ⚠️ En bypass dev, on NE court-circuite PAS : on montre le LoginGate V4 (voir
-    //  l'orga) puis on retient le clic « Se connecter » en localStorage.
-    if (COCKPIT_MODE && !AUTH_BYPASS) { setAuthed(true); return; }
+    // Émancipation 13/07 : le cockpit est OUVERT d'emblée. La page « voir l'orga /
+    //  accès restreint » est désormais la route dédiée `/login` (V4), plus un
+    //  LoginGate intercalé ici — Cissou ne doit JAMAIS retomber sur un écran d'identifiants
+    //  en cliquant « Cockpit ». En standby (AUTH_BYPASS on) comme sous /cockpit (cookie),
+    //  on entre direct ; un 401 renverra vers /login V4 (cf. runSearch, gated !AUTH_BYPASS).
+    //  Le LoginGate reste importé mais dormant : réactivé le jour de la vraie auth (Lot C).
+    if (COCKPIT_MODE || AUTH_BYPASS) { setAuthed(true); return; }
     setAuthed(typeof window !== 'undefined' && localStorage.getItem('osiris_authed') === '1');
   }, []);
   const handleAuthed = useCallback(() => {
@@ -861,14 +863,14 @@ export default function Dashboard() {
         style={{ left: '16px', right: '16px' }}
       >
         <div className="flex items-center gap-3 w-fit">
-          {/* Lien retour vers la V3 (racine du domaine) — visible seulement sous /cockpit.
-              Anchor natif (pas next/link) → href '/' non préfixé par basePath = racine V3. */}
-          {/* Bouton retour accueil — TOUJOURS visible. En mode /cockpit il garde
-              la continuité de recherche (?q=) ; sinon il renvoie vers la V3. */}
+          {/* Bouton retour accueil — TOUJOURS visible. La racine `/` du host V4 sert
+              la landing (accueil V4, rewrite next.config). Anchor natif (pas next/link)
+              → href '/' vise bien la racine du domaine courant. */}
           <a
-            /* Accueil V4 (sous basePath) — PLUS vers `/` = landing V3. Si une
-               recherche est en cours, on reste dans le cockpit avec ?q= (continuité). */
-            href={lastQuery ? `${BASE_PATH}/?q=${encodeURIComponent(lastQuery)}` : `${BASE_PATH}/landing/index.html`}
+            /* Accueil = RACINE `/` du host V4 (landing servie via rewrite next.config,
+               Émancipation 13/07). Si une recherche est en cours, on garde la continuité
+               avec ?q= sur cette même racine (la landing lit le paramètre). */
+            href={lastQuery ? `/?q=${encodeURIComponent(lastQuery)}` : '/'}
             /* Pill arrondie + léger décollement au survol (langage boutons de la landing) */
             className="glass-panel hover-lift pointer-events-auto rounded-[12px] px-3 py-1 text-[10px] font-mono tracking-widest text-[var(--accent-bright)] hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-colors"
             title="Retour à l'accueil"

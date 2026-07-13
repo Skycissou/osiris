@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.085-dev';
+export const OSIRIS_VERSION = 'V4.086-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,19 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.086-dev',
+    date: '2026-07-13',
+    resume:
+      "🏗️ ÉMANCIPATION Lots A+B (plan Fable v1.1, code-only) : l'accueil (landing V3 reproduite) passe à la RACINE `/` du host V4 " +
+      "au lieu de `/cockpit/landing/` → « Accueil » ne retombe JAMAIS sur le login V3. On abandonne le `basePath` natif de Next " +
+      "(il préfixait TOUT, racine incluse) : les routes du cockpit vivent désormais physiquement sous `src/app/cockpit/*` (servies " +
+      "à `/cockpit/*`, URLs INCHANGÉES pour n8n). `NEXT_PUBLIC_BASE_PATH=/cockpit` ne sert plus qu'à préfixer les fetch API côté " +
+      "client. next.config : rewrite `/`→`/landing/index.html` + redirect `/cockpit/landing/*`→`/`. Assets landing rendus ABSOLUS " +
+      "(`/landing/...`), CTA/nav landing → `/cockpit`. Cockpit OUVERT d'emblée (plus de LoginGate intercalé). Auth STANDBY : route " +
+      "dédiée `/login` V4 (« Se connecter » entre sans mdp, badge « accès direct », L2 dormant derrière `NEXT_PUBLIC_AUTH_BYPASS`), " +
+      "ZÉRO lien vers la V3. ⚠️ Bascule host entier (Traefik + compose autonome) = à faire par Hermès sous GO (handoff).",
+  },
   {
     version: 'V4.085-dev',
     date: '2026-07-13',

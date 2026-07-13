@@ -1,14 +1,27 @@
 import type { NextConfig } from "next";
 
-// basePath sous lequel le cockpit V4 est servi (ex '/cockpit' derrière Traefik,
-// tout le reste du domaine = V3 FastAPI). Vide par défaut → build standalone racine.
-// Piloté par NEXT_PUBLIC_BASE_PATH pour rester une source unique (cf. src/lib/api.ts).
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+// ── Émancipation V4 (13/07) ────────────────────────────────────────────────
+// On N'UTILISE PLUS le `basePath` natif de Next : il préfixait TOUT (assets _next,
+// racine incluse), ce qui empêchait de servir l'accueil à la racine `/`. À la place,
+// les routes du cockpit vivent physiquement sous `src/app/cockpit/*` → servies à
+// `/cockpit/*` par le routage de fichiers, SANS toucher aux assets ni à la racine.
+//
+// NEXT_PUBLIC_BASE_PATH (= '/cockpit') reste défini : il sert UNIQUEMENT à préfixer
+// les fetch API côté client (cf. src/lib/api.ts → BASE_PATH). Les URLs `/cockpit/*`
+// restent donc INCHANGÉES (n8n, liens externes intacts). Ne PAS le confondre avec le
+// basePath natif : ici il ne pilote plus la config Next.
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  // On n'injecte basePath que s'il est défini : Next refuse une chaîne vide.
-  ...(basePath ? { basePath } : {}),
+  // Racine `/` = accueil V4 : on sert la landing (statics V3 reproduits à l'identique,
+  // public/landing/) via un rewrite interne (URL reste `/`, pas de redirection visible).
+  async rewrites() {
+    return [{ source: '/', destination: '/landing/index.html' }];
+  },
+  // Anciennes URLs du temps du basePath (`/cockpit/landing/...`) → racine `/` (301).
+  async redirects() {
+    return [{ source: '/cockpit/landing/:path*', destination: '/', permanent: true }];
+  },
   transpilePackages: ['maplibre-gl'],
   typescript: {
     // Le front lean doit compiler proprement : plus d'ignore des erreurs.

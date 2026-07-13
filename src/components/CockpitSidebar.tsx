@@ -19,7 +19,9 @@ import { BASE_PATH } from '@/lib/api';
 /** Liens de navigation → accueil V4 (SOUS le basePath, `/cockpit/accueil`) — PLUS
  *  vers `/` (racine = landing V3, qui renvoyait au login V3, retour Cissou 13/07).
  *  `active: true` = page courante (le cockpit). MÊME structure que l'accueil. */
-const ACCUEIL = `${BASE_PATH}/landing/index.html`; // la VRAIE landing V3 reproduite, servie en statique sous /cockpit
+// Émancipation (13/07) : l'accueil (landing V3) est servi à la RACINE `/` (rewrite
+//  next.config → /landing/index.html). Plus jamais de lien vers la V3.
+const ACCUEIL = '/';
 const NAV_LINKS: { label: string; href?: string; active?: boolean }[] = [
   { label: 'Accueil', href: ACCUEIL },
   { label: 'Chercher', href: `${ACCUEIL}#chercher` },
@@ -74,11 +76,11 @@ function CockpitSidebar({ version, onOpenOsint, onOpenGraph, onOpenNews, onColla
       <div className="ck-brand">
         <span className="ck-logo-mark">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`${BASE_PATH}/assets/logo-cut.png`} alt="OSIRIS" />
+          <img src={`/assets/logo-cut.png`} alt="OSIRIS" />
         </span>
         <span className="ck-wordmark">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="ck-wordmark-img" src={`${BASE_PATH}/assets/osiris-cut.png`} alt="OSIRIS" />
+          <img className="ck-wordmark-img" src={`/assets/osiris-cut.png`} alt="OSIRIS" />
           <span className="ck-wordmark-v">{version}</span>
         </span>
         {onCollapse && (
@@ -108,7 +110,7 @@ function CockpitSidebar({ version, onOpenOsint, onOpenGraph, onOpenNews, onColla
       <div className="ck-navlinks">
         {TOOLS.map((t) =>
           t.page ? (
-            <Link key={t.label} className="ck-navlink" href={t.page}>
+            <Link key={t.label} className="ck-navlink" href={`${BASE_PATH}${t.page}`}>
               {t.label}
             </Link>
           ) : (
@@ -127,7 +129,7 @@ function CockpitSidebar({ version, onOpenOsint, onOpenGraph, onOpenNews, onColla
       >
         💬 Feedback / Questions
       </a>
-      <a className="ck-navlogout" href="/logout">⏻ Se déconnecter</a>
+      <a className="ck-navlogout" href="/login">⏻ Se déconnecter</a>
       {/* La version vit dans la marque (ck-wordmark-v) — plus de doublon ici. */}
       <div className="ck-navfoot"><span className="dot" /> Données publiques FR</div>
     </nav>
