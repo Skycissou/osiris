@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.087-dev';
+export const OSIRIS_VERSION = 'V4.088-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.088-dev',
+    date: '2026-07-13',
+    resume:
+      "🩺 Capsule debug LIVE montée au **layout racine** via `GlobalDebugCapsule` (chantier ①, demande Cissou) : le bouton 🐞 " +
+      "n'était que sur le cockpit → désormais 1 instance globale sur TOUTES les routes rendues par Next (`/login`, `/cockpit/*` " +
+      "et futures). Le flag `NEXT_PUBLIC_DEBUG_CAPSULE` **coupe le MONTAGE** (`=0` → `return null` avant rendu, jamais sur une " +
+      "future prod publique), pas juste l'affichage. Instance locale du cockpit retirée (zéro double-montage). ⚠️ L'accueil `/` " +
+      "est une PAGE STATIQUE (public/landing/, servie par rewrite) → NON enveloppée par le layout React : sa couverture par la " +
+      "capsule nécessite un ajout à part (vanilla dans la landing) — signalé à Cissou/Fable. Comportement capsule inchangé (v1.3).",
+  },
   {
     version: 'V4.087-dev',
     date: '2026-07-13',

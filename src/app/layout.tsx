@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import ErrorBoundary from '@/components/ErrorBoundary';
 import TelemetryInit from '@/components/TelemetryInit';
+import GlobalDebugCapsule from '@/components/GlobalDebugCapsule';
 import "./globals.css";
 
 const SITE_NAME = "OSIRIS";
@@ -45,6 +46,9 @@ export default function RootLayout({
         <ErrorBoundary name="OSIRIS Core">
           {children}
         </ErrorBoundary>
+        {/* 🩺 Capsule debug LIVE sur TOUT le site (accueil compris) — 1 instance globale,
+            gatée NEXT_PUBLIC_DEBUG_CAPSULE (coupe le montage à =0). Cf. GlobalDebugCapsule. */}
+        <GlobalDebugCapsule />
       </body>
     </html>
   );
