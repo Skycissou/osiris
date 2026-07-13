@@ -117,7 +117,7 @@ export const sections: LayerSection[] = [
       { id: 'ign_routes', name: 'Réseau routier', source: 'IGN Géoplateforme', sourceUrl: 'https://data.geopf.fr/wmts', icon: 'Route', form: 1, color: OSIRIS_COLORS.amber },
       { id: 'ign_rail', name: 'Réseau ferré', source: 'IGN Géoplateforme', sourceUrl: 'https://data.geopf.fr/wmts', icon: 'TrainFront', form: 1, color: OSIRIS_COLORS.green },
       { id: 'ign_forets', name: 'Forêts publiques', source: 'IGN Géoplateforme', sourceUrl: 'https://data.geopf.fr/wmts', icon: 'Trees', form: 1, color: OSIRIS_COLORS.green },
-      { id: 'ign_protected', name: 'Aires protégées', source: 'IGN Géoplateforme', sourceUrl: 'https://data.geopf.fr/wmts', icon: 'ShieldCheck', form: 1, color: OSIRIS_COLORS.green },
+      { id: 'ign_protected', name: 'Points secours forêt (DFCI)', source: 'IGN Géoplateforme', sourceUrl: 'https://data.geopf.fr/wmts', icon: 'ShieldCheck', form: 1, color: OSIRIS_COLORS.green },
     ],
   },
 

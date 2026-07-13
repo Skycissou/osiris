@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.081-dev';
+export const OSIRIS_VERSION = 'V4.082-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -33,13 +33,22 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
   {
+    version: 'V4.082-dev',
+    date: '2026-07-13',
+    resume:
+      "🌲 Surcouches Forêts publiques + Points secours forêt RÉ-ACTIVÉES : les identifiants IGN étaient BONS — le 400 venait du " +
+      "`STYLE=normal` + `TILEMATRIXSET=PM` codés en dur, or ces couches exigent un style/TMSet propres (vérifiés au " +
+      "GetCapabilities : `FORETS PUBLIQUES ONF`/`PM_3_16` et `POINT RENCONTRE SECOURS FORET`/`PM_6_17`). Helper `wmts()` rendu " +
+      "paramétrable (style + tms encodés). Bonus : `PROTECTEDAREAS.PRSF` = « Points de Rencontre Secours Forêt » (DFCI), pas des " +
+      "aires protégées → libellé corrigé.",
+  },
+  {
     version: 'V4.081-dev',
     date: '2026-07-13',
     resume:
-      "🗺️ Audit filtres (rapport capsule Cissou) : 2 surcouches IGN cassées — `FORETS.PUBLIQUES` et `PROTECTEDAREAS.PRSF` " +
-      "→ 400 sur TOUTES les tuiles (identifiants IGN invalides) → RETIRÉES du menu (toggles morts + spam d'erreurs). À ré-ajouter " +
-      "avec des identifiants VÉRIFIÉS au GetCapabilities IGN. + 🐞 Capsule debug v1.3 : DÉDUPLICATION des événements (le rapport " +
-      "faisait 80 lignes pour 2 couches KO) → 1 ligne + compteur ×N quand une source spamme.",
+      "🗺️ Audit filtres (rapport capsule Cissou) : 2 surcouches IGN (`FORETS.PUBLIQUES`, `PROTECTEDAREAS.PRSF`) → 400 sur TOUTES " +
+      "les tuiles → RETIRÉES temporairement (toggles morts + spam). + 🐞 Capsule debug v1.3 : DÉDUPLICATION des événements (rapport " +
+      "de 80 lignes pour 2 couches KO) → 1 ligne + compteur ×N quand une source spamme. [Ré-activées correctement en V4.082.]",
   },
   {
     version: 'V4.080-dev',

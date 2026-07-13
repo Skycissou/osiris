@@ -114,9 +114,9 @@ const ORTHO_YEAR_MAX = 2024;
 const OVERLAY_OPTS: { key: string; label: string }[] = [
   { key: 'cadastre', label: 'Cadastre' },
   { key: 'rpg', label: 'Parcelles agricoles' },
-  // ⛔ 'forets' (FORETS.PUBLIQUES) + 'protected' (PROTECTEDAREAS.PRSF) RETIRÉS le
-  //  13/07 : identifiants IGN invalides → 400 sur TOUTES les tuiles (audit filtres
-  //  Cissou). À ré-ajouter avec les identifiants VÉRIFIÉS au GetCapabilities IGN.
+  // ✅ Ré-activés 13/07 avec style + TileMatrixSet vérifiés (GetCapabilities IGN).
+  { key: 'forets', label: 'Forêts publiques' },
+  { key: 'protected', label: 'Points secours forêt 🌲' }, // PRSF = pts rencontre secours forêt (DFCI)
   { key: 'hydro', label: 'Hydrographie' },
   { key: 'routes', label: 'Routes' },
   { key: 'rail', label: 'Voies ferrées' },

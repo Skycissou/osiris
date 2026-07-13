@@ -272,9 +272,14 @@ const EMPTY_FC = { type: 'FeatureCollection' as const, features: [] };
 
 // ── Fabrique d'URL de tuiles WMTS Géoplateforme IGN (data.geopf.fr) ──
 // Gratuit sans clé · TileMatrixSet PM = z/x/y standard (compatible MapLibre).
-const wmts = (layer: string, format: string) =>
+// ⚠️ Certaines couches n'acceptent PAS STYLE=normal / TMSet=PM (→ 400 sur toutes
+//  leurs tuiles, leçon 13/07 : FORETS.PUBLIQUES, PROTECTEDAREAS.PRSF). Leur style
+//  et leur TileMatrixSet exacts (ex. `PM_3_16`) sont lus au GetCapabilities et
+//  passés en `opts`. Le style peut contenir des espaces → encodeURIComponent.
+const wmts = (layer: string, format: string, opts?: { style?: string; tms?: string }) =>
   `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layer}` +
-  `&STYLE=normal&FORMAT=${format}&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}`;
+  `&STYLE=${encodeURIComponent(opts?.style ?? 'normal')}&FORMAT=${format}` +
+  `&TILEMATRIXSET=${opts?.tms ?? 'PM'}&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}`;
 
 // ── Fonds raster empilables (satellite ArcGIS + fonds IGN modernes) ──
 // Chaque fond = un calque raster inséré SOUS les points/historique. Un seul
@@ -306,11 +311,12 @@ const TIME_LAYERS: Record<string, { tiles: string; minzoom: number; maxzoom: num
 const OVERLAYS: Record<string, { tiles: string; minzoom: number; maxzoom: number; opacity: number }> = {
   cadastre:  { tiles: wmts('CADASTRALPARCELS.PARCELLAIRE_EXPRESS', 'image/png'), minzoom: 0, maxzoom: 19, opacity: 0.7 },
   rpg:       { tiles: wmts('LANDUSE.AGRICULTURE.LATEST', 'image/png'), minzoom: 6, maxzoom: 16, opacity: 0.7 },
-  // ⛔ RETIRÉS 13/07 (audit filtres Cissou) : identifiants IGN invalides → 400 sur
-  //  TOUTES les tuiles (couche jamais affichée, spam d'erreurs). À ré-activer une
-  //  fois les identifiants VÉRIFIÉS au GetCapabilities IGN (theme « environnement »).
-  //  forets:    { tiles: wmts('FORETS.PUBLIQUES', 'image/png'), minzoom: 3, maxzoom: 16, opacity: 0.7 },
-  //  protected: { tiles: wmts('PROTECTEDAREAS.PRSF', 'image/png'), minzoom: 6, maxzoom: 17, opacity: 0.6 },
+  // ✅ RÉ-ACTIVÉS 13/07 avec les paramètres VÉRIFIÉS au GetCapabilities IGN (les IDs
+  //  étaient bons, c'était le STYLE ≠ normal + le TileMatrixSet ≠ PM qui donnaient 400).
+  forets:    { tiles: wmts('FORETS.PUBLIQUES', 'image/png', { style: 'FORETS PUBLIQUES ONF', tms: 'PM_3_16' }), minzoom: 3, maxzoom: 16, opacity: 0.7 },
+  // NB : `PROTECTEDAREAS.PRSF` = « Points de Rencontre Secours Forêt » (DFCI), PAS des
+  //  zones protégées → libellé corrigé côté UI. Clé `protected` conservée (id interne).
+  protected: { tiles: wmts('PROTECTEDAREAS.PRSF', 'image/png', { style: 'POINT RENCONTRE SECOURS FORET', tms: 'PM_6_17' }), minzoom: 6, maxzoom: 17, opacity: 0.8 },
   pentes:    { tiles: wmts('ELEVATION.SLOPES', 'image/jpeg'), minzoom: 6, maxzoom: 14, opacity: 0.5 },
   irc:       { tiles: wmts('ORTHOIMAGERY.ORTHOPHOTOS.IRC', 'image/jpeg'), minzoom: 6, maxzoom: 19, opacity: 1 },
   hydro:     { tiles: wmts('HYDROGRAPHY.HYDROGRAPHY', 'image/png'), minzoom: 6, maxzoom: 18, opacity: 0.8 },
