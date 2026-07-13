@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.093-dev';
+export const OSIRIS_VERSION = 'V4.094-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,19 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.094-dev',
+    date: '2026-07-13',
+    resume:
+      "🐞 ARPD fix 1er sync (retours Cissou : « ça a bugué » puis EACCES). (1) **Géocodage lent** : le sync ajoutait 1,1 s/avis " +
+      "ALORS QUE `geocodeLocality` s'auto-throttle déjà → ~400 × doublé = plusieurs min (paraissait figé). Délai 1 req/s gardé " +
+      "UNIQUEMENT entre les pages ARPD (courtoisie), retiré du géocodage · cap `MAX_VILLE_GEOCODE_PER_RUN` (150) · **repli INSTANT " +
+      "centroïde département** → tout avis a un pin de suite (précision ville affinée aux syncs suivants). (2) **EACCES " +
+      "`/app/data/arpd-state.json`** : le volume n'est pas inscriptible par l'utilisateur non-root du conteneur → `saveState` " +
+      "**rendu résilient** (warn au lieu de throw, comme alertsStore) + `state_persisted` dans la réponse. Dockerfile : `chown` " +
+      "de `/app/data` (uid 1001) pour les volumes frais. ⚠️ **Volume EXISTANT root-owned → chown ponctuel requis** (Hermès) — " +
+      "corrige AUSSI la persistance disque silencieusement KO des alertes existantes.",
+  },
   {
     version: 'V4.093-dev',
     date: '2026-07-13',

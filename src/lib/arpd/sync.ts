@@ -20,7 +20,12 @@ const UA = 'OSIRIS-ARPD-sync/1.0 (benevole ARPD Occitanie)';
 const LISTING = `${ARPD_BASE}/fr/recherche-disparition`;
 const MAX_PAGES = 10;               // garde-fou (≈100 avis/page → 1000 avis max)
 const SANITY_RATIO = 0.7;           // total < 70 % du dernier connu → ABORT
-const GEOCODE_DELAY_MS = 1100;      // courtoisie 1 req/s (IGN + politesse)
+const PAGE_DELAY_MS = 1100;         // courtoisie ARPD : 1 req/s ENTRE LES PAGES (pas le géocodage)
+// Cap de géocodage VILLE par run : au-delà, l'avis prend le centroïde département
+//  (pin immédiat « approx. ») et sera affiné à un prochain sync. Évite un run qui
+//  traîne (geocodeLocality s'auto-throttle déjà → PAS de délai en plus ici, c'était
+//  le bug du 1er run : ~400 × 1,1 s = plusieurs minutes).
+const MAX_VILLE_GEOCODE_PER_RUN = 150;
 
 function dir(): string {
   return process.env.OSIRIS_ALERTS_DIR || path.join(process.cwd(), 'data');
@@ -37,9 +42,19 @@ async function loadState(): Promise<ArpdState> {
   } catch { /* première exécution */ }
   return { lastTotal: 0, updatedAt: 0, seen: {} };
 }
-async function saveState(s: ArpdState): Promise<void> {
-  await fs.mkdir(dir(), { recursive: true });
-  await fs.writeFile(stateFile(), JSON.stringify(s), { encoding: 'utf-8', mode: 0o600 });
+async function saveState(s: ArpdState): Promise<boolean> {
+  // Résilient (comme alertsStore) : un volume non inscriptible ne doit PAS faire
+  // échouer le sync (les avis sont déjà dans le store en mémoire). ⚠️ Sans
+  // persistance, la grâce 2-syncs + le cache coords ne survivent pas à un restart
+  // → corriger les DROITS du volume (chown uid 1001) pour une durabilité réelle.
+  try {
+    await fs.mkdir(dir(), { recursive: true });
+    await fs.writeFile(stateFile(), JSON.stringify(s), { encoding: 'utf-8', mode: 0o600 });
+    return true;
+  } catch (e) {
+    console.warn('[ARPD] arpd-state non persisté (droits volume ?) :', e instanceof Error ? e.message : e);
+    return false;
+  }
 }
 
 async function fetchPage(page: number): Promise<string> {
@@ -65,7 +80,7 @@ async function fetchAll(): Promise<ArpdAvisParsed[]> {
     let added = 0;
     for (const a of avis) if (!seenIds.has(a.id)) { seenIds.add(a.id); all.push(a); added++; }
     if (added === 0) break; // page identique (fin) → stop
-    await new Promise((r) => setTimeout(r, GEOCODE_DELAY_MS));
+    await new Promise((r) => setTimeout(r, PAGE_DELAY_MS)); // courtoisie ARPD entre pages
   }
   return all;
 }
@@ -113,6 +128,7 @@ export interface SyncResult {
   geocodes_ville: number;
   geocodes_dept: number;
   sans_position: number;
+  state_persisted?: boolean;
 }
 
 /** Sync complet : fetch → sanity → géocode (NOUVEAUX seulement) → diff → store. */
@@ -126,26 +142,25 @@ export async function runArpdSync(): Promise<SyncResult> {
     return { aborted: true, reason: `sanity: ${total} < 70% de ${state.lastTotal}`, total, actifs: 0, nouveaux: 0, geocodes_ville: 0, sans_position: 0, geocodes_dept: 0 };
   }
 
-  let ville = 0, dept = 0, sansPos = 0, nouveaux = 0;
+  let ville = 0, dept = 0, sansPos = 0, nouveaux = 0, villeGeocoded = 0;
   const present: Alert[] = [];
   for (const a of avis) {
     const known = state.seen[`arpd:${a.id}`];
-    // Réutilise coords + premierVu des avis DÉJÀ vus (géocode = NOUVEAUX seulement).
+    // Réutilise coords des avis DÉJÀ vus (géocode = NOUVEAUX seulement).
     if (known?.alert && (known.alert.lat !== undefined || known.alert.lon !== undefined)) {
-      const refreshed: Alert = { ...known.alert, fetched_at: Date.now(), statut: 'active' };
-      present.push(refreshed);
-      if (refreshed.lat !== undefined) { /* déjà compté au 1er passage, on ne recompte pas */ }
+      present.push({ ...known.alert, fetched_at: Date.now(), statut: 'active' });
       continue;
     }
     nouveaux += 1;
     let coords: { lat: number; lon: number } | null = null;
     let precision: 'ville' | 'departement' | null = null;
-    if (a.ville) {
-      const q = [a.ville, a.deptCode || a.deptNom].filter(Boolean).join(' ');
-      coords = await geocodeLocality(q);
+    // Géocodage VILLE plafonné/run (geocodeLocality s'auto-throttle → pas de délai ici).
+    if (a.ville && villeGeocoded < MAX_VILLE_GEOCODE_PER_RUN) {
+      villeGeocoded += 1;
+      coords = await geocodeLocality([a.ville, a.deptCode || a.deptNom].filter(Boolean).join(' '));
       if (coords) precision = 'ville';
-      await new Promise((r) => setTimeout(r, GEOCODE_DELAY_MS));
     }
+    // Repli INSTANT hors-ligne : centroïde département → tout avis (hors DOM inconnu) a un pin.
     if (!coords) {
       coords = deptCentroid(a.deptCode, a.deptNom);
       if (coords) precision = 'departement';
@@ -156,7 +171,7 @@ export async function runArpdSync(): Promise<SyncResult> {
 
   const { incoming, newState } = computeDiff(present, total, state, Date.now());
   await upsertSource('arpd', incoming);
-  await saveState(newState);
+  const persisted = await saveState(newState);
 
-  return { total, actifs: incoming.length, nouveaux, geocodes_ville: ville, geocodes_dept: dept, sans_position: sansPos };
+  return { total, actifs: incoming.length, nouveaux, geocodes_ville: ville, geocodes_dept: dept, sans_position: sansPos, state_persisted: persisted };
 }

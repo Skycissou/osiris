@@ -33,6 +33,11 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Dossier de données (alertes, arpd-state, coffre clés…) inscriptible par l'utilisateur
+# non-root. Un volume nommé VIDE monté ici héritera de ces droits (uid 1001) → écritures
+# OK. ⚠️ Un volume DÉJÀ existant et root-owned nécessite un chown ponctuel (voir DEPLOY.md).
+RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
