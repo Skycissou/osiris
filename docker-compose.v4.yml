@@ -1,0 +1,118 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  OSIRIS V4 — COMPOSE AUTONOME (Émancipation, jalon Lot B)
+#  Cible : osiris-v4.cissouhub.cloud servi ENTIÈREMENT par l'app Next.js V4.
+#     /            → ACCUEIL V4 (landing V3 reproduite, rewrite next.config → /landing/index.html)
+#     /cockpit     → la carte (routes physiques sous src/app/cockpit/*)
+#     /cockpit/*   → routes API Next (live-feed, alerts, osint, admin, diag…) — URLs INCHANGÉES (n8n)
+#     /login       → page d'auth V4 (mode standby : entre sans mdp, zéro lien V3)
+#
+#  ⚠️ C'est un compose de RÉFÉRENCE, canonique DANS LE REPO. La bascule réelle sur le VPS
+#     est confiée à Hermès (sous GO Cissou). Hermès DOIT réconcilier avec la config live du
+#     service `osiris-v4-cockpit` du compose combiné existant
+#     (/docker/osiris-v3-staging/projects/open-radar-fr/docker-compose.staging-combined.yml) :
+#     reporter à l'IDENTIQUE les env runtime + volumes de données (persistance alertes/clés)
+#     et n'ajuster QUE ce que ce fichier change → les labels Traefik (host ENTIER) + le rôle racine.
+#
+#  ═══ ORDRE DE BASCULE SÉCURISÉ (Fable v1.1, méthode deploy-contraint) ═══
+#   ① git reset --hard origin/master dans /docker/osiris-v4 (build context À JOUR)
+#   ② docker compose -f docker-compose.v4.yml up -d --build   (priorité Traefik > staging
+#        → ce conteneur prend TOUT le host sans rien détruire)
+#   ③ lancer les curls de vérif (DEPLOY.md §Vérif / plan §6) — TOUS doivent passer
+#   ④ SEULEMENT si ✅ : retirer le rôle V4 du compose combiné (racine + /cockpit) + MAJ registre
+#   ↩︎ ROLLBACK à tout moment AVANT ④ : `docker compose -f docker-compose.v4.yml down`
+#        → l'ancien routage combiné reprend la main par priorité. Zéro downtime, zéro perte.
+#   ❌ JAMAIS l'inverse (retirer l'ancien avant d'avoir vérifié = plus de filet).
+# ═══════════════════════════════════════════════════════════════════════════
+services:
+
+  osiris-v4:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # basePath natif ABANDONNÉ (V4.086) : cette var ne sert plus qu'à préfixer les
+        # fetch API côté client (BASE_PATH dans src/lib/api.ts) → URLs /cockpit/* inchangées.
+        NEXT_PUBLIC_BASE_PATH: /cockpit
+        # App autonome : les routes API sont servies par Next lui-même (même origine).
+        NEXT_PUBLIC_API_BASE: ""
+        # (non défini = mode standby / auth désactivée. Passer "0" au Lot C pour la vraie auth.)
+        NEXT_PUBLIC_AUTH_BYPASS: ""
+    container_name: osiris-v4
+    restart: unless-stopped
+    # Clés API + secrets — MÊME .env que le déploiement actuel (/docker/osiris-v4/.env),
+    # gitignoré, hors versions → la saisie de Cissou survit aux rebuilds.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      # Le VPS résout mal l'IPv6 sortant sur certaines sources → forcer IPv4 d'abord.
+      - NODE_OPTIONS=--dns-result-order=ipv4first
+      # ⚠️ HERMÈS : reporter ICI les env runtime du service osiris-v4-cockpit actuel
+      #   (ex. OSIRIS_UI_TELEMETRY, OSIRIS_KEYS_DIR, OSIRIS_DATA, OSIRIS_INGEST_TOKEN,
+      #    OSIRIS_DIAG_TOKEN, OSIRIS_ADMIN_TOKEN, OSIRIS_RESYNC_WEBHOOK…) — à lifter tel quel.
+    expose:
+      - "3000"
+    volumes:
+      # ⚠️ HERMÈS : reporter le volume de données du service actuel (persistance des alertes,
+      #   du coffre de clés serveur et de la télémétrie). Au 12/07 le registre note :
+      #   `open-radar-fr_osiris_v4stg_uitel -> /app/data`. RÉUTILISER LE MÊME volume nommé
+      #   pour NE PAS perdre les 121 avis + les clés déjà saisies.
+      - osiris_v4_data:/app/data
+    networks:
+      - traefik_proxy
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+      # ── Router HOST ENTIER : tout osiris-v4.cissouhub.cloud → cette app (racine incluse).
+      #    Priorité 200 > la route /cockpit du compose combiné (100) ET la route racine V3
+      #    → pendant la bascule, ce routeur rafle tout le host sans casser l'ancien (rollback = down).
+      - "traefik.http.routers.osiris-v4.rule=Host(`osiris-v4.cissouhub.cloud`)"
+      - "traefik.http.routers.osiris-v4.priority=200"
+      - "traefik.http.routers.osiris-v4.entrypoints=websecure"
+      - "traefik.http.routers.osiris-v4.tls.certresolver=myresolver"
+      - "traefik.http.routers.osiris-v4.middlewares=osiris-v4-rl"
+      - "traefik.http.services.osiris-v4.loadbalancer.server.port=3000"
+      # Rate-limit défensif (mêmes valeurs que la route existante).
+      - "traefik.http.middlewares.osiris-v4-rl.ratelimit.average=30"
+      - "traefik.http.middlewares.osiris-v4-rl.ratelimit.burst=60"
+
+  # ── osiris-pg — AUTH Lot C (COMMENTAIRE PRÊT, décision Cissou 13/07) ────────────────
+  #  À DÉ-COMMENTER seulement quand Cissou dira « go auth » (Better Auth + Postgres,
+  #  spec : brain notes/veille/2026-07-12-auth-osiris-v4.md §5). Rien ne tourne pour rien avant.
+  #
+  #  osiris-pg:
+  #    image: postgres:17-alpine
+  #    container_name: osiris-v4-pg
+  #    restart: unless-stopped
+  #    environment:
+  #      POSTGRES_DB: osiris
+  #      POSTGRES_USER: osiris
+  #      POSTGRES_PASSWORD: ${OSIRIS_PG_PASSWORD}
+  #    volumes:
+  #      - osiris_pg_data:/var/lib/postgresql/data
+  #    networks: [traefik_proxy]        # ⚠️ mieux : réseau INTERNE dédié (pas d'exposition Traefik) — pas de bloc ports:
+  #    healthcheck:
+  #      test: ["CMD-SHELL", "pg_isready -U osiris -d osiris"]
+  #      interval: 10s
+  #      timeout: 5s
+  #      retries: 5
+  #  → sur osiris-v4 : depends_on osiris-pg (condition: service_healthy)
+  #    + env DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL (secrets .env, jamais commités)
+  #    + build arg NEXT_PUBLIC_AUTH_BYPASS: "0"  (bascule sur la vraie auth)
+
+networks:
+  # Réseau externe partagé avec Traefik (identique à la prod / au staging existant).
+  traefik_proxy:
+    external: true
+
+volumes:
+  # Réutiliser le volume de données EXISTANT (voir note plus haut) plutôt qu'en créer un neuf.
+  osiris_v4_data:
+    external: true
+    name: open-radar-fr_osiris_v4stg_uitel   # ⚠️ HERMÈS : confirmer le nom exact via `docker volume ls`
+  # osiris_pg_data:   # ← dé-commenter avec osiris-pg au Lot C

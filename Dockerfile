@@ -8,12 +8,18 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Vars NEXT_PUBLIC_* inlinées AU BUILD (Next les fige à la compilation).
-#  - NEXT_PUBLIC_API_BASE : base des appels API ('' = racine du domaine → FastAPI V3).
-#  - NEXT_PUBLIC_BASE_PATH : basePath Next ('' = racine · '/cockpit' = servi sous /cockpit).
+#  - NEXT_PUBLIC_API_BASE : base des appels API ('' = même origine = app Next elle-même).
+#  - NEXT_PUBLIC_BASE_PATH : depuis l'Émancipation (V4.086) ce N'EST PLUS le basePath natif
+#    de Next (retiré de next.config) — il ne sert QUE de préfixe aux fetch API côté client
+#    (constante BASE_PATH dans src/lib/api.ts). '/cockpit' garde les URLs `/cockpit/*`
+#    (routes physiques sous src/app/cockpit/*). Ne PAS confondre avec un basePath Next.
+#  - NEXT_PUBLIC_AUTH_BYPASS : non défini = mode standby (auth désactivée) ; '0' = vraie auth (Lot C).
 ARG NEXT_PUBLIC_API_BASE=""
 ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
 ARG NEXT_PUBLIC_BASE_PATH=""
 ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
+ARG NEXT_PUBLIC_AUTH_BYPASS=""
+ENV NEXT_PUBLIC_AUTH_BYPASS=$NEXT_PUBLIC_AUTH_BYPASS
 RUN npm run build
 
 FROM node:22-alpine AS runner
