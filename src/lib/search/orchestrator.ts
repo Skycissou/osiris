@@ -6,11 +6,12 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import type { SearchResponse } from '@/lib/api';
-import { classifyQuery, POSTCODE_RE } from './classify';
+import { classifyQuery, POSTCODE_RE, inferQueryType } from './classify';
 import { buildStandardResponse, type Card } from './schema';
 import { buildGraph } from './graph';
-import { searchEntreprises, searchAdresse, searchCommunes, searchDatagouv } from './connectors';
+import { searchEntreprises, searchAdresse, searchCommunes, searchDatagouv, searchPersonne } from './connectors';
 import { searchBodacc, searchFoncier, searchAssociations } from './connectors2';
+import { investigate } from './investigation';
 
 export interface SearchArgs {
   filters?: Record<string, unknown> | null;
@@ -44,4 +45,32 @@ export async function searchStandard(query: string, args: SearchArgs = {}): Prom
   const results = await search(query, args);
   const base = buildStandardResponse(query, null, results);
   return { ...base, graph: buildGraph(results, query) };
+}
+
+/** Miroir de orchestrator.py::search_person_standard. */
+export async function searchPersonStandard(nom: string, prenoms = ''): Promise<SearchResponse> {
+  const results = await searchPersonne(nom, prenoms);
+  const label = `${prenoms} ${nom}`.trim();
+  const base = buildStandardResponse(label, 'personne', results);
+  return { ...base, graph: buildGraph(results, label) };
+}
+
+/** Miroir de orchestrator.py::investigate_standard (cascade bornée). */
+export async function investigateStandard(args: { q?: string; nom?: string; prenoms?: string }): Promise<SearchResponse> {
+  let seeds: Card[];
+  let label: string;
+  let queryType: string;
+  if (args.nom) {
+    seeds = await searchPersonne(args.nom, args.prenoms || '');
+    label = `${args.prenoms || ''} ${args.nom}`.trim();
+    queryType = 'personne';
+  } else {
+    const q = args.q || '';
+    seeds = await search(q);
+    label = q;
+    queryType = inferQueryType(q);
+  }
+  const { results, meta, graph } = await investigate(seeds, { query: label, maxDepth: 2, pivotPersons: true });
+  const base = buildStandardResponse(label, queryType, results);
+  return { ...base, investigation: meta as unknown as Record<string, unknown>, graph };
 }

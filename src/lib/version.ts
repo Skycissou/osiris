@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.091-dev';
+export const OSIRIS_VERSION = 'V4.092-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.092-dev',
+    date: '2026-07-13',
+    resume:
+      "🔎 Moteur de recherche natif — chantier ② Phases 3+4 (fin, portage `open_radar`, parité stricte). **Phase 3** : `/person` " +
+      "(dirigeants diffusés) + `/investigate` (cascade OSINT BFS **bornée À L'IDENTIQUE** : profondeur 2, budget 40 appels + 25 s, " +
+      "dédup pivots/cartes, provenance par nœud — `investigation.ts`). **Phase 4** : `/report/markdown` + `/report/csv` (exports " +
+      "fidèles `exports.ts`) · `/feedback` POST (stockage JSONL sur volume + webhook n8n best-effort, SMTP omis car env-gaté) · " +
+      "`/feedback/list` GET gaté par token `OSIRIS_ADMIN_TOKEN`. **Chantier ② COMPLET** : les 9 routes du backend Python sont " +
+      "portées en natif Next, zéro Python, zéro proxy V3. Build vert. Reste = déployer (Phase 2+3+4) + ③ connecteur ARPD.",
+  },
   {
     version: 'V4.091-dev',
     date: '2026-07-13',

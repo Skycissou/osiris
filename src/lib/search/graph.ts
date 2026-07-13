@@ -8,13 +8,13 @@
 import type { Graph, GraphNode, GraphEdge } from '@/lib/api';
 import type { Card } from './schema';
 
-type NodeMap = Map<string, GraphNode>;
-type EdgeMap = Map<string, GraphEdge>;
+export type NodeMap = Map<string, GraphNode>;
+export type EdgeMap = Map<string, GraphEdge>;
 
-const norm = (v: unknown) => String(v ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+export const norm = (v: unknown) => String(v ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
 const titleCase = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase());
 
-function personLabel(nom: unknown, prenoms: unknown): string {
+export function personLabel(nom: unknown, prenoms: unknown): string {
   const p = String(prenoms ?? '').split(' ')[0];
   return `${titleCase(p)} ${titleCase(String(nom ?? ''))}`.trim();
 }
@@ -23,22 +23,22 @@ function entityOf(card: Card, type: string): string {
   const e = (card.entities || []).find((x) => x.type === type && x.value);
   return e?.value ?? '';
 }
-const sirenOf = (c: Card) => entityOf(c, 'siren');
+export const sirenOf = (c: Card) => entityOf(c, 'siren');
 const inseeOf = (c: Card) => entityOf(c, 'code_insee');
 
-function addNode(nodes: NodeMap, id: string, label: string, type: string, extra?: Record<string, unknown>): string {
+export function addNode(nodes: NodeMap, id: string, label: string, type: string, extra?: Record<string, unknown>): string {
   if (!nodes.has(id)) nodes.set(id, { id, label, type, ...(extra ?? {}) });
   return id;
 }
 
-function addEdge(edges: EdgeMap, src: string, dst: string, rel: string): void {
+export function addEdge(edges: EdgeMap, src: string, dst: string, rel: string): void {
   if (src && dst && src !== dst) {
     const k = `${src}|${dst}|${rel}`;
     if (!edges.has(k)) edges.set(k, { from: src, to: dst, relation: rel });
   }
 }
 
-function cardNode(nodes: NodeMap, card: Card): string | null {
+export function cardNode(nodes: NodeMap, card: Card): string | null {
   const sid = card.source_id;
   if (sid === 'recherche_entreprises') {
     const siren = sirenOf(card);
@@ -61,7 +61,7 @@ function cardNode(nodes: NodeMap, card: Card): string | null {
   return null; // datasets, DVF territoire, etc. → hors graphe (réduction du bruit)
 }
 
-function stats(nodes: NodeMap): Record<string, number> {
+export function stats(nodes: NodeMap): Record<string, number> {
   const vals = [...nodes.values()];
   return {
     companies: vals.filter((n) => n.type === 'company').length,

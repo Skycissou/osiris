@@ -197,6 +197,40 @@ export async function searchEntreprises(
   }
 }
 
+export async function searchPersonne(nom: string, prenoms = '', perPage = 10): Promise<Card[]> {
+  // Recherche les entreprises où une personne est dirigeant (registre public).
+  nom = (nom || '').trim();
+  if (!nom) {
+    return [card({
+      source_id: 'recherche_entreprises', source_label: "API Recherche d’Entreprises",
+      access_level: 'open', confidence: 'official', status: 'blocked',
+      title: 'Nom requis', summary: 'Indiquer au moins un nom de famille pour la recherche par personne.',
+      limits: ['La recherche par personne porte sur les dirigeants diffusés du registre public.'],
+    })];
+  }
+  const params: Record<string, string | number> = { nom_personne: nom, per_page: perPage };
+  if (prenoms.trim()) params.prenoms_personne = prenoms.trim();
+  const url = buildUrl('https://recherche-entreprises.api.gouv.fr/search', params);
+  try {
+    const payload = asRow(await getJson(url, 'entreprises'));
+    const rows = asArr(payload.results);
+    if (rows.length === 0) {
+      return [card({
+        source_id: 'recherche_entreprises', source_label: "API Recherche d’Entreprises",
+        access_level: 'open', confidence: 'official', status: 'not_found',
+        title: 'Aucune société trouvée pour cette personne', subtitle: `${prenoms} ${nom}`.trim(),
+        raw_ref: { url, fetched_at: utcNow() },
+        limits: ['Absence de mandat diffusé ≠ absence certaine de mandat (dirigeants non diffusés possibles).'],
+      })];
+    }
+    const cards = rows.slice(0, perPage).map((r) => entrepriseCard(asRow(r), url));
+    attachPagination(cards, payload, 1, perPage);
+    return cards;
+  } catch (err) {
+    return [errorCard('recherche_entreprises', "API Recherche d’Entreprises", url, err)];
+  }
+}
+
 export async function searchAdresse(query: string, limit = 5): Promise<Card[]> {
   // Géoplateforme IGN (même moteur BAN, GeoJSON) — l'ancien api-adresse.data.gouv est déprécié (14/04/2026).
   const url = buildUrl('https://data.geopf.fr/geocodage/search/', { q: query, limit, index: 'address' });
