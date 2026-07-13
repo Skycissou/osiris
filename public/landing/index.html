@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OSIRIS V4 — cockpit OSINT données publiques</title>
+  <script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Orbitron:wght@700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <meta name="theme-color" content="#070a0f">
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="OSIRIS">
+  <style>
+    .bg-net{position:absolute;inset:0;width:100%;height:100%;display:block}
+    .logo-mark{background:none!important;box-shadow:none!important;overflow:hidden;display:grid;place-items:center}
+    .logo-mark::before,.logo-mark::after{display:none!important}
+    .logo-mark img{width:34px;height:34px;object-fit:contain;display:block;mix-blend-mode:screen;filter:saturate(1.12) brightness(1.12)}
+  </style>
+</head>
+<body>
+  <div id="splash">
+    <video id="splash-logo" muted playsinline autoplay preload="auto"><source src="assets/logo.mp4" type="video/mp4"></video>
+    <div class="splash-inner">
+      <button id="splash-enter" style="display:none" onclick="enterApp()">ENTRER ▸</button>
+    </div>
+  </div>
+  <div class="bg" aria-hidden="true"><video class="bg-video" autoplay muted loop playsinline preload="auto"><source src="assets/bg.mp4" type="video/mp4"></video><canvas id="netbg" class="bg-net"></canvas><span class="bg-aura a1"></span><span class="bg-aura a2"></span><span class="bg-scan"></span><span class="bg-vignette"></span></div>
+  <div class="appshell">
+    <input type="checkbox" id="navcol" class="navcol-cb" aria-hidden="true">
+    <label for="navcol" class="nav-reopen" title="Afficher le menu" aria-label="Afficher le menu">☰</label>
+    <nav class="sidenav">
+      <div class="brand"><span class="mark logo-mark"><img class="logo-vid" src="assets/logo-cut.png" alt="OSIRIS"></span><span class="wordmark"><img class="wordmark-img" src="assets/osiris-cut.png" alt="OSIRIS"><span class="wordmark-v">V4</span></span><label for="navcol" class="nav-collapse" title="Replier le menu" aria-label="Replier le menu">«</label></div>
+      <div class="sidenav-label">Navigation</div>
+      <div class="navlinks"><a href="#accueil">Accueil</a><a href="../">🗺️ Cockpit carte</a><a href="#chercher">Chercher</a><a href="#sources">Sources</a><a href="#recettes">Recettes</a><a href="#prototype">Prototype</a><a href="#rgpd">Garde-fous</a></div>
+      <button type="button" class="nav-fb" onclick="openFeedback()">💬 Feedback / Questions</button>
+      <button type="button" class="nav-logout" onclick="osirisLogout()">⏻ Se déconnecter</button>
+      <div class="sidenav-foot"><span class="pulse"></span> Données publiques FR</div>
+    </nav>
+
+    <main class="main">
+    <section id="accueil" class="tab"><header class="hero">
+      <div>
+        <div class="eyebrow"><span class="pulse"></span> Cockpit français des données publiques</div>
+        <h1>Le radar simple pour explorer <span class="grad">l’open data FR</span>.</h1>
+        <p class="lead">Une interface fun, guidée et lisible pour interroger les API publiques : entreprises, adresses, communes, BODACC, transport, cadastre et datasets data.gouv — avec les limites clairement affichées.</p>
+        <div class="hero-actions"><a class="btn primary" href="../">🗺️ Ouvrir le cockpit carte</a><a class="btn" href="#prototype">Voir la fiche exemple</a><a class="btn" href="#sources">Cartographie API</a></div>
+      </div>
+      <div class="radar" aria-label="Radar visuel des sources publiques">
+        <video class="radar-logo" autoplay muted loop playsinline preload="auto"><source src="assets/logo.mp4" type="video/mp4"></video>
+        <div class="radar-grid"></div>
+        <div class="globe" aria-hidden="true">
+          <div class="globe-spin">
+            <span class="gr"></span><span class="gr"></span><span class="gr"></span><span class="gr"></span>
+            <span class="gr"></span><span class="gr"></span><span class="gr"></span><span class="gr"></span>
+            <span class="globe-eq"></span><span class="globe-eq eq2"></span><span class="globe-eq eq3"></span>
+          </div>
+          <span class="globe-core"></span>
+          <span class="globe-node n1"></span><span class="globe-node n2"></span><span class="globe-node n3"></span><span class="globe-node n4"></span>
+        </div>
+        <div class="sweep"></div><span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span>
+        <div class="radar-readout"><span>LAT 48.8566</span><span>LON 2.3522</span><span class="rr-live">● LIVE</span></div>
+        <div class="floating">
+          <div class="mini-card"><div><b>Recherche Entreprises</b><br><span>SIREN, SIRET, dirigeants diffusés, activité</span></div><span class="tag open">ouverte</span></div>
+          <div class="mini-card"><div><b>API Particulier</b><br><span>Données usagers uniquement sur habilitation</span></div><span class="tag lock">encadrée</span></div>
+          <div class="mini-card"><div><b>data.gouv</b><br><span>Datasets, organisations, fichiers, réutilisations</span></div><span class="tag open">catalogue</span></div>
+        </div>
+      </div>
+    </header></section>
+
+    <section id="chercher" class="tab">
+      <div class="section-head" data-kicker="01 — Cockpit"><h2>Recherche universelle</h2><p class="sub">Un seul champ. OSIRIS détecte le type de requête et propose les bonnes sources au lieu de forcer l’utilisateur à connaître les API.</p></div>
+      <div class="panel search-lab">
+      <div class="cockpit">
+        <div class="cockpit-left">
+        <div class="chips" style="margin-bottom:8px"><button class="chip active" id="mode-ent" onclick="setMode('entreprise')">🏢 Entreprise / lieu</button><button class="chip" id="mode-per" onclick="setMode('personne')">🧑 Personne (dirigeant)</button></div>
+        <div class="chips" style="margin-bottom:12px"><button class="chip" id="deep-toggle" onclick="toggleDeep()" title="Rebondit automatiquement sur les dirigeants, adresses et SIREN trouvés (2 niveaux)">🔎 Investigation auto : OFF</button></div>
+        <div id="form-entreprise">
+          <div class="searchbar"><input id="q" value="boulangerie 75011" aria-label="Recherche" /><button class="btn primary" onclick="runDemo()">Analyser</button></div>
+          <details id="filters-panel" style="margin-top:10px">
+            <summary class="chip" style="display:inline-block">⚙️ Filtres ciblés (NAF, dépt, effectif, labels)</summary>
+            <div class="filters-grid">
+              <input id="f-naf" placeholder="Code NAF (ex 10.71C)" />
+              <input id="f-dept" placeholder="Département (ex 81)" />
+              <input id="f-cp" placeholder="Code postal" />
+              <select id="f-effectif" aria-label="Effectif">
+                <option value="">Effectif (tous)</option>
+                <option value="00">0 salarié</option><option value="01">1-2</option><option value="02">3-5</option>
+                <option value="03">6-9</option><option value="11">10-19</option><option value="12">20-49</option>
+                <option value="21">50-99</option><option value="22">100-199</option><option value="32">250-499</option>
+                <option value="41">500-999</option><option value="51">2000-4999</option><option value="53">10000+</option>
+              </select>
+              <select id="f-categorie" aria-label="Catégorie"><option value="">Catégorie (toutes)</option><option value="PME">PME</option><option value="ETI">ETI</option><option value="GE">Grande entreprise</option></select>
+              <select id="f-etat" aria-label="État"><option value="">État (tous)</option><option value="A">En activité</option><option value="C">Cessée</option></select>
+              <label class="f-check"><input type="checkbox" id="f-rge" /> RGE</label>
+              <label class="f-check"><input type="checkbox" id="f-ess" /> ESS</label>
+              <label class="f-check"><input type="checkbox" id="f-qualiopi" /> Qualiopi</label>
+              <label class="f-check"><input type="checkbox" id="f-bio" /> Bio</label>
+              <label class="f-check"><input type="checkbox" id="f-association" /> Association</label>
+            </div>
+          </details>
+          <div class="chips"><button class="chip active" onclick="setDemo('boulangerie 75011')">Entreprise + lieu</button><button class="chip" onclick="setDemo('8 boulevard du port')">Adresse</button><button class="chip" onclick="setDemo('Saint-Amand-Montrond')">Commune</button><button class="chip" onclick="setDemo('422606814')">SIREN</button><button class="chip" onclick="setDemo('transport vélo Paris')">Dataset</button></div><div class="hero-actions"><button class="btn" onclick="downloadMarkdown()">Télécharger Markdown</button><button class="btn" onclick="downloadCsv('metadata.csv')">CSV sources</button><button class="btn" onclick="downloadCsv('results.csv')">CSV résultats</button></div>
+        </div>
+        <div id="form-personne" style="display:none">
+          <div class="searchbar duo"><input id="p-nom" placeholder="Nom (ex : Lambda)" aria-label="Nom" /><input id="p-prenom" placeholder="Prénom (ex : Jean-Michel)" aria-label="Prénom" /><button class="btn primary" onclick="runPerson()">Analyser</button></div>
+          <p class="sub" style="margin:12px 2px 0">Trouve les sociétés où la personne est <b>dirigeante</b> (registre public, dirigeants diffusés). Les adresses personnelles ne sont pas affichées.</p>
+        </div>
+        <div class="chips" style="margin:12px 0 0"><button class="chip active" id="view-list" onclick="setView('list')">📇 Liste</button><button class="chip" id="view-graph" onclick="setView('graph')">🕸️ Graphe</button></div>
+        <div class="chips" id="export-bar" style="display:none;margin:8px 0 0"><button class="chip" onclick="exportReport()">📄 Rapport (PDF)</button><button class="chip" onclick="exportGraphPng()">🖼️ Image du graphe</button></div>
+        </div><!-- /cockpit-left -->
+        <div class="cockpit-right">
+        <div id="loading" style="display:none">
+          <div class="loader">
+            <div class="loader-radar"><div class="loader-sweep"></div><span class="loader-blip b1"></span><span class="loader-blip b2"></span><span class="loader-blip b3"></span></div>
+            <div class="loader-bar"></div>
+            <div class="loader-txt"><span id="load-title">Recherche</span> · <span id="load-timer">0s</span></div>
+            <div class="loader-sub" id="load-step">Interrogation des sources…</div>
+          </div>
+        </div>
+        <div class="results" id="results"></div>
+        <div id="graph-wrap" style="display:none">
+          <div class="graph-toolbar"><span class="graph-title">Graphe d'investigation</span><button class="chip graph-fs-btn" onclick="osirisGraphFs()" aria-label="Basculer le plein écran"><span class="gfs-open">⤢ Plein écran</span><span class="gfs-close">✕ Quitter</span></button></div>
+          <div id="graph" style="height:620px;border:1px solid var(--line);border-radius:20px;background:#070b12"></div>
+          <p class="sub" id="graph-stats" style="margin:10px 2px">Clique un nœud pour voir ses pistes (dorks) et ajouter une trouvaille.</p>
+          <div class="glegend">
+            <span class="gl"><i class="gshape s-origin"></i>Recherche</span>
+            <span class="gl"><i class="gshape s-company"></i>Entreprise</span>
+            <span class="gl"><i class="gshape s-person"></i>Personne</span>
+            <span class="gl"><i class="gshape s-address"></i>Adresse</span>
+            <span class="gl"><i class="gshape s-commune"></i>Commune</span>
+            <span class="gl"><i class="gshape s-bodacc"></i>BODACC</span>
+            <span class="gl"><i class="gshape s-assoc"></i>Association</span>
+            <span class="gl"><i class="gshape s-finding"></i>Trouvaille</span>
+          </div>
+          <p class="sub graph-guide" style="margin:8px 2px 0;font-size:12px">Lecture : l'<b>origine</b> mène aux entités trouvées — chaque flèche est étiquetée (<b>résultat · dirige · siège · même adresse · BODACC</b>). Clique un nœud pour ses pistes et « Enquêter ».</p>
+          <div id="node-panel" style="display:none"></div>
+        </div>
+        </div><!-- /cockpit-right -->
+      </div><!-- /cockpit -->
+      </div>
+    </section>
+
+    <section id="sources" class="tab">
+      <div class="folddown"><div class="section-head fold-head" data-kicker="02 — Connecteurs"><h2>Sources branchables</h2></div>
+      <p class="sub fold-sub">Chaque source devient un connecteur avec sa licence, ses champs utiles, ses limites et son niveau d’accès.</p>
+      <div class="grid4">
+        <article class="panel source"><span class="tag open">sans clé</span><h3>data.gouv</h3><ul><li>datasets</li><li>ressources CSV/JSON/GeoJSON</li><li>organisations</li><li>API référencées</li></ul></article>
+        <article class="panel source"><span class="tag open">sans clé</span><h3>Entreprises</h3><ul><li>SIREN/SIRET</li><li>statut</li><li>établissements</li><li>dirigeants diffusés</li></ul></article>
+        <article class="panel source"><span class="tag open">sans clé</span><h3>Geo + Adresse</h3><ul><li>communes</li><li>codes INSEE</li><li>géocodage</li><li>coordonnées</li></ul></article>
+        <article class="panel source"><span class="tag open">API publique</span><h3>BODACC</h3><ul><li>annonces</li><li>procédures</li><li>radiations</li><li>recherche par SIREN</li></ul></article>
+        <article class="panel source"><span class="tag open">données ouvertes</span><h3>Transport</h3><ul><li>GTFS</li><li>arrêts</li><li>lignes</li><li>temps réel si dispo</li></ul></article>
+        <article class="panel source"><span class="tag key">technique</span><h3>Cadastre</h3><ul><li>parcelles</li><li>sections</li><li>GeoJSON</li><li>pas de propriétaire</li></ul></article>
+        <article class="panel source"><span class="tag key">variable</span><h3>Associations</h3><ul><li>RNA</li><li>objet</li><li>déclarations</li><li>JOAFE/datasets</li></ul></article>
+        <article class="panel source"><span class="tag lock">habilitation</span><h3>API protégées</h3><ul><li>API Entreprise</li><li>API Particulier</li><li>Impôts</li><li>accès justifié</li></ul></article>
+      </div>
+      </div>
+    </section>
+
+    <section id="recettes" class="tab">
+      <div class="folddown"><div class="section-head fold-head" data-kicker="03 — Parcours"><h2>Recettes guidées</h2></div>
+      <p class="sub fold-sub">Des parcours en langage humain. L’utilisateur choisit son intention, l’interface construit les appels API et le rapport.</p>
+      <div class="recipes">
+        <article class="panel recipe"><h3>Vérifier une entreprise</h3><p>SIREN/SIRET, statut, siège, établissements, BODACC, export.</p><div class="steps"><div class="step"><span class="num">1</span>Entrer nom ou SIREN</div><div class="step"><span class="num">2</span>Comparer les correspondances</div><div class="step"><span class="num">3</span>Générer une fiche sourcée</div></div></article>
+        <article class="panel recipe"><h3>Explorer un territoire</h3><p>Adresse ou commune → codes, carte, population, datasets locaux.</p><div class="steps"><div class="step"><span class="num">1</span>Géocoder</div><div class="step"><span class="num">2</span>Enrichir commune/région</div><div class="step"><span class="num">3</span>Voir sources autour</div></div></article>
+        <article class="panel recipe"><h3>Créer un rapport OSINT admin</h3><p>Un rapport propre, avec sources officielles, limites et zones non vérifiées.</p><div class="steps"><div class="step"><span class="num">1</span>Sélectionner les sources</div><div class="step"><span class="num">2</span>Classer la preuve</div><div class="step"><span class="num">3</span>Exporter PDF/Markdown</div></div></article>
+      </div>
+      </div>
+    </section>
+
+    <section id="prototype" class="tab">
+      <div class="folddown"><div class="section-head fold-head" data-kicker="04 — Produit"><h2>Écran produit — fiche enrichie</h2></div>
+      <p class="sub fold-sub">Exemple de rendu final : une fiche lisible, actionnable, avec carte, timeline et appels API reproductibles.</p>
+      <div class="panel mock">
+        <aside class="sidebar"><div class="side-item active"><span class="icon">⌕</span> Recherche active</div><div class="side-item"><span class="icon">🏢</span> Entreprises</div><div class="side-item"><span class="icon">🗺</span> Territoire</div><div class="side-item"><span class="icon">📚</span> Datasets</div><div class="side-item"><span class="icon">⚖</span> BODACC</div><div class="side-item"><span class="icon">🛡</span> Limites RGPD</div></aside>
+        <main class="workspace">
+          <div class="dash-grid">
+            <div class="big-card"><span class="tag open">source officielle</span><h3>BOULANGERIES BG</h3><p class="sub">SIREN 478455793 · activité 10.71A · établissements détectés · siège géocodé.</p><div class="timeline"><div class="event"><div class="date">Étape 1</div><div class="txt">Recherche d’entreprise par nom + zone.</div></div><div class="event"><div class="date">Étape 2</div><div class="txt">Enrichissement API Geo / Adresse pour contexte local.</div></div><div class="event"><div class="date">Étape 3</div><div class="txt">Préparation rapport sourcé avec limites visibles.</div></div></div><div class="code">GET recherche-entreprises.api.gouv.fr/search?q=boulangerie&per_page=10</div></div>
+            <div class="big-card"><h3>Carte contexte</h3><div class="map"></div><p class="sub">La carte devient le point d’entrée : entreprises, datasets locaux, transports et parcelles si disponibles.</p></div>
+          </div>
+        </main>
+      </div>
+      </div>
+    </section>
+
+    <section id="rgpd" class="tab">
+      <div class="folddown"><div class="section-head fold-head" data-kicker="05 — Conformité"><h2>Garde-fous intégrés</h2></div>
+      <p class="sub fold-sub">Le produit doit être utile sans devenir intrusif. La confiance vient autant des limites que des résultats.</p>
+      <div class="guard">
+        <div class="panel"><h3>Sources visibles</h3><p class="sub">Chaque résultat indique : officiel, secondaire, dataset local, bloqué ou habilitation nécessaire.</p></div>
+        <div class="panel"><h3>Personnes physiques</h3><p class="sub">Masquage par défaut des adresses personnelles et pas de scoring opaque sur individus.</p></div>
+        <div class="panel"><h3>Rapports propres</h3><p class="sub">Export avec requêtes utilisées, dates, limites et “ce qu’on ne peut pas conclure”.</p></div>
+      </div>
+      </div>
+    </section>
+
+    <footer class="footer"><strong>OSIRIS V4 · cockpit OSINT défensif</strong><span>Données publiques officielles : data.gouv · Geo · Adresse · Entreprises · BODACC · RNA · DVF.</span></footer>
+    </main>
+  </div>
+  <script>
+  /* OSIRIS — UI uniquement : plein écran du graphe. Ne touche pas la logique d'app.js. */
+  function osirisGraphFs(){
+    var w=document.getElementById('graph-wrap'); if(!w) return;
+    var on=w.classList.toggle('graph-fs');
+    try{ if(on && w.requestFullscreen){ w.requestFullscreen().catch(function(){}); } else if(!on && document.fullscreenElement){ document.exitFullscreen().catch(function(){}); } }catch(e){}
+    setTimeout(function(){ try{ window.dispatchEvent(new Event('resize')); }catch(e){} }, 80);
+    setTimeout(function(){ try{ window.dispatchEvent(new Event('resize')); }catch(e){} }, 360);
+  }
+  document.addEventListener('fullscreenchange', function(){
+    var w=document.getElementById('graph-wrap');
+    if(w && !document.fullscreenElement) w.classList.remove('graph-fs');
+    setTimeout(function(){ try{ window.dispatchEvent(new Event('resize')); }catch(e){} }, 80);
+  });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ var w=document.getElementById('graph-wrap'); if(w&&!document.fullscreenElement) w.classList.remove('graph-fs'); } });
+  var __navcb=document.getElementById('navcol');
+  if(__navcb) __navcb.addEventListener('change', function(){ setTimeout(function(){ try{ window.dispatchEvent(new Event('resize')); }catch(e){} }, 260); });
+
+  /* OSIRIS — fond réseau animé (canvas décoratif, n’affecte pas app.js) */
+  (function(){
+    var c=document.getElementById('netbg'); if(!c||!c.getContext) return;
+    var ctx=c.getContext('2d'), DPR=Math.min(window.devicePixelRatio||1,2), W=0,H=0,raf=0;
+    var reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+    var N=[],COUNT=0;
+    function build(){
+      W=c.clientWidth; H=c.clientHeight; c.width=W*DPR; c.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+      COUNT=Math.max(34,Math.min(96,Math.round(W*H/21000)));
+      N=[]; for(var i=0;i<COUNT;i++){ N.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.16,vy:(Math.random()-.5)*.16,r:Math.random()<.12?2.6:1.3,amber:Math.random()<.16}); }
+    }
+    function frame(){
+      ctx.clearRect(0,0,W,H);
+      var cx=W*.5, cy=H*.42, R=Math.min(W,H);
+      ctx.save(); ctx.translate(cx,cy); ctx.rotate((Date.now()/90000)%(Math.PI*2));
+      var rings=[R*.30,R*.42,R*.56];
+      for(var k=0;k<rings.length;k++){ ctx.beginPath(); ctx.setLineDash([2,11+k*5]); ctx.lineWidth=1; ctx.strokeStyle='rgba(84,189,222,'+(0.06-k*0.013)+')'; ctx.arc(0,0,rings[k],0,Math.PI*2); ctx.stroke(); }
+      ctx.setLineDash([]); ctx.restore();
+      var i,j;
+      for(i=0;i<COUNT;i++){ var a=N[i];
+        for(j=i+1;j<COUNT;j++){ var b=N[j],dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy;
+          if(d2<20000){ var o=(1-d2/20000)*0.22; ctx.strokeStyle='rgba(84,189,222,'+o.toFixed(3)+')'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); } } }
+      for(i=0;i<COUNT;i++){ var p=N[i];
+        if(!reduce){ p.x+=p.vx; p.y+=p.vy; if(p.x<-5)p.x+=W+10; if(p.x>W+5)p.x-=W+10; if(p.y<-5)p.y+=H+10; if(p.y>H+5)p.y-=H+10; }
+        var col=p.amber?'214,164,69':'128,212,238';
+        if(p.r>2){ ctx.beginPath(); ctx.fillStyle='rgba('+col+',0.11)'; ctx.arc(p.x,p.y,p.r*4.5,0,Math.PI*2); ctx.fill(); }
+        ctx.beginPath(); ctx.fillStyle='rgba('+col+',0.92)'; ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill(); }
+      if(!reduce) raf=requestAnimationFrame(frame);
+    }
+    function start(){ build(); cancelAnimationFrame(raf); frame(); }
+    start(); window.addEventListener('resize', function(){ clearTimeout(c.__t); c.__t=setTimeout(start,180); });
+  })();
+  </script>
+  <div id="feedback-modal" class="fb-modal" style="display:none">
+    <div class="fb-box">
+      <span class="fb-close" onclick="closeFeedback()">✕</span>
+      <h3>💬 Feedback / Question</h3>
+      <p class="fb-sub">Un bug, une question, une idée ? Dis-nous tout — ça part directement à l'équipe.</p>
+      <div class="fb-types">
+        <label><input type="radio" name="fb-type" value="bug" checked> 🐞 Bug</label>
+        <label><input type="radio" name="fb-type" value="question"> ❓ Question</label>
+        <label><input type="radio" name="fb-type" value="idee"> 💡 Idée</label>
+      </div>
+      <input id="fb-name" placeholder="Ton nom (optionnel)">
+      <input id="fb-email" placeholder="Ton email (si tu veux une réponse)">
+      <textarea id="fb-msg" rows="5" placeholder="Décris le bug, ta question ou ton idée…"></textarea>
+      <button class="btn primary" id="fb-send" onclick="sendFeedback()">Envoyer</button>
+      <div id="fb-status"></div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

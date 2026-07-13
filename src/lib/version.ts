@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.083-dev';
+export const OSIRIS_VERSION = 'V4.084-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -33,13 +33,21 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
   {
+    version: 'V4.084-dev',
+    date: '2026-07-13',
+    resume:
+      "🏠 Accueil = la VRAIE landing V3 reproduite À L'IDENTIQUE (retour Cissou : « je veux la même, pas un pixel qui bouge, " +
+      "l'animation du début »). La V4.083 (accueil React refait) était HORS-SUJET → remplacée. On sert les FICHIERS EXACTS de la " +
+      "V3 (`index.html`+`style.css`+`app.js`+assets, splash `logo.mp4` + fond `bg.mp4` + hero radar) copiés dans " +
+      "`public/landing/` → `/cockpit/landing/`. Adaptations minimales : chemins relatifs, wordmark V3→V4, CTA hero + nav → cockpit " +
+      "V4 (`../`). CSP : ajout cdn.jsdelivr.net (vis-network). Nav du cockpit repointée sur la landing.",
+  },
+  {
     version: 'V4.083-dev',
     date: '2026-07-13',
     resume:
-      "🏠 Accueil V4 (émancipation Lot A, code-only) — retour Cissou « tout ce qu'on a fait a été balayé » : « Accueil » et la nav " +
-      "du cockpit pointaient vers `/` = la LANDING V3 (login/périmé). Nouvelle page `/cockpit/accueil` 100 % V4 (hero + sources + " +
-      "recettes + glossaire + garde-fous, à jour), nav + « ← Accueil » repointés dessus → on ne saute plus jamais vers la V3. " +
-      "L'accueil à la racine + auth autonome (Better Auth/Postgres) + compose autonome = jalon suivant (avec Hermès).",
+      "🏠 [SUPERSEDED par V4.084] Accueil V4 en React refait de zéro — ERREUR : Cissou voulait la landing V3 À L'IDENTIQUE " +
+      "(graphisme + animation d'intro), pas une refonte. Remplacé par la vraie landing V3 reproduite en V4.084.",
   },
   {
     version: 'V4.082-dev',

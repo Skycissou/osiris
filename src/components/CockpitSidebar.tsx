@@ -19,19 +19,19 @@ import { BASE_PATH } from '@/lib/api';
 /** Liens de navigation → accueil V4 (SOUS le basePath, `/cockpit/accueil`) — PLUS
  *  vers `/` (racine = landing V3, qui renvoyait au login V3, retour Cissou 13/07).
  *  `active: true` = page courante (le cockpit). MÊME structure que l'accueil. */
+const ACCUEIL = `${BASE_PATH}/landing/index.html`; // la VRAIE landing V3 reproduite, servie en statique sous /cockpit
 const NAV_LINKS: { label: string; href?: string; active?: boolean }[] = [
-  { label: 'Accueil', href: `${BASE_PATH}/accueil` },
-  { label: 'Chercher', href: `${BASE_PATH}/` }, // la barre de recherche vit dans le cockpit
+  { label: 'Accueil', href: ACCUEIL },
+  { label: 'Chercher', href: `${ACCUEIL}#chercher` },
   { label: 'Cockpit carte', active: true },
 ];
 
-/** Groupe « Doc » (repliable) — ancres de l'accueil V4 (hors V3). */
+/** Groupe « Doc » (repliable) — ancres de la landing (V3 reproduite à l'identique). */
 const DOC_LINKS: { label: string; href: string }[] = [
-  { label: 'Sources', href: `${BASE_PATH}/accueil#sources` },
-  { label: 'Recettes', href: `${BASE_PATH}/accueil#recettes` },
-  { label: 'Glossaire', href: `${BASE_PATH}/accueil#glossaire` },
-  { label: 'Prototype', href: `${BASE_PATH}/accueil#prototype` },
-  { label: 'Garde-fous', href: `${BASE_PATH}/accueil#rgpd` },
+  { label: 'Sources', href: `${ACCUEIL}#sources` },
+  { label: 'Recettes', href: `${ACCUEIL}#recettes` },
+  { label: 'Prototype', href: `${ACCUEIL}#prototype` },
+  { label: 'Garde-fous', href: `${ACCUEIL}#rgpd` },
 ];
 
 export interface CockpitSidebarProps {

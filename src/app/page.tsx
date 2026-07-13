@@ -857,7 +857,7 @@ export default function Dashboard() {
           <a
             /* Accueil V4 (sous basePath) — PLUS vers `/` = landing V3. Si une
                recherche est en cours, on reste dans le cockpit avec ?q= (continuité). */
-            href={lastQuery ? `${BASE_PATH}/?q=${encodeURIComponent(lastQuery)}` : `${BASE_PATH}/accueil`}
+            href={lastQuery ? `${BASE_PATH}/?q=${encodeURIComponent(lastQuery)}` : `${BASE_PATH}/landing/index.html`}
             /* Pill arrondie + léger décollement au survol (langage boutons de la landing) */
             className="glass-panel hover-lift pointer-events-auto rounded-[12px] px-3 py-1 text-[10px] font-mono tracking-widest text-[var(--accent-bright)] hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-colors"
             title="Retour à l'accueil"
