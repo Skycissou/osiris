@@ -16,22 +16,22 @@ import { memo, useState } from 'react';
 import Link from 'next/link';
 import { BASE_PATH } from '@/lib/api';
 
-/** Liens de navigation → onglets de l'accueil (racine du domaine, hors basePath).
- *  `active: true` = page courante (le cockpit). Édite librement cette liste.
- *  MÊME structure que la sidebar de l'accueil : la doc est regroupée (DOC_LINKS). */
+/** Liens de navigation → accueil V4 (SOUS le basePath, `/cockpit/accueil`) — PLUS
+ *  vers `/` (racine = landing V3, qui renvoyait au login V3, retour Cissou 13/07).
+ *  `active: true` = page courante (le cockpit). MÊME structure que l'accueil. */
 const NAV_LINKS: { label: string; href?: string; active?: boolean }[] = [
-  { label: 'Accueil', href: '/' },
-  { label: 'Chercher', href: '/#chercher' },
+  { label: 'Accueil', href: `${BASE_PATH}/accueil` },
+  { label: 'Chercher', href: `${BASE_PATH}/` }, // la barre de recherche vit dans le cockpit
   { label: 'Cockpit carte', active: true },
 ];
 
-/** Groupe « Doc » (repliable) — miroir du groupe Doc de la sidebar accueil. */
+/** Groupe « Doc » (repliable) — ancres de l'accueil V4 (hors V3). */
 const DOC_LINKS: { label: string; href: string }[] = [
-  { label: 'Sources', href: '/#sources' },
-  { label: 'Recettes', href: '/#recettes' },
-  { label: 'Glossaire', href: '/#glossaire' },
-  { label: 'Prototype', href: '/#prototype' },
-  { label: 'Garde-fous', href: '/#rgpd' },
+  { label: 'Sources', href: `${BASE_PATH}/accueil#sources` },
+  { label: 'Recettes', href: `${BASE_PATH}/accueil#recettes` },
+  { label: 'Glossaire', href: `${BASE_PATH}/accueil#glossaire` },
+  { label: 'Prototype', href: `${BASE_PATH}/accueil#prototype` },
+  { label: 'Garde-fous', href: `${BASE_PATH}/accueil#rgpd` },
 ];
 
 export interface CockpitSidebarProps {

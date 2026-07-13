@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.082-dev';
+export const OSIRIS_VERSION = 'V4.083-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.083-dev',
+    date: '2026-07-13',
+    resume:
+      "🏠 Accueil V4 (émancipation Lot A, code-only) — retour Cissou « tout ce qu'on a fait a été balayé » : « Accueil » et la nav " +
+      "du cockpit pointaient vers `/` = la LANDING V3 (login/périmé). Nouvelle page `/cockpit/accueil` 100 % V4 (hero + sources + " +
+      "recettes + glossaire + garde-fous, à jour), nav + « ← Accueil » repointés dessus → on ne saute plus jamais vers la V3. " +
+      "L'accueil à la racine + auth autonome (Better Auth/Postgres) + compose autonome = jalon suivant (avec Hermès).",
+  },
   {
     version: 'V4.082-dev',
     date: '2026-07-13',
