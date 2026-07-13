@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.092-dev';
+export const OSIRIS_VERSION = 'V4.093-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,19 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.093-dev',
+    date: '2026-07-13',
+    resume:
+      "📡 Connecteur ARPD (chantier ③) — 4e source du pipeline alertes disparitions. Scrape le listing `arpd.fr/fr/recherche-" +
+      "disparition` (Drupal Views) : `parser.ts` extrait par carte le lien/titre/photo + taxo (source ARPD/Gendarmerie/Police/" +
+      "116000, région, département) + parse best-effort du titre (nom/âge/date/ville/code dépt) — **test golden sur capture RÉELLE** " +
+      "(`__fixtures__/`, 28/28 verts, cas DOM/date corrompue/jj-mm-aaaa). Sync (`sync.ts`, cadence n8n 6 h) : **sanity check ≥70 % " +
+      "bloquant** (anti-retrait massif sur fetch partiel) → géocode (ville IGN, sinon **centroïde département** hors-ligne) → " +
+      "**retrait miroir avec grâce 2 syncs** (`diff.ts`, test 10/10) → `upsertSource('arpd')` du store existant (RGPD : levée " +
+      "anonymisée, photo hotlink jamais copiée, attribution + lien original). Source `arpd` enregistrée (1 ligne → pin/fiche/chips " +
+      "auto). Route `POST /cockpit/arpd/sync` (token). UA identifié assumé, 1 req/s. Build vert. Reste : brancher le cron n8n 6 h.",
+  },
   {
     version: 'V4.092-dev',
     date: '2026-07-13',

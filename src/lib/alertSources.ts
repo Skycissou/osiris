@@ -31,6 +31,7 @@ export const ALERT_SOURCE_REGISTRY = [
   { slug: 'gendarmerie', label: 'Gendarmerie', fullLabel: 'Gendarmerie nationale (appel à témoins)', defaultCategorie: 'disparition_inquietante' },
   { slug: 'police_nationale', label: 'Police nat.', fullLabel: 'Police nationale (appel à témoins)', defaultCategorie: 'disparition_inquietante' },
   { slug: 'presse_locale', label: 'Presse locale', fullLabel: 'Presse locale / France Bleu', defaultCategorie: 'disparition' },
+  { slug: 'arpd', label: 'ARPD', fullLabel: 'ARPD — avis de recherche (arpd.fr)', defaultCategorie: 'disparition' },
 ] as const satisfies readonly AlertSourceDef[];
 
 /** Union des slugs connus (type-safe, dérivée du registre). */
