@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.095-dev';
+export const OSIRIS_VERSION = 'V4.096-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.096-dev',
+    date: '2026-07-13',
+    resume:
+      "🎛️ Puces alertes — état allumé/éteint = PINS SUR LA CARTE (précision Cissou : « allumé quand les pings sont " +
+      "présents, éteint quand ils ne sont plus là »). Le compteur de chaque puce passe du total brut aux **avis " +
+      "réellement géolocalisés et affichés** (jeu `mapCat`/`mapSrc` calculé sur `filtered` ∩ avis avec lat/lon). " +
+      "Une puce est **allumée ⟺ compteur carte > 0** → masquée (0) = éteinte, ET catégorie/source sans aucun avis " +
+      "géolocalisé = éteinte aussi. Deuxième jeu `rawCat`/`rawSrc` (tous les avis) conservé pour décider l'EXISTENCE " +
+      "de la puce (elle reste visible/cliquable même masquée ou sans pin). Filtrage UI pur, aucun impact pipeline.",
+  },
   {
     version: 'V4.095-dev',
     date: '2026-07-13',

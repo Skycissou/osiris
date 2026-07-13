@@ -169,7 +169,13 @@ function AlertsControlBar({ alerts, filtered, hiddenCat, hiddenSrc, onToggleCat,
     setTimeout(() => setSpin(false), 700);
   };
 
-  const { catCounts, srcCounts } = useMemo(() => {
+  // Deux jeux de compteurs :
+  //  • rawCat/rawSrc (TOUS les avis, géolocalisés ou non) → décide si une puce
+  //    EXISTE (sinon elle disparaît quand la source n'envoie rien).
+  //  • mapCat/mapSrc (avis FILTRÉS réellement SUR LA CARTE) → le nombre affiché
+  //    ET l'état allumé/éteint : une puce est allumée QUAND ses pins sont sur la
+  //    carte, éteinte sinon (masquée OU aucun avis géolocalisé). Demande Cissou.
+  const { rawCat, rawSrc } = useMemo(() => {
     const cc: Record<string, number> = {};
     const sc: Record<string, number> = {};
     for (const a of alerts) {
@@ -177,8 +183,19 @@ function AlertsControlBar({ alerts, filtered, hiddenCat, hiddenSrc, onToggleCat,
       cc[c] = (cc[c] || 0) + 1;
       sc[a.source] = (sc[a.source] || 0) + 1;
     }
-    return { catCounts: cc, srcCounts: sc };
+    return { rawCat: cc, rawSrc: sc };
   }, [alerts]);
+  const { mapCat, mapSrc } = useMemo(() => {
+    const cc: Record<string, number> = {};
+    const sc: Record<string, number> = {};
+    for (const a of filtered) {
+      if (typeof a.lat !== 'number' || typeof a.lon !== 'number') continue; // pins carte uniquement
+      const c = a.categorie || 'disparition';
+      cc[c] = (cc[c] || 0) + 1;
+      sc[a.source] = (sc[a.source] || 0) + 1;
+    }
+    return { mapCat: cc, mapSrc: sc };
+  }, [filtered]);
 
   const onMap = useMemo(() => filtered.filter((a) => typeof a.lat === 'number' && typeof a.lon === 'number').length, [filtered]);
   const noPos = filtered.length - onMap;
@@ -235,14 +252,14 @@ function AlertsControlBar({ alerts, filtered, hiddenCat, hiddenSrc, onToggleCat,
       </div>
 
       <div className="flex items-center gap-1.5 flex-wrap">
-        {/* Légende : puce allumée = visible (par défaut). Clic = masquer ce type. */}
-        <span className="text-[9px] font-mono text-[var(--faint)] mr-0.5" title="Toutes les puces sont allumées au départ. Cliquer une puce masque ses pins, re-cliquer les rallume.">clic = masquer</span>
-        {CATS.filter((c) => (catCounts[c.slug] || 0) > 0 || hiddenCat.includes(c.slug)).map((c) => (
-          <Chip key={c.slug} label={c.label} count={catCounts[c.slug] || 0} on={!hiddenCat.includes(c.slug)} onClick={() => onToggleCat(c.slug)} />
+        {/* Puce allumée = ses pins sont sur la carte · éteinte = plus de pins (masquée ou aucun avis géolocalisé). Clic = masquer/afficher. */}
+        <span className="text-[9px] font-mono text-[var(--faint)] mr-0.5" title="Une puce est allumée quand ses pins sont sur la carte. Cliquer une puce masque ses pins (elle s'éteint), re-cliquer les rallume.">clic = masquer</span>
+        {CATS.filter((c) => (rawCat[c.slug] || 0) > 0 || hiddenCat.includes(c.slug)).map((c) => (
+          <Chip key={c.slug} label={c.label} count={mapCat[c.slug] || 0} on={(mapCat[c.slug] || 0) > 0} onClick={() => onToggleCat(c.slug)} />
         ))}
         <span className="text-white/15">|</span>
-        {SRCS.filter((s) => (srcCounts[s.slug] || 0) > 0 || hiddenSrc.includes(s.slug)).map((s) => (
-          <Chip key={s.slug} label={s.label} count={srcCounts[s.slug] || 0} on={!hiddenSrc.includes(s.slug)} onClick={() => onToggleSrc(s.slug)} />
+        {SRCS.filter((s) => (rawSrc[s.slug] || 0) > 0 || hiddenSrc.includes(s.slug)).map((s) => (
+          <Chip key={s.slug} label={s.label} count={mapSrc[s.slug] || 0} on={(mapSrc[s.slug] || 0) > 0} onClick={() => onToggleSrc(s.slug)} />
         ))}
       </div>
 
