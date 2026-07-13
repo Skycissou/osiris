@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.088-dev';
+export const OSIRIS_VERSION = 'V4.089-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.089-dev',
+    date: '2026-07-13',
+    resume:
+      "🩺 Capsule debug sur l'ACCUEIL statique (chantier ① complété, décision Cissou) : l'accueil `/` étant une page statique " +
+      "(public/landing/) non enveloppée par le layout React, la capsule React ne l'atteignait pas. Ajout d'un **port vanilla** " +
+      "`public/landing/debug-capsule.js` (même comportement que v1.3 : capture console/JS/promesses/fetch≥400, ignore AbortError, " +
+      "dédup ×N, rapport markdown copiable), chargé avant `app.js` (hooke fetch en amont). **Gate PAR DOMAINE** (choix Cissou) : " +
+      "actif uniquement sur les hôtes dev (`osiris-v4.cissouhub.cloud`, localhost) → JAMAIS sur une future prod / pitch national " +
+      "(hôte absent de la liste = aucun hook posé). La capsule 🐞 est maintenant sur TOUT le site (accueil + routes Next).",
+  },
   {
     version: 'V4.088-dev',
     date: '2026-07-13',

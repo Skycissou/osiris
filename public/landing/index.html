@@ -380,6 +380,9 @@
       <div id="fb-status"></div>
     </div>
   </div>
+  <!-- 🐞 Capsule debug (vanilla) — chargée AVANT app.js pour hooker fetch/console en amont.
+       Gate PAR DOMAINE dans le fichier : active seulement sur le domaine dev, jamais en prod. -->
+  <script src="/landing/debug-capsule.js"></script>
   <script src="/landing/app.js"></script>
 </body>
 </html>
