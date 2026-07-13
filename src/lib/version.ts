@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.096-dev';
+export const OSIRIS_VERSION = 'V4.097-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,20 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.097-dev',
+    date: '2026-07-13',
+    resume:
+      "📷 Photos ARPD manquantes réparées (retour Cissou : « Amandine a une photo, pourquoi tu prends des raccourcis »). " +
+      "Diag terrain : 418/484 avis ont leur photo, 66 non. Cause RÉELLE (pas un gating membre) : ces 66 sont des avis " +
+      "« legacy » dont la carte du listing a le champ image VIDE — leur photo vit sur la PAGE DÉTAIL sous `/uploaded/<slug>.jpg` " +
+      "(pas dans le média Drupal `/sites/.../styles/large/` du listing). `parseDetailPhoto()` : extrait la photo pleine " +
+      "`/uploaded/` (ignore les `mini-`, le logo et l'image « accès membre » sous `/sites/`) — golden `detail-sample.html` " +
+      "(3 checks verts). Sync : repli page détail pour tout avis SANS photo listing (nouveaux ET connus non résolus), " +
+      "throttlé 1 req/s, cap `MAX_DETAIL_PHOTO_PER_RUN=80` (~1 min ajoutée au 1er run, puis mémorisé). Compteur `photos_detail` " +
+      "dans la réponse. Bonus : en-tête CSP retiré de la réponse du proxy photo (il cassait la vue en URL directe, ignoré de " +
+      "toute façon par le rendu <img> ; sécurité = content-type image/* + nosniff). Build vert. Reste : re-sync pour peupler.",
+  },
   {
     version: 'V4.096-dev',
     date: '2026-07-13',

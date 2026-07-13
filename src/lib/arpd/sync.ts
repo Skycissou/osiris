@@ -10,7 +10,7 @@
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { parseListing, ARPD_BASE, type ArpdAvisParsed } from './parser';
+import { parseListing, parseDetailPhoto, ARPD_BASE, type ArpdAvisParsed } from './parser';
 import { deptCentroid } from './deptCentroid';
 import { geocodeLocality } from '@/lib/geocode';
 import { upsertSource, normalizeCategorie, type Alert } from '@/lib/alertsStore';
@@ -26,6 +26,12 @@ const PAGE_DELAY_MS = 1100;         // courtoisie ARPD : 1 req/s ENTRE LES PAGES
 //  traîne (geocodeLocality s'auto-throttle déjà → PAS de délai en plus ici, c'était
 //  le bug du 1er run : ~400 × 1,1 s = plusieurs minutes).
 const MAX_VILLE_GEOCODE_PER_RUN = 150;
+// Repli PHOTO via page détail : certains avis « legacy » ont le champ image du
+// listing VIDE, mais portent leur photo sous /uploaded/<slug>.jpg sur leur page
+// détail. On va la chercher UNIQUEMENT pour ces avis-là, throttlé 1 req/s
+// (courtoisie ARPD, comme les pages). Cap/run pour borner la durée (~66 avis
+// concernés × 1,1 s ≈ 1 min ajoutée au 1er run, puis mémorisé → runs suivants légers).
+const MAX_DETAIL_PHOTO_PER_RUN = 80;
 
 function dir(): string {
   return process.env.OSIRIS_ALERTS_DIR || path.join(process.cwd(), 'data');
@@ -69,6 +75,21 @@ async function fetchPage(page: number): Promise<string> {
   }
 }
 
+/** Photo de repli via la page détail d'un avis (avis « legacy » /uploaded/). */
+async function fetchDetailPhoto(pageUrl: string): Promise<string | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const res = await fetch(pageUrl, { headers: { 'User-Agent': UA }, signal: ctrl.signal, cache: 'no-store' });
+    if (!res.ok) return null;
+    return parseDetailPhoto(await res.text());
+  } catch {
+    return null; // page détail KO → l'avis reste sans photo, jamais de crash
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Récupère TOUTES les pages (jusqu'à page vide ou MAX_PAGES). 1 req/s. */
 async function fetchAll(): Promise<ArpdAvisParsed[]> {
   const all: ArpdAvisParsed[] = [];
@@ -90,8 +111,9 @@ function categorieFor(source: string): string {
   return 'disparition';
 }
 
-/** Mappe un avis ARPD (déjà géocodé) vers l'Alert du store existant. */
-function toAlert(a: ArpdAvisParsed, coords: { lat: number; lon: number } | null, geoPrecision: 'ville' | 'departement' | null): Alert {
+/** Mappe un avis ARPD (déjà géocodé) vers l'Alert du store existant.
+ *  `photoUrl` : photo résolue (listing OU repli page détail) — peut être null. */
+function toAlert(a: ArpdAvisParsed, coords: { lat: number; lon: number } | null, geoPrecision: 'ville' | 'departement' | null, photoUrl: string | null): Alert {
   const lieu = [a.ville, a.deptNom].filter(Boolean).join(' · ') || null;
   const details: { label: string; value: string }[] = [];
   if (a.source) details.push({ label: "Source d'origine", value: String(a.source) });
@@ -112,7 +134,7 @@ function toAlert(a: ArpdAvisParsed, coords: { lat: number; lon: number } | null,
     lieu_texte: lieu ?? undefined,
     lat: coords?.lat,
     lon: coords?.lon,
-    photo_url: a.photoUrl ?? undefined,      // hotlink arpd.fr, jamais de copie (RGPD)
+    photo_url: photoUrl ?? undefined,        // hotlink arpd.fr, jamais de copie (RGPD)
     details,
     statut: 'active',
     fetched_at: Date.now(),
@@ -128,6 +150,7 @@ export interface SyncResult {
   geocodes_ville: number;
   geocodes_dept: number;
   sans_position: number;
+  photos_detail?: number; // photos récupérées via page détail (avis legacy /uploaded/)
   state_persisted?: boolean;
 }
 
@@ -142,13 +165,22 @@ export async function runArpdSync(): Promise<SyncResult> {
     return { aborted: true, reason: `sanity: ${total} < 70% de ${state.lastTotal}`, total, actifs: 0, nouveaux: 0, geocodes_ville: 0, sans_position: 0, geocodes_dept: 0 };
   }
 
-  let ville = 0, dept = 0, sansPos = 0, nouveaux = 0, villeGeocoded = 0;
+  let ville = 0, dept = 0, sansPos = 0, nouveaux = 0, villeGeocoded = 0, detailFetched = 0, detailPhotos = 0;
   const present: Alert[] = [];
   for (const a of avis) {
     const known = state.seen[`arpd:${a.id}`];
     // Réutilise coords des avis DÉJÀ vus (géocode = NOUVEAUX seulement).
     if (known?.alert && (known.alert.lat !== undefined || known.alert.lon !== undefined)) {
-      present.push({ ...known.alert, fetched_at: Date.now(), statut: 'active' });
+      let al: Alert = { ...known.alert, fetched_at: Date.now(), statut: 'active' };
+      // Enrichissement tardif : avis connu SANS photo → tenter la page détail
+      // (avis legacy /uploaded/). Borné/run → converge en quelques syncs, throttlé.
+      if (!al.photo_url && detailFetched < MAX_DETAIL_PHOTO_PER_RUN) {
+        detailFetched += 1;
+        const p = await fetchDetailPhoto(a.url);
+        await new Promise((r) => setTimeout(r, PAGE_DELAY_MS)); // courtoisie 1 req/s
+        if (p) { al = { ...al, photo_url: p }; detailPhotos++; }
+      }
+      present.push(al);
       continue;
     }
     nouveaux += 1;
@@ -166,12 +198,20 @@ export async function runArpdSync(): Promise<SyncResult> {
       if (coords) precision = 'departement';
     }
     if (precision === 'ville') ville++; else if (precision === 'departement') dept++; else sansPos++;
-    present.push(toAlert(a, coords, precision));
+    // Photo : listing d'abord ; sinon repli page détail (avis legacy), throttlé/borné.
+    let photoUrl = a.photoUrl;
+    if (!photoUrl && detailFetched < MAX_DETAIL_PHOTO_PER_RUN) {
+      detailFetched += 1;
+      photoUrl = await fetchDetailPhoto(a.url);
+      await new Promise((r) => setTimeout(r, PAGE_DELAY_MS)); // courtoisie 1 req/s
+      if (photoUrl) detailPhotos++;
+    }
+    present.push(toAlert(a, coords, precision, photoUrl));
   }
 
   const { incoming, newState } = computeDiff(present, total, state, Date.now());
   await upsertSource('arpd', incoming);
   const persisted = await saveState(newState);
 
-  return { total, actifs: incoming.length, nouveaux, geocodes_ville: ville, geocodes_dept: dept, sans_position: sansPos, state_persisted: persisted };
+  return { total, actifs: incoming.length, nouveaux, geocodes_ville: ville, geocodes_dept: dept, sans_position: sansPos, photos_detail: detailPhotos, state_persisted: persisted };
 }

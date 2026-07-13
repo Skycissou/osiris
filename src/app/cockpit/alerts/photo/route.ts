@@ -127,7 +127,10 @@ export async function GET(req: NextRequest) {
         'Content-Length': String(buf.byteLength),
         'Cache-Control': 'private, max-age=300',
         'X-Content-Type-Options': 'nosniff',
-        'Content-Security-Policy': "default-src 'none'; img-src 'self' data:",
+        // Pas de CSP ici : sur une réponse IMAGE elle est ignorée par le rendu
+        // <img> (sous-ressource) mais CASSE l'affichage en navigation directe
+        // (ouvrir l'URL dans un onglet) → retirée. La sécurité tient au
+        // content-type image/* forcé + nosniff.
       },
     });
   } catch (e) {

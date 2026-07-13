@@ -107,6 +107,21 @@ function parseNom(titre: string): string | null {
   return nom || null;
 }
 
+/**
+ * Photo depuis une PAGE DÉTAIL d'avis (repli pour les avis « legacy » dont le
+ * listing n'a pas de miniature média : leur carte a le champ image VIDE, mais la
+ * page détail porte la vraie photo sous `/uploaded/<slug>.jpg`). On prend la
+ * version PLEINE (sans préfixe `mini-`), sinon la 1re miniature. Le logo ARPD et
+ * l'image « accès membre » vivent sous `/sites/default/files/` → jamais captés
+ * ici (on ne matche QUE `/uploaded/`). Renvoie une URL absolue ou null.
+ */
+export function parseDetailPhoto(html: string): string | null {
+  const all = [...html.matchAll(/<img[^>]+src="(\/uploaded\/[^"]+\.(?:jpe?g|png))"/gi)].map((m) => m[1]);
+  if (!all.length) return null;
+  const full = all.find((u) => !/\/uploaded\/mini-/i.test(u));
+  return ARPD_BASE + (full || all[0]);
+}
+
 /** Parse une page de listing → avis bruts (SANS géocodage, ajouté au sync). */
 export function parseListing(html: string): ArpdAvisParsed[] {
   const out: ArpdAvisParsed[] = [];
