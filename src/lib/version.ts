@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.094-dev';
+export const OSIRIS_VERSION = 'V4.095-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,19 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.095-dev',
+    date: '2026-07-13',
+    resume:
+      "🎛️ Filtres « Alertes disparitions » réparés (retour Cissou : « un filtre efface tout, l'autre me les remet, " +
+      "c'est pas top »). Cause : modèle À FACETTES contre-intuitif — vide = tout affiché, MAIS 1 puce sélectionnée = " +
+      "montre UNIQUEMENT celle-là (ET entre catégorie et source) → cliquer *Disparition* masquait les *Disp. inquiétantes*, " +
+      "cliquer la 2e les remettait. Bascule en modèle **LÉGENDE** (comme une légende de graphe) : toutes les puces " +
+      "ALLUMÉES par défaut, cliquer une puce **masque juste SES pins** (re-clic rallume). On stocke les valeurs MASQUÉES " +
+      "(`alertHiddenCat`/`alertHiddenSrc`), un avis reste visible tant que sa catégorie ET sa source ne sont pas éteintes. " +
+      "Chaque puce ne pilote QUE ses pins → prévisible. Libellé « clic = masquer » ajouté. `AlertsControlBar` : props " +
+      "renommées `hiddenCat`/`hiddenSrc`, puce allumée = valeur non masquée. Aucune régression pipeline (filtrage pur UI).",
+  },
   {
     version: 'V4.094-dev',
     date: '2026-07-13',

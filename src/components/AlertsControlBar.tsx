@@ -24,8 +24,10 @@ export interface AlertsHealth {
 interface Props {
   alerts: AlertPoint[]; // avis bruts (avant filtre) — compteurs des chips
   filtered: AlertPoint[]; // avis après filtre — liste + compteurs carte/liste
-  catFilter: string[];
-  srcFilter: string[];
+  // Modèle « légende » : ces listes sont les valeurs MASQUÉES (éteintes). Vide =
+  // tout allumé/affiché. Une puce est allumée quand sa valeur N'EST PAS dedans.
+  hiddenCat: string[];
+  hiddenSrc: string[];
   onToggleCat: (c: string) => void;
   onToggleSrc: (s: string) => void;
   onRefresh?: () => void; // bouton 🔄 : force un re-poll immédiat
@@ -150,7 +152,7 @@ function AlertRow({ a, onPlace }: { a: AlertPoint; onPlace?: Props['onPlace'] })
   );
 }
 
-function AlertsControlBar({ alerts, filtered, catFilter, srcFilter, onToggleCat, onToggleSrc, onRefresh, onPlace, health, isMobile, leftOffset = 0, rightInset = 0 }: Props) {
+function AlertsControlBar({ alerts, filtered, hiddenCat, hiddenSrc, onToggleCat, onToggleSrc, onRefresh, onPlace, health, isMobile, leftOffset = 0, rightInset = 0 }: Props) {
   const [listOpen, setListOpen] = useState(false);
   const [spin, setSpin] = useState(false);
   // Fait VIVRE le badge : re-render toutes les 30 s pour que « il y a X min »
@@ -233,12 +235,14 @@ function AlertsControlBar({ alerts, filtered, catFilter, srcFilter, onToggleCat,
       </div>
 
       <div className="flex items-center gap-1.5 flex-wrap">
-        {CATS.filter((c) => (catCounts[c.slug] || 0) > 0 || catFilter.includes(c.slug)).map((c) => (
-          <Chip key={c.slug} label={c.label} count={catCounts[c.slug] || 0} on={catFilter.includes(c.slug)} onClick={() => onToggleCat(c.slug)} />
+        {/* Légende : puce allumée = visible (par défaut). Clic = masquer ce type. */}
+        <span className="text-[9px] font-mono text-[var(--faint)] mr-0.5" title="Toutes les puces sont allumées au départ. Cliquer une puce masque ses pins, re-cliquer les rallume.">clic = masquer</span>
+        {CATS.filter((c) => (catCounts[c.slug] || 0) > 0 || hiddenCat.includes(c.slug)).map((c) => (
+          <Chip key={c.slug} label={c.label} count={catCounts[c.slug] || 0} on={!hiddenCat.includes(c.slug)} onClick={() => onToggleCat(c.slug)} />
         ))}
         <span className="text-white/15">|</span>
-        {SRCS.filter((s) => (srcCounts[s.slug] || 0) > 0 || srcFilter.includes(s.slug)).map((s) => (
-          <Chip key={s.slug} label={s.label} count={srcCounts[s.slug] || 0} on={srcFilter.includes(s.slug)} onClick={() => onToggleSrc(s.slug)} />
+        {SRCS.filter((s) => (srcCounts[s.slug] || 0) > 0 || hiddenSrc.includes(s.slug)).map((s) => (
+          <Chip key={s.slug} label={s.label} count={srcCounts[s.slug] || 0} on={!hiddenSrc.includes(s.slug)} onClick={() => onToggleSrc(s.slug)} />
         ))}
       </div>
 

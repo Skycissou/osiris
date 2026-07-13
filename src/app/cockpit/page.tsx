@@ -274,11 +274,16 @@ export default function Dashboard() {
   //  /cockpit/alerts (PAS live-feed). Poll léger (90 s) uniquement si allumée. ──
   const [missingAlerts, setMissingAlerts] = useState<AlertPoint[]>([]);
   const [alertsHealth, setAlertsHealth] = useState<AlertsHealth | null>(null);
-  // Filtres chips (§12) : vide = tout affiché.
-  const [alertCatFilter, setAlertCatFilter] = useState<string[]>([]);
-  const [alertSrcFilter, setAlertSrcFilter] = useState<string[]>([]);
-  const toggleAlertCat = useCallback((c: string) => setAlertCatFilter((p) => (p.includes(c) ? p.filter((x) => x !== c) : [...p, c])), []);
-  const toggleAlertSrc = useCallback((s: string) => setAlertSrcFilter((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s])), []);
+  // Filtres chips (§12) : modèle « LÉGENDE » — toutes les puces sont ALLUMÉES/
+  // affichées par défaut ; cliquer une puce MASQUE cette valeur (re-clic = rallume).
+  // On stocke donc les valeurs MASQUÉES (pas les sélectionnées). Chaque puce ne
+  // pilote QUE ses propres pins → prévisible. Fini l'ancien mode « vide = tout,
+  // 1 sélection = uniquement celle-là » (ET entre facettes) qui faisait qu'un
+  // filtre effaçait tout pendant que l'autre remettait les pins.
+  const [alertHiddenCat, setAlertHiddenCat] = useState<string[]>([]);
+  const [alertHiddenSrc, setAlertHiddenSrc] = useState<string[]>([]);
+  const toggleAlertCat = useCallback((c: string) => setAlertHiddenCat((p) => (p.includes(c) ? p.filter((x) => x !== c) : [...p, c])), []);
+  const toggleAlertSrc = useCallback((s: string) => setAlertHiddenSrc((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s])), []);
   // Chargement des avis + santé (réutilisable : poll auto ET bouton 🔄 manuel).
   const loadAlerts = useCallback(async () => {
     try {
@@ -349,10 +354,12 @@ export default function Dashboard() {
     }
   }, [loadAlerts]);
   // Avis filtrés par catégorie + source (vide = tout) → passés à la carte.
+  // Légende : un avis reste visible tant que SA catégorie ET SA source ne sont
+  // pas éteintes. Listes vides (défaut) → tout passe.
   const filteredAlerts = useMemo(() => missingAlerts.filter((a) =>
-    (alertCatFilter.length === 0 || alertCatFilter.includes(a.categorie || 'disparition')) &&
-    (alertSrcFilter.length === 0 || alertSrcFilter.includes(a.source)),
-  ), [missingAlerts, alertCatFilter, alertSrcFilter]);
+    !alertHiddenCat.includes(a.categorie || 'disparition') &&
+    !alertHiddenSrc.includes(a.source),
+  ), [missingAlerts, alertHiddenCat, alertHiddenSrc]);
 
   // ── Couches sensibles (forme 2) — polling séparé /live-feed/sensitive,
   // actif UNIQUEMENT en forme 2 ET si une couche sensible est allumée. ──
@@ -890,8 +897,8 @@ export default function Dashboard() {
         <AlertsControlBar
           alerts={missingAlerts}
           filtered={filteredAlerts}
-          catFilter={alertCatFilter}
-          srcFilter={alertSrcFilter}
+          hiddenCat={alertHiddenCat}
+          hiddenSrc={alertHiddenSrc}
           onToggleCat={toggleAlertCat}
           onToggleSrc={toggleAlertSrc}
           onRefresh={loadAlerts}
