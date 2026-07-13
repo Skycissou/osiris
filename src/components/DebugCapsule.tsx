@@ -6,12 +6,14 @@
 //        snapshot du warmup (faux bugs / manques le temps que l'app charge).
 // v1.2 : ignore les AbortError (annulations volontaires : tuiles carte, timeouts,
 //        démontage) — c'était la 1re source de FAUX bugs dans le rapport.
+// v1.3 : DÉDUPLICATION — un même événement répété (ex. 40 tuiles KO d'une couche
+//        cassée) est collapsé en 1 ligne avec un compteur ×N (rapport lisible).
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
 type Kind = "error" | "warn" | "js" | "promise" | "http" | "network";
-type Item = { t: number; kind: Kind; msg: string; detail?: string };
+type Item = { t: number; kind: Kind; msg: string; detail?: string; key: string; count: number };
 
 type Props = {
   appName: string;
@@ -60,8 +62,19 @@ export default function DebugCapsule({
   const push = useCallback(
     (kind: Kind, msg: string, detail?: string) => {
       const b = buf.current;
-      b.push({ t: Date.now(), kind, msg: truncate(msg, 300), detail: detail ? truncate(detail, 600) : undefined });
-      if (b.length > maxEvents) b.splice(0, b.length - maxEvents);
+      const m = truncate(msg, 300);
+      // Clé de dédup : type + début du message (les URLs de tuiles ne diffèrent
+      // qu'en fin → 100 car. suffisent à regrouper une couche cassée en 1 ligne).
+      const key = `${kind}|${m.slice(0, 100)}`;
+      const existing = b.find((it) => it.key === key);
+      if (existing) {
+        existing.count += 1;
+        existing.t = Date.now();
+        if (detail) existing.detail = truncate(detail, 600);
+      } else {
+        b.push({ t: Date.now(), kind, msg: m, detail: detail ? truncate(detail, 600) : undefined, key, count: 1 });
+        if (b.length > maxEvents) b.splice(0, b.length - maxEvents);
+      }
       setTick((x) => x + 1);
     },
     [maxEvents]
@@ -151,7 +164,8 @@ export default function DebugCapsule({
     ];
     if (items.length === 0) lines.push("_Aucun événement._");
     items.forEach((it, i) => {
-      lines.push(`${i + 1}. [${new Date(it.t).toLocaleTimeString("fr-FR")}] [${it.kind}] ${it.msg}`);
+      const mult = it.count > 1 ? ` (×${it.count})` : "";
+      lines.push(`${i + 1}. [${new Date(it.t).toLocaleTimeString("fr-FR")}] [${it.kind}]${mult} ${it.msg}`);
       if (it.detail) lines.push("   " + it.detail.replace(/\n/g, "\n   "));
     });
     if (appDiag != null) {
@@ -179,7 +193,7 @@ export default function DebugCapsule({
 
   if (!enabled) return null;
 
-  const errCount = buf.current.filter((i) => i.kind !== "warn").length;
+  const errCount = buf.current.filter((i) => i.kind !== "warn").reduce((s, i) => s + i.count, 0);
   const side: CSSProperties = position === "bottom-left" ? { left: 16 } : { right: 16 };
   const S: Record<string, CSSProperties> = {
     btn: { position: "fixed", bottom: 16, ...side, zIndex: 99998, width: 44, height: 44, borderRadius: 22, border: "1px solid #2dd4bf55", background: "#0b1220ee", color: "#e2e8f0", fontSize: 20, cursor: "pointer", boxShadow: "0 4px 14px #0008" },
@@ -216,7 +230,8 @@ export default function DebugCapsule({
             {tab === "events" && (buf.current.length === 0 ? "Aucun événement capturé. 👌" : [...buf.current].reverse().map((it, i) => (
               <div key={i} style={{ marginBottom: 8, borderLeft: `3px solid ${KCOL[it.kind]}`, paddingLeft: 6 }}>
                 <span style={{ color: "#94a3b8" }}>{new Date(it.t).toLocaleTimeString("fr-FR")}</span>{" "}
-                <span style={{ color: KCOL[it.kind], fontWeight: 700 }}>[{it.kind}]</span> {it.msg}
+                <span style={{ color: KCOL[it.kind], fontWeight: 700 }}>[{it.kind}]</span>
+                {it.count > 1 && <span style={{ color: "#ffb23e", fontWeight: 700 }}> ×{it.count}</span>} {it.msg}
                 {it.detail && <div style={{ color: "#94a3b8" }}>{it.detail}</div>}
               </div>
             )))}

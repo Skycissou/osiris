@@ -114,7 +114,9 @@ const ORTHO_YEAR_MAX = 2024;
 const OVERLAY_OPTS: { key: string; label: string }[] = [
   { key: 'cadastre', label: 'Cadastre' },
   { key: 'rpg', label: 'Parcelles agricoles' },
-  { key: 'forets', label: 'Forêts publiques' },
+  // ⛔ 'forets' (FORETS.PUBLIQUES) + 'protected' (PROTECTEDAREAS.PRSF) RETIRÉS le
+  //  13/07 : identifiants IGN invalides → 400 sur TOUTES les tuiles (audit filtres
+  //  Cissou). À ré-ajouter avec les identifiants VÉRIFIÉS au GetCapabilities IGN.
   { key: 'hydro', label: 'Hydrographie' },
   { key: 'routes', label: 'Routes' },
   { key: 'rail', label: 'Voies ferrées' },
@@ -122,7 +124,6 @@ const OVERLAY_OPTS: { key: string; label: string }[] = [
   { key: 'noms', label: 'Toponymes' },
   { key: 'pentes', label: 'Pentes' },
   { key: 'irc', label: 'Infrarouge' },
-  { key: 'protected', label: 'Zones protégées' },
 ];
 // Couches temps réel (checkboxes) — clé = clé activeLayers, title = infobulle FR.
 const LIVE_OPTS: { key: string; label: string; title: string }[] = [

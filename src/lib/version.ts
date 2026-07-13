@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.080-dev';
+export const OSIRIS_VERSION = 'V4.081-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.081-dev',
+    date: '2026-07-13',
+    resume:
+      "🗺️ Audit filtres (rapport capsule Cissou) : 2 surcouches IGN cassées — `FORETS.PUBLIQUES` et `PROTECTEDAREAS.PRSF` " +
+      "→ 400 sur TOUTES les tuiles (identifiants IGN invalides) → RETIRÉES du menu (toggles morts + spam d'erreurs). À ré-ajouter " +
+      "avec des identifiants VÉRIFIÉS au GetCapabilities IGN. + 🐞 Capsule debug v1.3 : DÉDUPLICATION des événements (le rapport " +
+      "faisait 80 lignes pour 2 couches KO) → 1 ligne + compteur ×N quand une source spamme.",
+  },
   {
     version: 'V4.080-dev',
     date: '2026-07-12',
