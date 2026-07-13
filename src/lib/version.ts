@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.089-dev';
+export const OSIRIS_VERSION = 'V4.090-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,19 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.090-dev',
+    date: '2026-07-13',
+    resume:
+      "🔎 Moteur de recherche NATIF Next — chantier ② Phases 0+1 (plan Fable, portage de `open_radar` Python, parité stricte, " +
+      "ZÉRO proxy V3). Socle `src/lib/search/` : `http` (UA/timeout/retry transitoire/cache), `cache` (Map+TTL), `breaker` " +
+      "(circuit-breaker pattern V4.078), `classify` (inferQueryType + classifyQuery, **parité vérifiée** `scripts/search-parity-" +
+      "check.mts` 17/17 verts dont `boulangerie 75011`), `filters`, `schema` (shape = types `api.ts`), `connectors` (Recherche-" +
+      "Entreprises · BAN/IGN · Geo communes · data.gouv), `graph`, `orchestrator` (fan-out parallèle). Routes RACINE `/search` " +
+      "`/health` `/version` → l'accueil ET le cockpit retrouvent la recherche (chemins des fronts INCHANGÉS, `API_BASE=''`). Auth " +
+      "intérim `withAuth()` pass-through (flag serveur `AUTH_ENFORCE`, branchable Lot C en 1 flip). Phase 2 (BODACC/DVF/RNA/company) " +
+      "+ smoke curls amont depuis le VPS = à suivre.",
+  },
   {
     version: 'V4.089-dev',
     date: '2026-07-13',
