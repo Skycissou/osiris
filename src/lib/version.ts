@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.086-dev';
+export const OSIRIS_VERSION = 'V4.087-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.087-dev',
+    date: '2026-07-13',
+    resume:
+      "🗺️ Accueil = la BONNE landing (modules restaurés, retour Cissou : « vieille version, je perds la carte intégrée »). " +
+      "La V4.084/086 avait copié la landing de la branche brain `main` = version SIMPLE (pas de carte, 274 lignes) — piège " +
+      "connu (leçon 06/07 : le vrai accueil V4 vit sur la branche `claude/v4-opus-...`, PAS main). Restauré la version RICHE " +
+      "(385 lignes index + 959 app.js) : 3 vues 📇 Liste / 🕸️ Graphe / 🗺️ **Carte IGN intégrée** (MapLibre + fonds Géoplateforme/" +
+      "arcgis), nav déjà en `/cockpit` absolu (OSINT/Graphe/News/Clés). Adaptations Émancipation : assets → `/landing/…` (P2), " +
+      "manifest icons → `/landing/assets`. CSP : + `unpkg.com` (maplibre-gl js/css). Les liens `/cockpit` étaient déjà bons.",
+  },
   {
     version: 'V4.086-dev',
     date: '2026-07-13',

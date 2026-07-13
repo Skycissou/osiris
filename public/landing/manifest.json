@@ -1,0 +1,15 @@
+{
+  "name": "OSIRIS V4 — Cockpit OSINT",
+  "short_name": "OSIRIS",
+  "description": "Cockpit OSINT défensif — données publiques françaises",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#070a0f",
+  "theme_color": "#070a0f",
+  "icons": [
+    { "src": "/landing/assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/landing/assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/landing/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

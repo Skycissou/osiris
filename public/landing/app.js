@@ -34,6 +34,7 @@
       if(!el) return;
       document.getElementById('results').style.display = 'none';
       document.getElementById('graph-wrap').style.display = 'none';
+      const mw = document.getElementById('map-wrap'); if(mw) mw.style.display = 'none';
       el.style.display = '';
       document.getElementById('load-title').textContent = title || 'Recherche';
       const steps = deep ? LOAD_STEPS_INV : LOAD_STEPS_SEARCH;
@@ -48,8 +49,7 @@
     function hideLoading(){
       clearInterval(LOAD_MSG_T); clearInterval(LOAD_TIMER_T); LOAD_MSG_T = LOAD_TIMER_T = null;
       const el = document.getElementById('loading'); if(el) el.style.display = 'none';
-      document.getElementById('results').style.display = VIEW === 'graph' ? 'none' : '';
-      document.getElementById('graph-wrap').style.display = VIEW === 'graph' ? '' : 'none';
+      applyViewVisibility();
     }
     function renderLoading(title){ showLoading(title, DEEP); }
 
@@ -182,6 +182,10 @@
       LAST_PAYLOAD = payload; LAST_CARDS = rawCards;
       const eb = document.getElementById('export-bar'); if (eb) eb.style.display = rawCards.length ? '' : 'none';
       if (VIEW === 'graph') renderGraph(payload);
+      // Rafraîchit la carte à CHAQUE recherche si elle a déjà été ouverte (même si on
+      // n'est pas sur l'onglet Carte) → le pont recherche→carte se fait, et les points
+      // de la cible précédente sont remplacés (plus de points fantômes).
+      if (MAP) renderMap(payload);
     }
 
     let LAST_PAYLOAD = null;
@@ -363,14 +367,14 @@
       const date = new Date().toLocaleString('fr-FR');
       const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
       const cardsHtml = cards.map(c => `<div class="rc"><div class="rt">${esc(c.title)}</div>${c.subtitle ? `<div class="rs">${esc(c.subtitle)}</div>` : ''}${c.provenance ? `<div class="rp">↳ via ${esc(c.provenance)}</div>` : ''}<div class="rsum">${esc(c.summary).replace(/\n/g, '<br>')}</div></div>`).join('');
-      const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>OSIRIS V3 — Rapport d'enquête</title>`
+      const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>OSIRIS V4 — Rapport d'enquête</title>`
         + `<style>body{font-family:Arial,Helvetica,sans-serif;color:#111;max-width:820px;margin:24px auto;padding:0 16px;line-height:1.5}`
         + `h1{font-size:22px;margin-bottom:2px}h2{font-size:15px;border-bottom:1px solid #ddd;padding-bottom:4px;margin-top:22px}`
         + `.meta{color:#555;font-size:13px}.rc{border:1px solid #ddd;border-radius:8px;padding:10px;margin:8px 0}`
         + `.rt{font-weight:bold}.rs{color:#0066cc;font-family:monospace;font-size:13px}.rp{color:#770055;font-size:12px;margin:2px 0}`
         + `.rsum{color:#333;font-size:13px;margin-top:4px}.disc{color:#666;font-size:12px;margin-top:14px;border-top:1px solid #eee;padding-top:8px}`
         + `img{max-width:100%;border:1px solid #ddd;border-radius:8px}@media print{body{margin:0}}</style></head><body>`
-        + `<h1>OSIRIS V3 — Rapport d'enquête</h1>`
+        + `<h1>OSIRIS V4 — Rapport d'enquête</h1>`
         + `<div class="meta">Requête : <b>${esc(p.query)}</b> &middot; ${esc(date)}${inv ? ` &middot; investigation profondeur ${esc(inv.depth)}, ${esc(inv.entities)} entités` : ''}</div>`
         + (png ? `<h2>Graphe des liens</h2><img src="${png}">` : '')
         + `<h2>Entités (${cards.length})</h2>${cardsHtml || '<p>Aucune.</p>'}`
@@ -383,14 +387,26 @@
       w.document.write(html); w.document.close();
     }
 
+    function applyViewVisibility(){
+      const r = document.getElementById('results');
+      const g = document.getElementById('graph-wrap');
+      const m = document.getElementById('map-wrap');
+      if (r) r.style.display = VIEW === 'list' ? '' : 'none';
+      if (g) g.style.display = VIEW === 'graph' ? '' : 'none';
+      if (m) m.style.display = VIEW === 'map' ? '' : 'none';
+    }
     function setView(view){
       VIEW = view;
-      const isGraph = view === 'graph';
-      document.getElementById('view-list').classList.toggle('active', !isGraph);
-      document.getElementById('view-graph').classList.toggle('active', isGraph);
-      document.getElementById('results').style.display = isGraph ? 'none' : '';
-      document.getElementById('graph-wrap').style.display = isGraph ? '' : 'none';
-      if (isGraph) renderGraph(LAST_PAYLOAD);
+      document.getElementById('view-list').classList.toggle('active', view === 'list');
+      document.getElementById('view-graph').classList.toggle('active', view === 'graph');
+      const vm = document.getElementById('view-map');
+      if (vm) vm.classList.toggle('active', view === 'map');
+      applyViewVisibility();
+      if (view === 'graph') renderGraph(LAST_PAYLOAD);
+      if (view === 'map'){
+        if (!MAP) initMap();          // lazy : init + renderMap au 'load'
+        else { setTimeout(() => { try{ MAP.resize(); }catch(e){} }, 60); renderMap(LAST_PAYLOAD); }
+      }
     }
 
     function renderGraph(payload){
@@ -556,14 +572,49 @@
 
     // ---------- Écran d'intro (splash) : animation du logo → bouton ENTRER ----------
     function enterApp(){
+      try{ sessionStorage.setItem('osiris_entered','1'); }catch(e){}
       const s = document.getElementById('splash');
       if(!s) return;
       s.classList.add('hide');
       setTimeout(() => { s.style.display = 'none'; }, 800);
     }
+    // Version ASSUJETTIE au cockpit (demande Cissou 07/07) : le badge de l'accueil
+    // lit la version RÉELLE du cockpit (/cockpit/version, source unique version.ts).
+    // Fini le lockstep manuel qui dérive. Repli : la valeur en dur reste affichée
+    // si le cockpit n'est pas joignable.
+    (function syncVersionBadge(){
+      try{
+        fetch('/cockpit/version', { cache: 'no-store' })
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(j){
+            if(j && j.version){
+              document.querySelectorAll('.wordmark-v').forEach(function(el){ el.textContent = j.version; });
+            }
+          })
+          .catch(function(){ /* cockpit injoignable → on garde le badge en dur */ });
+      }catch(e){}
+    })();
+
     (function initSplash(){
       const s = document.getElementById('splash');
       if(!s) return;
+      // Intro jouée AU PLUS UNE FOIS par session. Sautée si :
+      //  • déjà entré cette session (flag),
+      //  • on arrive avec une recherche (?q=),
+      //  • on REVIENT DU COCKPIT (referrer /cockpit) — le cas « clic Accueil » qui
+      //    rejouait toute la cinématique (long & chiant).
+      let entered = false; try{ entered = sessionStorage.getItem('osiris_entered') === '1'; }catch(e){}
+      const hasQ = new URLSearchParams(location.search).get('q');
+      let fromCockpit = false;
+      try{ fromCockpit = /\/cockpit(?:\/|$|\?|#)/.test(document.referrer || ''); }catch(e){}
+      if(entered || hasQ || fromCockpit){
+        try{ sessionStorage.setItem('osiris_entered','1'); }catch(e){}  // ne rejouera plus
+        s.style.display = 'none';
+        return;
+      }
+      // Première vraie arrivée : on joue l'intro MAIS on marque déjà « entré » tout de
+      // suite → toute navigation ultérieure (retour cockpit inclus) la saute.
+      try{ sessionStorage.setItem('osiris_entered','1'); }catch(e){}
       const v = document.getElementById('splash-logo');
       const btn = document.getElementById('splash-enter');
       const hint = document.getElementById('splash-hint');
@@ -576,6 +627,56 @@
       }
       setTimeout(ready, 7000);  // garde-fou si l'événement "ended" ne se déclenche pas
     })();
+
+    // ---- Continuité V3 ⇄ cockpit V4 : reprise de la recherche depuis l'URL (?q=) ----
+    (function bootFromUrl(){
+      const params = new URLSearchParams(location.search);
+      const q = params.get('q');
+      if(!q) return;
+      (function go(){
+        const el = document.getElementById('q');
+        if(!el){ setTimeout(go, 50); return; }   // attend le DOM
+        try{ setMode('entreprise'); }catch(e){}
+        el.value = q;
+        try{ runDemo(); }catch(e){}
+        const view = params.get('view');
+        if(view === 'map' || view === 'graph'){ setTimeout(() => { try{ setView(view); }catch(e){} }, 300); }
+      })();
+    })();
+
+    // Ouvre le cockpit carte V4 en emmenant la recherche courante (?q=).
+    function goCockpit(ev){
+      if(ev && ev.preventDefault) ev.preventDefault();
+      // On a « entré » l'app → au retour du cockpit, pas de rejeu de l'intro.
+      try{ sessionStorage.setItem('osiris_entered','1'); }catch(e){}
+      const el = document.getElementById('q');
+      const q = el && el.value ? el.value.trim() : '';
+      location.href = '/cockpit' + (q ? ('?q=' + encodeURIComponent(q)) : '');
+    }
+
+    // Ouvre une PAGE du cockpit (ex. /cockpit/cles-api) en posant le flag
+    // anti-rejeu de l'intro — même logique que goCockpit.
+    function goCockpitPage(ev, path){
+      if(ev && ev.preventDefault) ev.preventDefault();
+      try{ sessionStorage.setItem('osiris_entered','1'); }catch(e){}
+      location.href = path;
+    }
+
+    // Ouvre le cockpit directement sur un outil (OSINT/Graphe/News). Les
+    // boutons vivent dans la sidebar de l'accueil ; le cockpit lit ?panel=…
+    // au montage et ouvre le panneau plein écran (plus collé sur la carte).
+    // (Clés API = page dédiée /cockpit/cles-api depuis le 07/07 → goCockpitPage.)
+    function goCockpitPanel(ev, panel){
+      if(ev && ev.preventDefault) ev.preventDefault();
+      try{ sessionStorage.setItem('osiris_entered','1'); }catch(e){}
+      const el = document.getElementById('q');
+      const q = el && el.value ? el.value.trim() : '';
+      const params = new URLSearchParams();
+      if(panel) params.set('panel', panel);
+      if(q) params.set('q', q);
+      const qs = params.toString();
+      location.href = '/cockpit' + (qs ? ('?' + qs) : '');
+    }
 
     // ---------- Feedback / Questions ----------
     function openFeedback(){
@@ -602,22 +703,25 @@
       };
       if(btn){ btn.disabled = true; btn.textContent = 'Envoi…'; }
       if(st){ st.textContent = ''; }
-      try{
-        const r = await fetch('/feedback', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
-        if(r.status === 401){ window.location.replace('/login'); return; }
-        const d = await r.json();
-        if(d && d.ok){
-          if(st){ st.textContent = '✅ Merci ! Ton retour a bien été envoyé.'; st.style.color = 'var(--green)'; }
-          document.getElementById('fb-msg').value = '';
-          setTimeout(closeFeedback, 1800);
-        }else{
-          if(st){ st.textContent = '⚠️ ' + ((d && d.error) || 'Échec de l\'envoi.'); st.style.color = 'var(--red)'; }
-        }
-      }catch(e){
-        if(st){ st.textContent = '⚠️ Erreur réseau : ' + (e.message || e); st.style.color = 'var(--red)'; }
-      }finally{
-        if(btn){ btn.disabled = false; btn.textContent = 'Envoyer'; }
-      }
+      // Canal FIABLE (arrive À COUP SÛR dans la boîte de Cissou, sans config serveur) :
+      // on ouvre le client mail pré-rempli. L'enregistrement serveur reste un filet.
+      const subject = '[OSIRIS] ' + payload.type + ' — ' + (payload.name || 'anonyme');
+      const body = [
+        payload.message, '', '———',
+        'Type : ' + payload.type,
+        'Nom : ' + (payload.name || '—'),
+        'Email : ' + (payload.email || '—'),
+        'Page : ' + payload.url
+      ].join('\n');
+      const mailto = 'mailto:cyril.detout@gmail.com?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+      // 1) Enregistrement serveur best-effort (n'empêche jamais l'envoi mail).
+      try{ await fetch('/feedback', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); }catch(e){}
+      // 2) Déclenche le mail (client par défaut) — la vraie livraison.
+      try{ window.location.href = mailto; }catch(e){}
+      if(st){ st.textContent = '✅ Merci ! Ton client mail s\'ouvre pour finaliser l\'envoi.'; st.style.color = 'var(--green)'; }
+      document.getElementById('fb-msg').value = '';
+      if(btn){ btn.disabled = false; btn.textContent = 'Envoyer'; }
+      setTimeout(closeFeedback, 2400);
     }
 
     // ---------- Déconnexion ----------
@@ -654,3 +758,202 @@
       setInterval(check, 90000);
       document.addEventListener('visibilitychange', function(){ if(!document.hidden) check(false); });
     })();
+
+    // ========================================================================
+    // Vue Carte — MapLibre + couches Géoplateforme IGN (WMTS PM, gratuit, sans clé)
+    // Alimentée par la MÊME recherche que Liste/Graphe (renderMap(LAST_PAYLOAD)).
+    // ========================================================================
+    let MAP = null, MAP_READY = false;
+    let MAP_BASE = 'plan';        // fond actif (radio)
+    let MAP_TIME = 'none';        // couche temporelle active (radio)
+    let MAP_ORTHO_YEAR = 2021;    // année du curseur « Ortho par année »
+    const MAP_OVERLAYS = new Set(); // surcouches cumulables (checkbox)
+    const MAP_ATTRIB = '© IGN / Géoplateforme · Esri (satellite)';
+
+    // WMTS Géoplateforme : template z/x/y, TileMatrixSet PM.
+    function geopfUrl(layer, format){
+      return 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'
+        + '&LAYER=' + layer + '&STYLE=normal&FORMAT=' + encodeURIComponent(format)
+        + '&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}';
+    }
+
+    // FONDS (radio, un seul)
+    const BASE_LAYERS = {
+      plan:      {type:'geopf', layer:'GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2',        format:'image/png',  min:0, max:19},
+      scan25:    {type:'geopf', layer:'GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR',  format:'image/jpeg', min:0, max:16},
+      ortho:     {type:'geopf', layer:'ORTHOIMAGERY.ORTHOPHOTOS',                 format:'image/jpeg', min:0, max:19},
+      satellite: {type:'xyz',   url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', min:0, max:18}
+    };
+    // REMONTER LE TEMPS (radio ; ortho_year = curseur → géré par timeConfig)
+    const TIME_LAYERS = {
+      photo_50_65: {type:'geopf', layer:'ORTHOIMAGERY.ORTHOPHOTOS.1950-1965',        format:'image/png',  min:0, max:18},
+      photo_65_80: {type:'geopf', layer:'ORTHOIMAGERY.ORTHOPHOTOS.1965-1980',        format:'image/png',  min:3, max:18},
+      photo_80_95: {type:'geopf', layer:'ORTHOIMAGERY.ORTHOPHOTOS.1980-1995',        format:'image/png',  min:3, max:18},
+      carte_1950:  {type:'geopf', layer:'GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN50.1950',  format:'image/jpeg', min:3, max:15},
+      etatmajor:   {type:'geopf', layer:'GEOGRAPHICALGRIDSYSTEMS.ETATMAJOR40',       format:'image/jpeg', min:6, max:15}
+    };
+    // SURCOUCHES (checkboxes cumulables) — l'ordre de la clé fixe l'empilement
+    const OVERLAYS = {
+      cadastre:  {type:'geopf', layer:'CADASTRALPARCELS.PARCELLAIRE_EXPRESS', format:'image/png',  min:0, max:19, op:0.7},
+      agri:      {type:'geopf', layer:'LANDUSE.AGRICULTURE.LATEST',           format:'image/png',  min:6, max:16, op:0.7},
+      forets:    {type:'geopf', layer:'FORETS.PUBLIQUES',                     format:'image/png',  min:3, max:16, op:0.7},
+      hydro:     {type:'geopf', layer:'HYDROGRAPHY.HYDROGRAPHY',              format:'image/png',  min:6, max:18, op:0.8},
+      routes:    {type:'geopf', layer:'TRANSPORTNETWORKS.ROADS',             format:'image/png',  min:6, max:18, op:0.8},
+      rails:     {type:'geopf', layer:'TRANSPORTNETWORKS.RAILWAYS',          format:'image/png',  min:6, max:18, op:0.9},
+      admin:     {type:'geopf', layer:'ADMINEXPRESS-COG-CARTO.LATEST',        format:'image/png',  min:6, max:16, op:0.7},
+      topo:      {type:'geopf', layer:'GEOGRAPHICALNAMES.NAMES',              format:'image/png',  min:6, max:18, op:1},
+      pentes:    {type:'geopf', layer:'ELEVATION.SLOPES',                     format:'image/jpeg', min:6, max:14, op:0.5},
+      irc:       {type:'geopf', layer:'ORTHOIMAGERY.ORTHOPHOTOS.IRC',         format:'image/jpeg', min:6, max:19, op:1},
+      protected: {type:'geopf', layer:'PROTECTEDAREAS.PRSF',                  format:'image/png',  min:6, max:17, op:0.6}
+    };
+    const OVERLAY_ORDER = ['cadastre','agri','forets','hydro','routes','rails','admin','topo','pentes','irc','protected'];
+
+    // Config de la couche temporelle courante (null = aucune).
+    function timeConfig(){
+      if (MAP_TIME === 'none') return null;
+      if (MAP_TIME === 'ortho_year') return {type:'geopf', layer:'ORTHOIMAGERY.ORTHOPHOTOS' + MAP_ORTHO_YEAR, format:'image/jpeg', min:0, max:18};
+      return TIME_LAYERS[MAP_TIME] || null;
+    }
+
+    // Ajoute une couche raster (source min/max OBLIGATOIRES → évite les 404 hors couverture).
+    // beforeId : la couche insérée passe visuellement SOUS beforeId (garantit l'ordre de peinture).
+    function addRaster(id, cfg, beforeId){
+      if(!MAP || !cfg || MAP.getLayer(id)) return;
+      const url = cfg.type === 'xyz' ? cfg.url : geopfUrl(cfg.layer, cfg.format);
+      const srcId = id + '-src';
+      if(!MAP.getSource(srcId)){
+        MAP.addSource(srcId, {type:'raster', tiles:[url], tileSize:256, minzoom:cfg.min, maxzoom:cfg.max, attribution:MAP_ATTRIB});
+      }
+      const lyr = {id:id, type:'raster', source:srcId};
+      if(cfg.op != null) lyr.paint = {'raster-opacity':cfg.op};
+      if(beforeId && MAP.getLayer(beforeId)) MAP.addLayer(lyr, beforeId); else MAP.addLayer(lyr);
+    }
+    function removeRaster(id){
+      if(!MAP) return;
+      if(MAP.getLayer(id)) MAP.removeLayer(id);
+      if(MAP.getSource(id + '-src')) MAP.removeSource(id + '-src');
+    }
+
+    // Reconstruit fonds/temps/surcouches dans l'ordre bas→haut, tout SOUS les points d'adresse.
+    // Ordre de peinture garanti : fond < temps < surcouches < points ('osiris-points').
+    function syncMapLayers(){
+      if(!MAP || !MAP_READY) return;
+      removeRaster('osiris-base');
+      removeRaster('osiris-time');
+      OVERLAY_ORDER.forEach(k => removeRaster('osiris-ov-' + k));
+      const anchor = MAP.getLayer('osiris-points') ? 'osiris-points' : undefined;
+      addRaster('osiris-base', BASE_LAYERS[MAP_BASE], anchor);          // fond (bas)
+      const tcfg = timeConfig();
+      if(tcfg) addRaster('osiris-time', tcfg, anchor);                  // temps (au-dessus du fond)
+      OVERLAY_ORDER.forEach(k => { if(MAP_OVERLAYS.has(k)) addRaster('osiris-ov-' + k, OVERLAYS[k], anchor); }); // surcouches
+    }
+
+    function initMap(){
+      if(MAP) return;
+      const el = document.getElementById('osiris-map');
+      if(typeof maplibregl === 'undefined'){
+        if(el) el.innerHTML = '<p style="padding:24px;color:#ffd166">Carte indisponible : MapLibre n\'a pas pu se charger (vérifie ta connexion internet).</p>';
+        return;
+      }
+      MAP = new maplibregl.Map({
+        container: 'osiris-map',
+        style: {version:8, sources:{}, layers:[]},
+        center: [2.35, 46.6], zoom: 5, attributionControl: true
+      });
+      MAP.addControl(new maplibregl.NavigationControl({showCompass:false}), 'top-right');
+      MAP.on('load', () => {
+        MAP_READY = true;
+        syncMapLayers();
+        renderMap(LAST_PAYLOAD);
+        setTimeout(() => { try{ MAP.resize(); }catch(e){} }, 60);
+      });
+    }
+
+    // Extrait les points depuis les cartes source_id === 'adresse' (BAN) :
+    // entities [{type:'coordinates', value:'lat,lon'}] — LAT en premier.
+    function extractMapPoints(payload){
+      const cards = (payload && payload.results && payload.results.raw_cards) || [];
+      const pts = [];
+      cards.forEach((c, idx) => {
+        // Toute carte portant une entité 'coordinates' est plottée (adresses BAN
+        // ET entreprises géolocalisées par leur siège), pas seulement les adresses.
+        if(!c) return;
+        const ent = (c.entities || []).find(e => e && e.type === 'coordinates' && e.value);
+        if(!ent) return;
+        const parts = String(ent.value).split(',');
+        if(parts.length < 2) return;
+        const lat = parseFloat(String(parts[0]).trim());
+        const lon = parseFloat(String(parts[1]).trim());
+        if(!isFinite(lat) || !isFinite(lon)) return;
+        pts.push({lon, lat, title: c.title || 'Résultat', subtitle: c.subtitle || '', src: c.source_id || '', idx});
+      });
+      return pts;
+    }
+
+    function mapPopupHtml(pr){
+      return '<div style="font-family:system-ui,-apple-system,sans-serif;color:#111;min-width:150px;max-width:240px">'
+        + '<b style="font-size:13px">' + escapeHtml(pr.title || 'Adresse') + '</b>'
+        + (pr.subtitle ? '<br><span style="color:#555;font-size:12px">' + escapeHtml(pr.subtitle) + '</span>' : '')
+        + '<br><span style="color:#7E57C2;font-size:11px">↻ recherche relancée sur ce point</span>'
+        + '</div>';
+    }
+
+    // Bidirectionnel : réutilise la recherche existante (runDemo) → rafraîchit les 3 vues.
+    function mapSearchFrom(title){
+      if(!title) return;
+      setMode('entreprise');
+      const q = document.getElementById('q');
+      if(q) q.value = title;
+      runDemo();
+    }
+
+    function renderMap(payload){
+      if(!MAP){ initMap(); return; }        // pas encore prêt → init, renderMap rappelé au 'load'
+      if(!MAP_READY) return;
+      const pts = extractMapPoints(payload);
+      const fc = {type:'FeatureCollection', features: pts.map(p => ({
+        type:'Feature', geometry:{type:'Point', coordinates:[p.lon, p.lat]},
+        properties:{title:p.title, subtitle:p.subtitle, src:p.src}
+      }))};
+      if(MAP.getSource('osiris-pts')){
+        MAP.getSource('osiris-pts').setData(fc);
+      }else{
+        MAP.addSource('osiris-pts', {type:'geojson', data:fc});
+        // Points : toujours ajoutés en DERNIER → couche du dessus (au-dessus de tout raster).
+        // Couleur par source : adresse=violet · entreprise=doré · autre=cyan.
+        MAP.addLayer({id:'osiris-points', type:'circle', source:'osiris-pts',
+          paint:{'circle-radius':7,
+            'circle-color':['match', ['get','src'], 'adresse', '#7E57C2', 'recherche_entreprises', '#D4AF37', '#26C6DA'],
+            'circle-stroke-width':2, 'circle-stroke-color':'#ffffff', 'circle-opacity':0.9}});
+        MAP.on('click', 'osiris-points', e => {
+          const f = e.features && e.features[0]; if(!f) return;
+          const pr = f.properties || {};
+          new maplibregl.Popup({offset:12}).setLngLat(f.geometry.coordinates.slice()).setHTML(mapPopupHtml(pr)).addTo(MAP);
+          mapSearchFrom(pr.title);
+        });
+        MAP.on('mouseenter', 'osiris-points', () => { MAP.getCanvas().style.cursor = 'pointer'; });
+        MAP.on('mouseleave', 'osiris-points', () => { MAP.getCanvas().style.cursor = ''; });
+      }
+      const cnt = document.getElementById('map-count');
+      if(cnt) cnt.textContent = pts.length ? (pts.length + ' résultat(s) localisé(s)') : 'Aucun résultat géolocalisé (adresse ou siège) ici.';
+      if(pts.length){ try{ MAP.flyTo({center:[pts[0].lon, pts[0].lat], zoom:15, speed:1.2}); }catch(e){} }
+    }
+
+    // ---- Contrôles du menu de couches ----
+    function mapSetBase(key){ if(BASE_LAYERS[key]){ MAP_BASE = key; syncMapLayers(); } }
+    function mapSetTime(key){
+      MAP_TIME = key;
+      const w = document.getElementById('ml-year-wrap');
+      if(w) w.style.display = (key === 'ortho_year') ? '' : 'none';
+      syncMapLayers();
+    }
+    function mapSetOrthoYear(y){
+      MAP_ORTHO_YEAR = parseInt(y, 10) || MAP_ORTHO_YEAR;
+      const lbl = document.getElementById('ml-year-lbl'); if(lbl) lbl.textContent = MAP_ORTHO_YEAR;
+      if(MAP_TIME === 'ortho_year') syncMapLayers();
+    }
+    function mapToggleOverlay(key, on){
+      if(!OVERLAYS[key]) return;
+      if(on) MAP_OVERLAYS.add(key); else MAP_OVERLAYS.delete(key);
+      syncMapLayers();
+    }

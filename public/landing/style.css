@@ -72,6 +72,14 @@ a{color:inherit}
 .navlinks a:hover{background:rgba(255,255,255,.06);color:var(--ink)}
 .navlinks a.active{background:var(--accent-soft);color:var(--accent-bright);border-color:var(--accent-line)}
 .navlinks a.active::before{opacity:1}
+/* Groupes repliables de la sidebar (🧰 Outils, 📚 Doc) — natif <details>, sans JS */
+.navlinks .nav-group{display:flex;flex-direction:column;gap:3px}
+.navlinks .nav-group>summary{display:flex;align-items:center;gap:10px;font-family:var(--f-mono);font-size:13px;letter-spacing:.02em;color:var(--muted);padding:11px 12px;border:1px solid transparent;border-radius:var(--r-2);cursor:pointer;list-style:none;transition:color .15s,background .15s,border-color .15s}
+.navlinks .nav-group>summary::-webkit-details-marker{display:none}
+.navlinks .nav-group>summary::before{content:"›";width:5px;font-size:15px;line-height:1;opacity:.5;flex:none;transition:transform .15s}
+.navlinks .nav-group[open]>summary::before{transform:rotate(90deg)}
+.navlinks .nav-group>summary:hover{background:rgba(255,255,255,.06);color:var(--ink)}
+.navlinks .nav-group>a{margin-left:14px;font-size:12.5px}
 .sidenav-foot{margin-top:auto;display:flex;align-items:center;gap:8px;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.04em;color:var(--faint);padding:12px 10px 2px;border-top:1px solid var(--line)}
 
 /* Repli sidebar */
@@ -397,6 +405,8 @@ body:not(:has(.tab:target)) .navlinks a[href="#accueil"]::before{opacity:1}
   .navlinks{flex-direction:row;gap:4px;flex:1 1 auto;min-width:0}
   .navlinks a{white-space:nowrap;padding:9px 11px}
   .navlinks a::before{display:none}
+  .navlinks .nav-group>summary{white-space:nowrap;padding:9px 11px}
+  .navlinks .nav-group>a{margin-left:0}
   .main{padding:16px}
   .nav-collapse{display:none}
   .appshell:has(#navcol:checked){grid-template-columns:1fr}
@@ -460,9 +470,12 @@ body:not(:has(.tab:target)) .navlinks a[href="#accueil"]::before{opacity:1}
 @keyframes enterpulse{50%{transform:scale(1.05)}}
 #splash-hint{color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase;opacity:.7}
 
-/* --- Wordmark OSIRIS = vraie image fournie (fusion écran pour gommer le fond) --- */
-.brand .wordmark{display:inline-flex;align-items:center;gap:9px;background:none;-webkit-text-fill-color:initial}
-.wordmark-img{height:26px;width:auto;display:block;filter:drop-shadow(0 0 8px rgba(106,228,255,.28))}
+/* --- Wordmark OSIRIS = vraie image fournie (fusion écran pour gommer le fond) ---
+   Version SOUS le mot OSIRIS (colonne) : l'image se réduit (max-width + ratio
+   préservé) au lieu de déborder de la barre — badge jamais tronqué. */
+.brand .wordmark{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;flex:1 1 auto;background:none;-webkit-text-fill-color:initial}
+.wordmark-img{max-height:26px;max-width:100%;width:auto;height:auto;display:block;filter:drop-shadow(0 0 8px rgba(106,228,255,.28))}
+.brand .wordmark-v{white-space:nowrap;transform:none}
 .splash-word-img{width:min(64vw,420px);height:auto;display:block;mix-blend-mode:screen;filter:brightness(1.1) drop-shadow(0 0 20px rgba(106,228,255,.4))}
 
 /* --- Module Feedback (sidebar + modal) --- */
@@ -517,3 +530,41 @@ body:not(:has(.tab:target)) .navlinks a[href="#accueil"]::before{opacity:1}
   transition:color .15s, border-color .15s, background .15s;
 }
 .nav-logout:hover{ color:var(--red); border-color:var(--red-line); background:var(--red-soft); }
+
+/* ---------- Vue Carte (MapLibre + couches IGN) ---------- */
+.cockpit-right #map-wrap{display:flex;flex-direction:column}
+#osiris-map-shell{position:relative;margin-top:10px}
+#osiris-map{height:620px;border:1px solid var(--line-2);border-radius:var(--r-3);overflow:hidden;background:var(--bg-2);box-shadow:inset 0 0 0 1px rgba(255,255,255,.02),inset 0 30px 70px rgba(0,0,0,.4)}
+.appshell:has(#navcol:checked) .cockpit-right #osiris-map{height:clamp(440px,74vh,920px)}
+#map-layers{position:absolute;top:12px;left:12px;z-index:5;width:224px;max-width:calc(100% - 24px);max-height:calc(100% - 24px);overflow:auto;border:1px solid var(--line-2);border-radius:var(--r-3);background:linear-gradient(180deg,rgba(17,24,36,.94),rgba(10,14,20,.92));backdrop-filter:blur(14px) saturate(120%);box-shadow:0 18px 44px rgba(0,0,0,.5);padding:8px 10px}
+#map-layers details{border-top:1px solid var(--line)}
+#map-layers details:first-child{border-top:0}
+#map-layers summary{list-style:none;cursor:pointer;font-family:var(--f-mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);padding:9px 2px;user-select:none}
+#map-layers summary::-webkit-details-marker{display:none}
+#map-layers summary::after{content:"▾";float:right;color:var(--muted);transition:transform .15s}
+#map-layers details[open] summary::after{transform:rotate(180deg)}
+#map-layers .ml-group{display:flex;flex-direction:column;gap:2px;padding:2px 0 8px}
+.ml-opt{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-dim);padding:5px 6px;border-radius:var(--r-1);cursor:pointer;transition:color .15s,background .15s}
+.ml-opt:hover{color:var(--ink);background:rgba(255,255,255,.05)}
+.ml-opt input{accent-color:var(--accent);cursor:pointer}
+#ml-year-wrap{padding:2px 6px 8px}
+#ml-year-wrap input[type=range]{width:100%;accent-color:var(--violet);cursor:pointer}
+.ml-year-val{font-family:var(--f-mono);font-size:11px;color:var(--muted);margin-top:3px}
+.ml-year-val b{color:var(--accent-bright)}
+.maplibregl-popup-content{border-radius:12px;padding:12px 14px}
+@media (max-width:900px){ .cockpit-right #osiris-map{height:520px} #map-layers{width:190px} }
+
+/* ══════════ GLOSSAIRE — termes survolables (esprit pop-up du cockpit) ══════════ */
+.gloss{border-bottom:1px dotted var(--accent-line);cursor:help;position:relative}
+.gloss:hover{border-bottom-color:var(--accent)}
+.gloss::after{content:attr(data-tip);position:absolute;left:0;bottom:calc(100% + 9px);min-width:180px;max-width:280px;z-index:80;background:linear-gradient(180deg,rgba(15,21,31,.98),rgba(10,14,20,.96));border:1px solid var(--accent-line);border-radius:var(--r-2);color:var(--ink);font-family:var(--f-ui);font-size:12px;font-weight:400;line-height:1.45;letter-spacing:0;text-transform:none;padding:9px 11px;box-shadow:var(--shadow-sm);opacity:0;transform:translateY(4px);pointer-events:none;transition:opacity .14s,transform .14s;white-space:normal;text-align:left}
+.gloss::before{content:"";position:absolute;left:14px;bottom:calc(100% + 4px);z-index:81;border:5px solid transparent;border-top-color:var(--accent-line);opacity:0;transition:opacity .14s}
+.gloss:hover::after,.gloss:focus::after{opacity:1;transform:translateY(0)}
+.gloss:hover::before,.gloss:focus::before{opacity:1}
+/* Grille du glossaire (section dédiée) */
+.glossary{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:0}
+.gloss-cat{grid-column:1/-1;font-family:var(--f-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent-bright);margin-top:10px;padding-bottom:4px;border-bottom:1px solid var(--line-2)}
+.gloss-cat:first-child{margin-top:0}
+.gloss-card{background:var(--panel-2);border:1px solid var(--line-2);border-radius:var(--r-3);padding:13px 15px}
+.gloss-card dt{font-family:var(--f-mono);font-weight:600;color:var(--accent-bright);font-size:13px;letter-spacing:.04em}
+.gloss-card dd{margin:5px 0 0;color:var(--muted);font-size:12.5px;line-height:1.5}

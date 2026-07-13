@@ -5,10 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OSIRIS V4 — cockpit OSINT données publiques</title>
   <script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Orbitron:wght@700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/landing/style.css">
+  <link rel="manifest" href="/landing/manifest.json">
   <meta name="theme-color" content="#070a0f">
   <link rel="icon" type="image/png" href="/landing/assets/favicon.png">
   <link rel="apple-touch-icon" href="/landing/assets/apple-touch-icon.png">
@@ -34,9 +37,9 @@
     <input type="checkbox" id="navcol" class="navcol-cb" aria-hidden="true">
     <label for="navcol" class="nav-reopen" title="Afficher le menu" aria-label="Afficher le menu">☰</label>
     <nav class="sidenav">
-      <div class="brand"><span class="mark logo-mark"><img class="logo-vid" src="/landing/assets/logo-cut.png" alt="OSIRIS"></span><span class="wordmark"><img class="wordmark-img" src="/landing/assets/osiris-cut.png" alt="OSIRIS"><span class="wordmark-v">V4</span></span><label for="navcol" class="nav-collapse" title="Replier le menu" aria-label="Replier le menu">«</label></div>
+      <div class="brand"><span class="mark logo-mark"><img class="logo-vid" src="/landing/assets/logo-cut.png" alt="OSIRIS"></span><span class="wordmark"><img class="wordmark-img" src="/landing/assets/osiris-cut.png" alt="OSIRIS"><!-- VERSION : tenir en lockstep avec osiris/src/lib/version.ts + VERSION.md (bump à CHAQUE chantier livré) --><span class="wordmark-v">V4.034</span></span><label for="navcol" class="nav-collapse" title="Replier le menu" aria-label="Replier le menu">«</label></div>
       <div class="sidenav-label">Navigation</div>
-      <div class="navlinks"><a href="#accueil">Accueil</a><a href="/cockpit">🗺️ Cockpit carte</a><a href="#chercher">Chercher</a><a href="#sources">Sources</a><a href="#recettes">Recettes</a><a href="#prototype">Prototype</a><a href="#rgpd">Garde-fous</a></div>
+      <div class="navlinks"><a href="#accueil">Accueil</a><a href="#chercher">Chercher</a><a href="/cockpit" class="nav-cockpit" onclick="goCockpit(event)">Cockpit carte</a><details class="nav-group"><summary>Outils</summary><a href="/cockpit?panel=osint" class="nav-cockpit" onclick="goCockpitPanel(event,'osint')">OSINT</a><a href="/cockpit?panel=graph" class="nav-cockpit" onclick="goCockpitPanel(event,'graph')">Graphe</a><a href="/cockpit?panel=news" class="nav-cockpit" onclick="goCockpitPanel(event,'news')">News</a><a href="/cockpit/cles-api" class="nav-cockpit" onclick="goCockpitPage(event,'/cockpit/cles-api')">Clés API</a></details><details class="nav-group"><summary>Doc</summary><a href="#sources">Sources</a><a href="#recettes">Recettes</a><a href="#glossaire">Glossaire</a><a href="#prototype">Prototype</a><a href="#rgpd">Garde-fous</a></details></div>
       <button type="button" class="nav-fb" onclick="openFeedback()">💬 Feedback / Questions</button>
       <button type="button" class="nav-logout" onclick="osirisLogout()">⏻ Se déconnecter</button>
       <div class="sidenav-foot"><span class="pulse"></span> Données publiques FR</div>
@@ -46,9 +49,9 @@
     <section id="accueil" class="tab"><header class="hero">
       <div>
         <div class="eyebrow"><span class="pulse"></span> Cockpit français des données publiques</div>
-        <h1>Le radar simple pour explorer <span class="grad">l’open data FR</span>.</h1>
-        <p class="lead">Une interface fun, guidée et lisible pour interroger les API publiques : entreprises, adresses, communes, BODACC, transport, cadastre et datasets data.gouv — avec les limites clairement affichées.</p>
-        <div class="hero-actions"><a class="btn primary" href="/cockpit">🗺️ Ouvrir le cockpit carte</a><a class="btn" href="#prototype">Voir la fiche exemple</a><a class="btn" href="#sources">Cartographie API</a></div>
+        <h1>Une recherche, <span class="grad">trois façons de la voir</span>.</h1>
+        <p class="lead">Interface fun, guidée et lisible pour interroger les API publiques FR — entreprises, adresses, communes, BODACC, transport, cadastre, datasets data.gouv. Chaque recherche s’affiche en 📇 <b>Liste</b>, 🕸️ <b>Graphe d’investigation</b> et 🗺️ <b>Carte</b>, avec fonds IGN, « remonter le temps » et les limites clairement affichées.</p>
+        <div class="hero-actions"><a class="btn primary" href="#chercher">Tester le cockpit</a><a class="btn" href="/cockpit" onclick="goCockpit(event)">Cockpit carte plein écran</a><a class="btn" href="#sources">Cartographie API</a></div>
       </div>
       <div class="radar" aria-label="Radar visuel des sources publiques">
         <video class="radar-logo" autoplay muted loop playsinline preload="auto"><source src="/landing/assets/logo.mp4" type="video/mp4"></video>
@@ -67,7 +70,7 @@
         <div class="floating">
           <div class="mini-card"><div><b>Recherche Entreprises</b><br><span>SIREN, SIRET, dirigeants diffusés, activité</span></div><span class="tag open">ouverte</span></div>
           <div class="mini-card"><div><b>API Particulier</b><br><span>Données usagers uniquement sur habilitation</span></div><span class="tag lock">encadrée</span></div>
-          <div class="mini-card"><div><b>data.gouv</b><br><span>Datasets, organisations, fichiers, réutilisations</span></div><span class="tag open">catalogue</span></div>
+          <div class="mini-card"><div><b>Carte IGN + temps</b><br><span>Fonds & orthophotos historiques, sièges géolocalisés</span></div><span class="tag open">sans clé</span></div>
         </div>
       </div>
     </header></section>
@@ -109,7 +112,7 @@
           <div class="searchbar duo"><input id="p-nom" placeholder="Nom (ex : Lambda)" aria-label="Nom" /><input id="p-prenom" placeholder="Prénom (ex : Jean-Michel)" aria-label="Prénom" /><button class="btn primary" onclick="runPerson()">Analyser</button></div>
           <p class="sub" style="margin:12px 2px 0">Trouve les sociétés où la personne est <b>dirigeante</b> (registre public, dirigeants diffusés). Les adresses personnelles ne sont pas affichées.</p>
         </div>
-        <div class="chips" style="margin:12px 0 0"><button class="chip active" id="view-list" onclick="setView('list')">📇 Liste</button><button class="chip" id="view-graph" onclick="setView('graph')">🕸️ Graphe</button></div>
+        <div class="chips" style="margin:12px 0 0"><button class="chip active" id="view-list" onclick="setView('list')">📇 Liste</button><button class="chip" id="view-graph" onclick="setView('graph')">🕸️ Graphe</button><button class="chip" id="view-map" onclick="setView('map')">🗺️ Carte</button></div>
         <div class="chips" id="export-bar" style="display:none;margin:8px 0 0"><button class="chip" onclick="exportReport()">📄 Rapport (PDF)</button><button class="chip" onclick="exportGraphPng()">🖼️ Image du graphe</button></div>
         </div><!-- /cockpit-left -->
         <div class="cockpit-right">
@@ -139,6 +142,56 @@
           <p class="sub graph-guide" style="margin:8px 2px 0;font-size:12px">Lecture : l'<b>origine</b> mène aux entités trouvées — chaque flèche est étiquetée (<b>résultat · dirige · siège · même adresse · BODACC</b>). Clique un nœud pour ses pistes et « Enquêter ».</p>
           <div id="node-panel" style="display:none"></div>
         </div>
+        <div id="map-wrap" style="display:none">
+          <div class="graph-toolbar"><span class="graph-title">Carte IGN — données publiques</span><span class="sub" id="map-count" style="margin:0;font-size:12px">Pas encore de point localisé.</span></div>
+          <div id="osiris-map-shell">
+            <div id="osiris-map"></div>
+            <div id="map-layers">
+              <details open>
+                <summary>🗺️ Fond de carte</summary>
+                <div class="ml-group">
+                  <label class="ml-opt"><input type="radio" name="ml-base" value="plan" checked onchange="mapSetBase('plan')"> Plan IGN</label>
+                  <label class="ml-opt"><input type="radio" name="ml-base" value="scan25" onchange="mapSetBase('scan25')"> SCAN25 topo</label>
+                  <label class="ml-opt"><input type="radio" name="ml-base" value="ortho" onchange="mapSetBase('ortho')"> Photo aérienne</label>
+                  <label class="ml-opt"><input type="radio" name="ml-base" value="satellite" onchange="mapSetBase('satellite')"> Satellite (Esri)</label>
+                </div>
+              </details>
+              <details>
+                <summary>⏳ Remonter le temps</summary>
+                <div class="ml-group">
+                  <label class="ml-opt"><input type="radio" name="ml-time" value="none" checked onchange="mapSetTime('none')"> Aucun (actuel)</label>
+                  <label class="ml-opt"><input type="radio" name="ml-time" value="ortho_year" onchange="mapSetTime('ortho_year')"> Ortho par année</label>
+                  <div id="ml-year-wrap" style="display:none">
+                    <input type="range" id="ml-year" min="2000" max="2024" step="1" value="2021" oninput="mapSetOrthoYear(this.value)">
+                    <div class="ml-year-val">Année : <b id="ml-year-lbl">2021</b></div>
+                  </div>
+                  <label class="ml-opt"><input type="radio" name="ml-time" value="photo_50_65" onchange="mapSetTime('photo_50_65')"> Photo 1950–1965</label>
+                  <label class="ml-opt"><input type="radio" name="ml-time" value="photo_65_80" onchange="mapSetTime('photo_65_80')"> Photo 1965–1980</label>
+                  <label class="ml-opt"><input type="radio" name="ml-time" value="photo_80_95" onchange="mapSetTime('photo_80_95')"> Photo 1980–1995</label>
+                  <label class="ml-opt"><input type="radio" name="ml-time" value="carte_1950" onchange="mapSetTime('carte_1950')"> Carte 1950</label>
+                  <label class="ml-opt"><input type="radio" name="ml-time" value="etatmajor" onchange="mapSetTime('etatmajor')"> Carte d'État-Major</label>
+                </div>
+              </details>
+              <details>
+                <summary>🧩 Surcouches</summary>
+                <div class="ml-group">
+                  <label class="ml-opt"><input type="checkbox" onchange="mapToggleOverlay('cadastre',this.checked)"> Cadastre</label>
+                  <label class="ml-opt"><input type="checkbox" onchange="mapToggleOverlay('agri',this.checked)"> Parcelles agricoles</label>
+                  <label class="ml-opt"><input type="checkbox" onchange="mapToggleOverlay('forets',this.checked)"> Forêts publiques</label>
+                  <label class="ml-opt"><input type="checkbox" onchange="mapToggleOverlay('hydro',this.checked)"> Hydrographie</label>
+                  <label class="ml-opt"><input type="checkbox" onchange="mapToggleOverlay('routes',this.checked)"> Routes</label>
+                  <label class="ml-opt"><input type="checkbox" onchange="mapToggleOverlay('rails',this.checked)"> Voies ferrées</label>
+                  <label class="ml-opt"><input type="checkbox" onchange="mapToggleOverlay('admin',this.checked)"> Limites admin</label>
+                  <label class="ml-opt"><input type="checkbox" onchange="mapToggleOverlay('topo',this.checked)"> Toponymes</label>
+                  <label class="ml-opt"><input type="checkbox" onchange="mapToggleOverlay('pentes',this.checked)"> Pentes</label>
+                  <label class="ml-opt"><input type="checkbox" onchange="mapToggleOverlay('irc',this.checked)"> Infrarouge (IRC)</label>
+                  <label class="ml-opt"><input type="checkbox" onchange="mapToggleOverlay('protected',this.checked)"> Zones protégées</label>
+                </div>
+              </details>
+            </div>
+          </div>
+          <p class="sub" style="margin:10px 2px;font-size:12px">Points violets = adresses géocodées (source BAN). Clique un point pour son popup et relancer la recherche. Fonds &amp; surcouches : Géoplateforme IGN (gratuit, sans clé).</p>
+        </div>
         </div><!-- /cockpit-right -->
       </div><!-- /cockpit -->
       </div>
@@ -151,11 +204,23 @@
         <article class="panel source"><span class="tag open">sans clé</span><h3>data.gouv</h3><ul><li>datasets</li><li>ressources CSV/JSON/GeoJSON</li><li>organisations</li><li>API référencées</li></ul></article>
         <article class="panel source"><span class="tag open">sans clé</span><h3>Entreprises</h3><ul><li>SIREN/SIRET</li><li>statut</li><li>établissements</li><li>dirigeants diffusés</li></ul></article>
         <article class="panel source"><span class="tag open">sans clé</span><h3>Geo + Adresse</h3><ul><li>communes</li><li>codes INSEE</li><li>géocodage</li><li>coordonnées</li></ul></article>
+        <article class="panel source"><span class="tag open">sans clé</span><h3>IGN Géoplateforme</h3><ul><li>fonds Plan / SCAN25 / ortho</li><li>orthos & cartes historiques</li><li>cadastre, RPG, surcouches</li><li>WMTS data.geopf.fr</li></ul></article>
         <article class="panel source"><span class="tag open">API publique</span><h3>BODACC</h3><ul><li>annonces</li><li>procédures</li><li>radiations</li><li>recherche par SIREN</li></ul></article>
         <article class="panel source"><span class="tag open">données ouvertes</span><h3>Transport</h3><ul><li>GTFS</li><li>arrêts</li><li>lignes</li><li>temps réel si dispo</li></ul></article>
         <article class="panel source"><span class="tag key">technique</span><h3>Cadastre</h3><ul><li>parcelles</li><li>sections</li><li>GeoJSON</li><li>pas de propriétaire</li></ul></article>
         <article class="panel source"><span class="tag key">variable</span><h3>Associations</h3><ul><li>RNA</li><li>objet</li><li>déclarations</li><li>JOAFE/datasets</li></ul></article>
         <article class="panel source"><span class="tag lock">habilitation</span><h3>API protégées</h3><ul><li>API Entreprise</li><li>API Particulier</li><li>Impôts</li><li>accès justifié</li></ul></article>
+      </div>
+      <h3 class="fold-sub" style="margin:26px 2px 10px;font-size:15px;color:var(--accent-bright)">🗺️ Temps réel &amp; OSINT — cockpit carte</h3>
+      <div class="grid4">
+        <article class="panel source"><span class="tag open">sans clé</span><h3>Vols <abbr class="gloss" data-tip="Automatic Dependent Surveillance–Broadcast : position des aéronefs diffusée en clair, captée par des récepteurs publics.">ADS-B</abbr></h3><ul><li>position live</li><li>cap / altitude / vitesse</li><li>watchlist VIP</li><li>fiche + photo appareil</li></ul></article>
+        <article class="panel source"><span class="tag open">sans clé</span><h3>Séismes &amp; feux</h3><ul><li><abbr class="gloss" data-tip="United States Geological Survey : agence géologique américaine, flux public des séismes.">USGS</abbr> (magnitude)</li><li><abbr class="gloss" data-tip="Fire Information for Resource Management System (NASA) : foyers thermiques actifs.">FIRMS</abbr> (feux)</li><li>volcans</li><li>alertes seuil</li></ul></article>
+        <article class="panel source"><span class="tag open">sans clé</span><h3>Satellites &amp; navires</h3><ul><li><abbr class="gloss" data-tip="Two-Line Element : paramètres orbitaux d'un satellite, propagés par le modèle SGP4 pour le situer en temps réel.">TLE</abbr> / SGP4</li><li>ISS, Hubble, Starlink…</li><li><abbr class="gloss" data-tip="Automatic Identification System : signal public de position des navires.">AIS</abbr> (navires, clé)</li><li>trajectoires (traînées)</li></ul></article>
+        <article class="panel source"><span class="tag open">sans clé</span><h3>Géo &amp; cyber</h3><ul><li><abbr class="gloss" data-tip="Global Database of Events, Language and Tone : événements mondiaux géolocalisés issus de la presse.">GDELT</abbr> (géopolitique)</li><li>fil d'actualité</li><li>abuse.ch — serveurs <abbr class="gloss" data-tip="Command &amp; Control : serveur qui pilote un logiciel malveillant. Ici en veille défensive.">C2</abbr></li><li>veille défensive</li></ul></article>
+        <article class="panel source"><span class="tag key">clé selon outil</span><h3>Boîte OSINT</h3><ul><li>whois (<abbr class="gloss" data-tip="Registration Data Access Protocol : successeur du WHOIS, données d'enregistrement d'un domaine/IP.">RDAP</abbr>), <abbr class="gloss" data-tip="Domain Name System : annuaire qui traduit un nom de domaine en adresse IP.">DNS</abbr>, <abbr class="gloss" data-tip="Internet Protocol : adresse numérique d'une machine sur le réseau.">IP</abbr></li><li><abbr class="gloss" data-tip="Common Vulnerabilities and Exposures : identifiant public d'une faille de sécurité.">CVE</abbr>, certificats (crt.sh)</li><li><abbr class="gloss" data-tip="Autonomous System Number / Border Gateway Protocol : identifiant réseau d'un opérateur et protocole de routage inter-réseaux.">ASN/BGP</abbr></li><li>Shodan, <abbr class="gloss" data-tip="Have I Been Pwned : service listant les fuites de données liées à un email.">HIBP</abbr>, AbuseIPDB (clé)</li></ul></article>
+        <article class="panel source"><span class="tag open">outil</span><h3>Graphe &amp; filtres</h3><ul><li>graphe d'entités</li><li>filtres par couche</li><li>presets de vue + partage</li><li>modes visuels</li></ul></article>
+        <article class="panel source"><span class="tag key">tes clés</span><h3>Module Clés API</h3><ul><li>clés saisies dans l'app</li><li>lien + procédure par service</li><li>sans redéploiement</li><li>stockage navigateur</li></ul></article>
+        <article class="panel source"><span class="tag lock">forme 2</span><h3>Couches sensibles</h3><ul><li>bases militaires (OSM)</li><li>opt-in + consentement</li><li>cadre <abbr class="gloss" data-tip="Cadre associatif de police auquel Cissou est rattaché comme référent OSINT (Occitanie).">ARPD</abbr> strict</li><li>données publiques</li></ul></article>
       </div>
       </div>
     </section>
@@ -165,8 +230,54 @@
       <p class="sub fold-sub">Des parcours en langage humain. L’utilisateur choisit son intention, l’interface construit les appels API et le rapport.</p>
       <div class="recipes">
         <article class="panel recipe"><h3>Vérifier une entreprise</h3><p>SIREN/SIRET, statut, siège, établissements, BODACC, export.</p><div class="steps"><div class="step"><span class="num">1</span>Entrer nom ou SIREN</div><div class="step"><span class="num">2</span>Comparer les correspondances</div><div class="step"><span class="num">3</span>Générer une fiche sourcée</div></div></article>
-        <article class="panel recipe"><h3>Explorer un territoire</h3><p>Adresse ou commune → codes, carte, population, datasets locaux.</p><div class="steps"><div class="step"><span class="num">1</span>Géocoder</div><div class="step"><span class="num">2</span>Enrichir commune/région</div><div class="step"><span class="num">3</span>Voir sources autour</div></div></article>
+        <article class="panel recipe"><h3>Explorer un territoire dans le temps</h3><p>Adresse ou commune → carte IGN → remonter aux orthophotos anciennes → surcouches cadastre / agricole.</p><div class="steps"><div class="step"><span class="num">1</span>Géocoder & basculer en vue Carte</div><div class="step"><span class="num">2</span>Remonter le temps (ortho par année, photos N&B, État-Major)</div><div class="step"><span class="num">3</span>Empiler cadastre, RPG, hydro…</div></div></article>
         <article class="panel recipe"><h3>Créer un rapport OSINT admin</h3><p>Un rapport propre, avec sources officielles, limites et zones non vérifiées.</p><div class="steps"><div class="step"><span class="num">1</span>Sélectionner les sources</div><div class="step"><span class="num">2</span>Classer la preuve</div><div class="step"><span class="num">3</span>Exporter PDF/Markdown</div></div></article>
+        <article class="panel recipe"><h3>Surveiller une zone en direct</h3><p>Cockpit carte : vols, séismes, feux, géopolitique et cyber en temps réel sur une emprise choisie.</p><div class="steps"><div class="step"><span class="num">1</span>Ouvrir « Cockpit carte »</div><div class="step"><span class="num">2</span>Activer les couches + filtres</div><div class="step"><span class="num">3</span>Preset de vue + partage du lien</div></div></article>
+        <article class="panel recipe"><h3>Investiguer une IP / un domaine</h3><p>Boîte OSINT : détection auto du type de cible → whois, DNS, géoloc IP, certificats, CVE, réputation.</p><div class="steps"><div class="step"><span class="num">1</span>Coller la cible (IP, domaine, email…)</div><div class="step"><span class="num">2</span>Lancer les lookups en parallèle</div><div class="step"><span class="num">3</span>Étendre en graphe d'entités</div></div></article>
+        <article class="panel recipe"><h3>Tracer un vol ou un VIP</h3><p>Couche vols ADS-B : suivre un aéronef, voir sa traînée, sa fiche (photo, cap, altitude) et l'alerte VIP.</p><div class="steps"><div class="step"><span class="num">1</span>Activer la couche « Vols »</div><div class="step"><span class="num">2</span>Cliquer l'aéronef → fiche</div><div class="step"><span class="num">3</span>Filtrer (militaire, VIP, altitude)</div></div></article>
+      </div>
+      </div>
+    </section>
+
+    <section id="glossaire" class="tab">
+      <div class="folddown"><div class="section-head fold-head" data-kicker="—  Lexique"><h2>Glossaire</h2></div>
+      <p class="sub fold-sub">Tous les sigles de l'app, expliqués simplement. Survole aussi les termes soulignés (pointillés) partout dans OSIRIS pour la définition à la volée.</p>
+      <div class="glossary">
+        <div class="gloss-cat">Open data FR (recherche &amp; entreprises)</div>
+        <div class="gloss-card"><dt>SIREN / SIRET</dt><dd>Identifiants d'entreprise (SIREN = 9 chiffres, l'entité) et d'établissement (SIRET = SIREN + 5 chiffres, le lieu).</dd></div>
+        <div class="gloss-card"><dt>BODACC</dt><dd>Bulletin Officiel des Annonces Civiles et Commerciales : ventes, procédures collectives, radiations.</dd></div>
+        <div class="gloss-card"><dt>RNA</dt><dd>Répertoire National des Associations : identifiant et déclarations des associations (loi 1901).</dd></div>
+        <div class="gloss-card"><dt>DVF</dt><dd>Demandes de Valeurs Foncières : base publique des ventes immobilières (prix, date, surface).</dd></div>
+        <div class="gloss-card"><dt>NAF / APE</dt><dd>Nomenclature d'Activités Française : code du secteur d'activité d'une entreprise (ex. 10.71C).</dd></div>
+        <div class="gloss-card"><dt>INSEE</dt><dd>Institut national de la statistique : produit les codes communes/pays et de nombreux référentiels.</dd></div>
+        <div class="gloss-card"><dt>BAN</dt><dd>Base Adresse Nationale : référentiel officiel des adresses françaises (géocodage).</dd></div>
+        <div class="gloss-card"><dt>GTFS</dt><dd>General Transit Feed Specification : format standard des données de transport (arrêts, lignes, horaires).</dd></div>
+        <div class="gloss-card"><dt>IGN / Géoplateforme</dt><dd>Institut national de l'information géographique : fournit les fonds de carte, orthophotos et surcouches (WMTS gratuit).</dd></div>
+        <div class="gloss-card"><dt>WMTS</dt><dd>Web Map Tile Service : standard de diffusion de cartes en tuiles (utilisé pour les fonds IGN).</dd></div>
+
+        <div class="gloss-cat">Cockpit carte &amp; temps réel</div>
+        <div class="gloss-card"><dt>ADS-B</dt><dd>Automatic Dependent Surveillance–Broadcast : position des avions diffusée en clair, captable par des récepteurs publics.</dd></div>
+        <div class="gloss-card"><dt>AIS</dt><dd>Automatic Identification System : équivalent maritime, signal de position des navires.</dd></div>
+        <div class="gloss-card"><dt>TLE / SGP4</dt><dd>Two-Line Element : paramètres orbitaux d'un satellite, propagés par le modèle SGP4 pour le situer en direct.</dd></div>
+        <div class="gloss-card"><dt>USGS</dt><dd>United States Geological Survey : agence géologique américaine, flux public des séismes.</dd></div>
+        <div class="gloss-card"><dt>FIRMS / VIIRS</dt><dd>Système NASA de foyers thermiques actifs (feux) ; VIIRS est le capteur satellite utilisé.</dd></div>
+        <div class="gloss-card"><dt>GDELT</dt><dd>Global Database of Events, Language and Tone : événements mondiaux géolocalisés issus de la presse.</dd></div>
+        <div class="gloss-card"><dt>C2</dt><dd>Command &amp; Control : serveur pilotant un logiciel malveillant. Suivi ici en veille défensive (abuse.ch).</dd></div>
+
+        <div class="gloss-cat">OSINT &amp; cyber</div>
+        <div class="gloss-card"><dt>OSINT</dt><dd>Open Source Intelligence : renseignement à partir de sources ouvertes/publiques, cadre légal et défensif.</dd></div>
+        <div class="gloss-card"><dt>WHOIS / RDAP</dt><dd>Données d'enregistrement d'un domaine ou d'une IP (RDAP = version moderne du WHOIS).</dd></div>
+        <div class="gloss-card"><dt>DNS</dt><dd>Domain Name System : annuaire qui traduit un nom de domaine en adresse IP.</dd></div>
+        <div class="gloss-card"><dt>IP / ASN / BGP</dt><dd>Adresse réseau d'une machine · numéro d'un opérateur réseau · protocole de routage entre réseaux.</dd></div>
+        <div class="gloss-card"><dt>CVE</dt><dd>Common Vulnerabilities and Exposures : identifiant public d'une faille de sécurité connue.</dd></div>
+        <div class="gloss-card"><dt>Shodan · HIBP · AbuseIPDB</dt><dd>Moteur d'exposition réseau · fuites liées à un email (Have I Been Pwned) · réputation d'une IP.</dd></div>
+
+        <div class="gloss-cat">Cadre &amp; technique</div>
+        <div class="gloss-card"><dt>ARPD</dt><dd>Cadre associatif de police auquel Cissou est rattaché comme référent OSINT (Occitanie).</dd></div>
+        <div class="gloss-card"><dt>RGPD</dt><dd>Règlement Général sur la Protection des Données : cadre légal européen sur les données personnelles.</dd></div>
+        <div class="gloss-card"><dt>API</dt><dd>Application Programming Interface : porte d'entrée logicielle pour interroger une source de données.</dd></div>
+        <div class="gloss-card"><dt>Forme 1 / Forme 2</dt><dd>Forme 1 = tout public (ARPD, défaut). Forme 2 = enquêteur : débloque les couches sensibles, avec consentement.</dd></div>
+        <div class="gloss-card"><dt>MapLibre</dt><dd>Moteur cartographique open-source (rendu de la vue Carte et du cockpit).</dd></div>
       </div>
       </div>
     </section>
@@ -179,7 +290,7 @@
         <main class="workspace">
           <div class="dash-grid">
             <div class="big-card"><span class="tag open">source officielle</span><h3>BOULANGERIES BG</h3><p class="sub">SIREN 478455793 · activité 10.71A · établissements détectés · siège géocodé.</p><div class="timeline"><div class="event"><div class="date">Étape 1</div><div class="txt">Recherche d’entreprise par nom + zone.</div></div><div class="event"><div class="date">Étape 2</div><div class="txt">Enrichissement API Geo / Adresse pour contexte local.</div></div><div class="event"><div class="date">Étape 3</div><div class="txt">Préparation rapport sourcé avec limites visibles.</div></div></div><div class="code">GET recherche-entreprises.api.gouv.fr/search?q=boulangerie&per_page=10</div></div>
-            <div class="big-card"><h3>Carte contexte</h3><div class="map"></div><p class="sub">La carte devient le point d’entrée : entreprises, datasets locaux, transports et parcelles si disponibles.</p></div>
+            <div class="big-card"><h3>Carte contexte</h3><div class="map"></div><p class="sub">Vue Carte MapLibre : fonds IGN (Plan, SCAN25, ortho, satellite), « remonter le temps » (orthos par année, photos N&B, État-Major), surcouches empilables (cadastre, RPG, hydro, routes…) et sièges d’entreprises géolocalisés. Cliquer un point relance la recherche.</p></div>
           </div>
         </main>
       </div>
@@ -193,11 +304,12 @@
         <div class="panel"><h3>Sources visibles</h3><p class="sub">Chaque résultat indique : officiel, secondaire, dataset local, bloqué ou habilitation nécessaire.</p></div>
         <div class="panel"><h3>Personnes physiques</h3><p class="sub">Masquage par défaut des adresses personnelles et pas de scoring opaque sur individus.</p></div>
         <div class="panel"><h3>Rapports propres</h3><p class="sub">Export avec requêtes utilisées, dates, limites et “ce qu’on ne peut pas conclure”.</p></div>
+        <div class="panel"><h3>Carte : agréger, pas surveiller</h3><p class="sub">La carte ne fait qu’afficher des données <b>déjà publiques</b> — fonds & imagerie officiels IGN (Géoplateforme), sièges d’entreprises du registre. Lecture seule, aucune donnée personnelle ajoutée, sources et millésimes visibles.</p></div>
       </div>
       </div>
     </section>
 
-    <footer class="footer"><strong>OSIRIS V4 · cockpit OSINT défensif</strong><span>Données publiques officielles : data.gouv · Geo · Adresse · Entreprises · BODACC · RNA · DVF.</span></footer>
+    <footer class="footer"><strong>OSIRIS V4 · cockpit <abbr class="gloss" data-tip="Open Source Intelligence : renseignement à partir de sources ouvertes et publiques, cadre légal et défensif.">OSINT</abbr> défensif</strong><span>Données publiques officielles : data.gouv · Geo · Adresse · Entreprises · <abbr class="gloss" data-tip="Bulletin Officiel des Annonces Civiles et Commerciales.">BODACC</abbr> · <abbr class="gloss" data-tip="Répertoire National des Associations (loi 1901).">RNA</abbr> · <abbr class="gloss" data-tip="Demandes de Valeurs Foncières : ventes immobilières publiques.">DVF</abbr>. Glossaire complet dans l'onglet dédié.</span></footer>
     </main>
   </div>
   <script>

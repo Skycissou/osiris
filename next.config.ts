@@ -40,9 +40,10 @@ const nextConfig: NextConfig = {
     // sortants (backend FastAPI FR, tuiles, reverse-geocode Nominatim).
     const csp = [
       "default-src 'self'",
-      // cdn.jsdelivr.net : vis-network, utilisé par la landing V3 reproduite (graphe).
-      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      // cdn.jsdelivr.net : vis-network (graphe) · unpkg.com : maplibre-gl (carte IGN
+      // intégrée à l'accueil « Chercher », version riche restaurée V4.087).
+      "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
       "font-src 'self' https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https:",
       "worker-src 'self' blob:",
