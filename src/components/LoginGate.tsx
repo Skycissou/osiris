@@ -5,6 +5,11 @@ import { motion } from 'framer-motion';
 import { Lock, User, LoaderCircle } from 'lucide-react';
 import { login } from '@/lib/api';
 
+// 🔓 BYPASS AUTH (DEV) — demande Cissou 13/07 : « Se connecter » entre SANS pseudo/mdp
+//  tant que la vraie session comptes/auth n'est pas faite. Désactiver au build :
+//  NEXT_PUBLIC_AUTH_BYPASS=0.
+const AUTH_BYPASS = process.env.NEXT_PUBLIC_AUTH_BYPASS !== '0';
+
 /**
  * Écran de connexion — pose le cookie de session (POST /login) avant l'accès
  * au cockpit. Tant que l'utilisateur n'est pas authentifié, le backend
@@ -18,6 +23,8 @@ export default function LoginGate({ onAuthed }: { onAuthed: () => void }) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Mode dev : accès direct, aucune donnée requise (auth « en standby »).
+    if (AUTH_BYPASS) { onAuthed(); return; }
     if (!username.trim() || !password || loading) return;
     setLoading(true);
     setError(null);
@@ -45,6 +52,11 @@ export default function LoginGate({ onAuthed }: { onAuthed: () => void }) {
           <span className="text-[9px] font-mono tracking-[0.2em] opacity-70 uppercase text-[var(--accent)]">
             COCKPIT OSINT · V4 — Accès restreint
           </span>
+          {AUTH_BYPASS && (
+            <span className="mt-1 text-[9px] font-mono tracking-wide text-[var(--green,#5bc78d)] border border-[var(--green,#5bc78d)]/40 rounded px-2 py-0.5">
+              mode dev · accès direct (auth désactivée)
+            </span>
+          )}
         </div>
 
         <label className="flex items-center gap-2 glass-panel px-3 py-2.5">
@@ -80,7 +92,7 @@ export default function LoginGate({ onAuthed }: { onAuthed: () => void }) {
 
         <button
           type="submit"
-          disabled={loading || !username.trim() || !password}
+          disabled={loading || (!AUTH_BYPASS && (!username.trim() || !password))}
           /* CTA principal = bouton primary dégradé accent + ombre glow (style .btn.primary de la landing) */
           className="osiris-btn osiris-btn-primary w-full py-2.5 text-sm font-mono tracking-widest disabled:opacity-40 disabled:hover:transform-none flex items-center justify-center gap-2"
         >

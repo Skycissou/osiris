@@ -37,6 +37,13 @@ import OsirisDiagView from '@/components/OsirisDiagView';
 // le LoginGate V4 et, sur 401, on renvoie vers le login V3 à la racine (`/login`).
 const COCKPIT_MODE = BASE_PATH !== '';
 
+// 🔓 BYPASS AUTH (DEV) — demande Cissou 13/07 : tant que la session comptes/auth
+//  n'est pas faite (jalon Émancipation Lot C), on GARDE la page de connexion (pour
+//  voir l'orga) mais « Se connecter » entre SANS identifiants, et un 401 ramène sur
+//  CETTE page V4 (plus vers le login V3). ON par défaut ; désactiver au build avec
+//  NEXT_PUBLIC_AUTH_BYPASS=0 le jour où la vraie auth arrive.
+const AUTH_BYPASS = process.env.NEXT_PUBLIC_AUTH_BYPASS !== '0';
+
 // Accueil = TOUJOURS la racine du MÊME site (la landing qui porte le bouton
 // « Cockpit carte »). On ne saute JAMAIS vers un autre domaine, sinon on tombe
 // sur un site sans carte. `<a href="/">` vise la racine du domaine courant
@@ -202,7 +209,9 @@ export default function Dashboard() {
   useEffect(() => {
     // Sous /cockpit : on considère l'utilisateur authentifié d'emblée (cookie V3).
     // Un 401 sur une requête le renverra vers /login (V3) — cf. runSearch.
-    if (COCKPIT_MODE) { setAuthed(true); return; }
+    // ⚠️ En bypass dev, on NE court-circuite PAS : on montre le LoginGate V4 (voir
+    //  l'orga) puis on retient le clic « Se connecter » en localStorage.
+    if (COCKPIT_MODE && !AUTH_BYPASS) { setAuthed(true); return; }
     setAuthed(typeof window !== 'undefined' && localStorage.getItem('osiris_authed') === '1');
   }, []);
   const handleAuthed = useCallback(() => {
@@ -535,7 +544,9 @@ export default function Dashboard() {
       // Session expirée / non authentifié.
       if (msg.includes('401')) {
         // Mode cockpit : le login vit dans la V3 → redirection racine, pas de gate V4.
-        if (COCKPIT_MODE) {
+        // ⚠️ En bypass dev, on NE renvoie PAS vers le login V3 : on retombe sur le
+        //  LoginGate V4 (1 clic pour re-rentrer), jamais la page mot de passe V3.
+        if (COCKPIT_MODE && !AUTH_BYPASS) {
           if (typeof window !== 'undefined') window.location.href = '/login';
           return;
         }
