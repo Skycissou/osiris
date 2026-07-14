@@ -10,7 +10,7 @@
 > | Stack | Python/FastAPI + HTML statique | Next.js 16 + MapLibre |
 > | Code | brain `claude-brain` → `projects/open-radar-fr/` | repo **`Skycissou/osiris`** · branche **`master`** |
 > | URL | `osiris.cissouhub.cloud` (+ `openradar.`) | `osiris-v4.cissouhub.cloud` |
-> | Conteneur | `osiris-v3` | `osiris-v4-cockpit` → cible : app autonome (chantier Émancipation) |
+> | Conteneur | `osiris-v3` | **`osiris-v4`** (compose autonome `docker-compose.v4.yml`) — Émancipation FAITE (13/07) ; ancien `osiris-v4-cockpit` stoppé |
 > | Auth | login cookie V3 (comptes `.env`) | Better Auth + Postgres (brief 2026-07-12) |
 > | Interdits | ❌ aucun nouveau dev ❌ jamais toucher sans GO Cissou | ❌ ne JAMAIS builder/servir depuis les dossiers ou statics V3 |
 >
@@ -22,10 +22,13 @@
 - La branche `claude/v4-opus-switch-points-m91ofq` est OBSOLÈTE (fusionnée dans `master` le 2026-07-07 ; suppression prévue J+7). Ne plus bosser dessus.
 - ⛔ La PROD V3 (`osiris.cissouhub.cloud`) ne dépend PAS de ce repo (source = clone du brain sur le VPS). On n'y touche jamais d'ici.
 
-## 🚀 Déploiement staging (détail : DEPLOY.md) — 3 étapes DANS L'ORDRE
-1. `[VPS]` `cd /docker/osiris-v4 && git fetch origin && git reset --hard origin/master`  ← OBLIGATOIRE sinon rebuild de VIEUX code (leçon 05/07)
-2. `[VPS]` `cd /docker/osiris-v4/deploy && docker compose -f docker-compose.staging.yml down` (garde-fou anti-doublon, leçon 05/07 — ignorer si ce compose n'existe pas)
-3. `[VPS]` `cd /docker/osiris-v3-staging/projects/open-radar-fr && docker compose -f docker-compose.staging-combined.yml build --no-cache osiris-v4-cockpit && docker compose -f docker-compose.staging-combined.yml up -d --no-deps osiris-v4-cockpit`
+## 🚀 Déploiement V4 — HOST ÉMANCIPÉ (détail : DEPLOY.md) — compose autonome
+> ⚠️ **La bascule Émancipation EST FAITE (13/07).** `osiris-v4.cissouhub.cloud` est servi ENTIÈREMENT par le conteneur **`osiris-v4`** (compose autonome `docker-compose.v4.yml`, label Traefik `Host(osiris-v4.cissouhub.cloud)` **priorité 200**). L'ancienne procédure « combiné-staging » (`osiris-v4-cockpit`) est **PÉRIMÉE** : Traefik ne route PLUS vers elle → la rebuilder ne change RIEN (leçon 13/07).
+
+1. `[VPS]` `cd /docker/osiris-v4 && git fetch origin && git reset --hard origin/master && git log --oneline -1` ← sinon rebuild de VIEUX code
+2. `[VPS]` `docker compose -f docker-compose.v4.yml build --no-cache` ← **`--build` seul NE force PAS le rebuild** (layers `CACHED` = vieux code)
+3. `[VPS]` `docker compose -f docker-compose.v4.yml up -d --force-recreate` ← **« Started » ≠ « Recreated »** : sans `--force-recreate` le conteneur garde la vieille image
+4. `[VPS]` vérif (attendre le boot) : `curl -s https://osiris-v4.cissouhub.cloud/cockpit/version` → doit renvoyer la version de `src/lib/version.ts` (⚠️ `Bad Gateway` = curl trop tôt après le start)
 
 ## ✅ Vérif post-déploiement — OBLIGATOIRE avant de dire « déployé »
 - Le header sur `https://osiris-v4.cissouhub.cloud/cockpit` affiche la version de `src/lib/version.ts`.
