@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.099-dev';
+export const OSIRIS_VERSION = 'V4.100-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,19 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.100-dev',
+    date: '2026-07-15',
+    resume:
+      "🔧 CCTV réparée pour de vrai (la couche restait `cctv:[]` malgré la clé Windy OK). Diag Hermès depuis le VPS : " +
+      "fetch BRUT vers Windy = 200 + 3 webcams, mais via l'app = vide → coupable = **`safeFetch`** (son `dns.lookup` " +
+      "de contrôle SSRF échoue sur ce VPS pour certains hôtes) qui avalait l'erreur en `[]`. Overpass (source A) = " +
+      "`ECONNREFUSED` sur l'instance principale. **Fix** : pour ces hôtes FIXES (constantes, aucune entrée utilisateur " +
+      "dans le host → SSRF sans objet), on appelle `fetch` DIRECT au lieu de `safeFetch` (Windy + Overpass), et Overpass " +
+      "bascule sur des **miroirs** (kumi.systems, private.coffee) si l'un refuse. `military_bases` (même bug) corrigé " +
+      "au passage. Type `WindyWebcam.player.day` corrigé (URL string, pas objet). ⚠️ À vérifier : les routes OSINT " +
+      "(Shodan/BGP/IP) utilisent aussi `safeFetch` sur hôtes fixes → même risque, à contrôler en prod. Build+tsc verts.",
+  },
   {
     version: 'V4.099-dev',
     date: '2026-07-15',

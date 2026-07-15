@@ -48,7 +48,6 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from 'next/server';
-import { safeFetch } from '@/lib/ssrf-guard';
 
 // Toujours dynamique : couches temps quasi-réel, jamais de pré-rendu statique.
 export const dynamic = 'force-dynamic';
@@ -66,7 +65,18 @@ const USER_AGENT = 'Osiris-Cockpit/4.0 (ARPD veille; +https://osiris.cissouhub.c
  * `military_bases` à partir d'OpenStreetMap (données ouvertes ODbL). On requête
  * les objets taggés `military=base` dans la bbox. Doc : wiki.openstreetmap.org.
  */
-const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
+/**
+ * Miroirs Overpass (OSM). ⚠️ 2026-07-15 : sur le VPS OSIRIS, `safeFetch` échoue
+ * pour certains hôtes (son `dns.lookup` de contrôle) ET l'instance principale a
+ * renvoyé `ECONNREFUSED`. On tape donc ces hôtes FIXES en **`fetch` DIRECT**
+ * (constantes → aucune entrée utilisateur dans le host → SSRF sans objet) et on
+ * bascule sur un miroir si l'un refuse/échoue.
+ */
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
 /** Plafond de bases militaires retenues (protège d'une bbox trop large). */
 const MILITARY_MAX = 500;
 /** Plafond de caméras OSM retenues (bbox large = beaucoup de `man_made=surveillance`). */
@@ -188,7 +198,8 @@ interface WindyWebcam {
   webcamId?: number;
   title?: string;
   location?: { latitude?: number; longitude?: number; city?: string; country?: string };
-  player?: { day?: { embed?: string }; live?: { embed?: string } };
+  // API v3 : `player.*` sont des URLs (string), pas des objets (vérifié 2026-07-15).
+  player?: { day?: string; live?: string };
 }
 
 /**
@@ -200,6 +211,39 @@ interface WindyWebcam {
  * Données OpenStreetMap © contributeurs, licence ODbL. Objets `military=base`
  * DÉJÀ publics dans la base OSM ; veille situationnelle, aucun ciblage.
  */
+/**
+ * Interroge Overpass en **`fetch` DIRECT** (hôtes FIXES, pas de SSRF possible) sur
+ * la liste de miroirs : renvoie les `elements` du 1er miroir qui répond 200, sinon
+ * [] (dégradation douce). NE PASSE PAS par `safeFetch` — son `dns.lookup` de
+ * contrôle échoue sur ce VPS pour certains hôtes (constat 2026-07-15).
+ */
+async function fetchOverpass(query: string): Promise<OverpassElement[]> {
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': USER_AGENT,
+        },
+        body: `data=${encodeURIComponent(query)}`,
+      });
+      if (!res.ok) continue; // miroir en erreur → suivant
+      const payload = (await res.json()) as { elements?: OverpassElement[] };
+      return Array.isArray(payload?.elements) ? payload.elements : [];
+    } catch {
+      continue; // refus (ECONNREFUSED) / timeout / JSON → miroir suivant
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  return []; // tous les miroirs KO
+}
+
 async function fetchMilitaryBases(bbox: BBox): Promise<MilitaryBase[]> {
   const [minLng, minLat, maxLng, maxLat] = bbox;
   // Overpass attend la bbox en (Sud,Ouest,Nord,Est) = (minLat,minLng,maxLat,maxLng).
@@ -208,45 +252,23 @@ async function fetchMilitaryBases(bbox: BBox): Promise<MilitaryBase[]> {
     `[out:json][timeout:20];` +
     `(nwr["military"="base"]${bboxClause};);` +
     `out center ${MILITARY_MAX};`;
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const res = await safeFetch(OVERPASS_ENDPOINT, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': USER_AGENT,
-      },
-      body: `data=${encodeURIComponent(query)}`,
-      maxRedirects: 2,
+  const elements = await fetchOverpass(query);
+  const out: MilitaryBase[] = [];
+  for (const el of elements) {
+    if (out.length >= MILITARY_MAX) break;
+    const lat = typeof el.lat === 'number' ? el.lat : el.center?.lat;
+    const lng = typeof el.lon === 'number' ? el.lon : el.center?.lon;
+    if (typeof lat !== 'number' || typeof lng !== 'number') continue;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    const name = el.tags?.name;
+    out.push({
+      id: `${el.type ?? 'osm'}/${el.id ?? `${lat},${lng}`}`,
+      lat,
+      lng,
+      name: typeof name === 'string' && name ? name : undefined,
     });
-    if (!res.ok) return [];
-    const payload = (await res.json()) as { elements?: OverpassElement[] };
-    const elements = Array.isArray(payload?.elements) ? payload.elements : [];
-    const out: MilitaryBase[] = [];
-    for (const el of elements) {
-      if (out.length >= MILITARY_MAX) break;
-      const lat = typeof el.lat === 'number' ? el.lat : el.center?.lat;
-      const lng = typeof el.lon === 'number' ? el.lon : el.center?.lon;
-      if (typeof lat !== 'number' || typeof lng !== 'number') continue;
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-      const name = el.tags?.name;
-      out.push({
-        id: `${el.type ?? 'osm'}/${el.id ?? `${lat},${lng}`}`,
-        lat,
-        lng,
-        name: typeof name === 'string' && name ? name : undefined,
-      });
-    }
-    return out;
-  } catch {
-    return []; // dégradation douce
-  } finally {
-    clearTimeout(timeout);
   }
+  return out;
 }
 
 // ── Couches à CLÉ (scaffolds opt-in) ─────────────────────────────────────────
@@ -291,42 +313,20 @@ async function fetchCctvOsm(bbox: BBox): Promise<CctvCam[]> {
     `[out:json][timeout:20];` +
     `(nwr["man_made"="surveillance"]${bboxClause};);` +
     `out center ${CCTV_OSM_MAX};`;
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const res = await safeFetch(OVERPASS_ENDPOINT, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': USER_AGENT,
-      },
-      body: `data=${encodeURIComponent(query)}`,
-      maxRedirects: 2,
-    });
-    if (!res.ok) return [];
-    const payload = (await res.json()) as { elements?: OverpassElement[] };
-    const elements = Array.isArray(payload?.elements) ? payload.elements : [];
-    const out: CctvCam[] = [];
-    for (const el of elements) {
-      if (out.length >= CCTV_OSM_MAX) break;
-      const lat = typeof el.lat === 'number' ? el.lat : el.center?.lat;
-      const lng = typeof el.lon === 'number' ? el.lon : el.center?.lon;
-      if (typeof lat !== 'number' || typeof lng !== 'number') continue;
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-      const t = el.tags ?? {};
-      const stype = t['surveillance:type'] || t['camera:type'];
-      const label = t.name || (stype ? `Caméra (${stype})` : 'Caméra (OSM)');
-      out.push({ id: `${el.type ?? 'osm'}/${el.id ?? `${lat},${lng}`}`, lat, lng, label });
-    }
-    return out;
-  } catch {
-    return []; // dégradation douce
-  } finally {
-    clearTimeout(timeout);
+  const elements = await fetchOverpass(query);
+  const out: CctvCam[] = [];
+  for (const el of elements) {
+    if (out.length >= CCTV_OSM_MAX) break;
+    const lat = typeof el.lat === 'number' ? el.lat : el.center?.lat;
+    const lng = typeof el.lon === 'number' ? el.lon : el.center?.lon;
+    if (typeof lat !== 'number' || typeof lng !== 'number') continue;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    const t = el.tags ?? {};
+    const stype = t['surveillance:type'] || t['camera:type'];
+    const label = t.name || (stype ? `Caméra (${stype})` : 'Caméra (OSM)');
+    out.push({ id: `${el.type ?? 'osm'}/${el.id ?? `${lat},${lng}`}`, lat, lng, label });
   }
+  return out;
 }
 
 /**
@@ -351,11 +351,13 @@ async function fetchCctvWindy(key: string, bbox: BBox): Promise<CctvCam[]> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await safeFetch(url, {
+    // `fetch` DIRECT (hôte FIXE `api.windy.com` = pas de risque SSRF). On NE passe
+    // PAS par safeFetch : son dns.lookup de contrôle échoue sur ce VPS (constat
+    // 2026-07-15 : fetch brut = 200 + webcams, mais via safeFetch = couche vide).
+    const res = await fetch(url, {
       method: 'GET',
       signal: controller.signal,
       headers: { Accept: 'application/json', 'x-windy-api-key': key, 'User-Agent': USER_AGENT },
-      maxRedirects: 2,
     });
     if (!res.ok) return []; // clé invalide (401/403) / quota → couche vide, jamais un 500
     const payload = (await res.json()) as { webcams?: WindyWebcam[] };
@@ -368,9 +370,11 @@ async function fetchCctvWindy(key: string, bbox: BBox): Promise<CctvCam[]> {
       const id = w.webcamId;
       if (typeof lat !== 'number' || typeof lng !== 'number' || id == null) continue;
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-      // Embed public du lecteur Windy (page d'embed → iframe côté lecteur in-app).
+      // Embed public du lecteur Windy. Le champ `player.day` est une URL (string)
+      // dans l'API v3 (vérifié 2026-07-15) ; repli sur l'URL d'embed canonique.
       const embed =
-        (typeof w.player?.day?.embed === 'string' && w.player.day.embed) ||
+        (typeof w.player?.day === 'string' && w.player.day) ||
+        (typeof w.player?.live === 'string' && w.player.live) ||
         `https://webcams.windy.com/webcams/public/embed/player/${id}/day`;
       const city = w.location?.city;
       out.push({
