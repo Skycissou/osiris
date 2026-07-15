@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.098-dev';
+export const OSIRIS_VERSION = 'V4.099-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,20 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.099-dev',
+    date: '2026-07-15',
+    resume:
+      "📷 Couche CCTV/Caméras peuplée (demande Cissou « il manque les cctv » — A + B). La couche `cctv` " +
+      "était un stub vide (`fetchCctv` renvoyait []). **A) Caméras OSM** (`man_made=surveillance` via Overpass, " +
+      "public sans clé, comme les bases militaires) → POSITIONS de caméras (pas de flux), clic = popup. " +
+      "**B) Webcams Windy** (API v3, opt-in par `CCTV_SOURCE_KEY` = clé Windy) → vraies webcams PUBLIQUES " +
+      "consenties (tourisme/trafic), clic = lecteur in-app (embed iframe). Ligne rouge respectée : AUCUN flux " +
+      "privé/Shodan, aucun ciblage. **Prérequis d'affichage** : la couche « Caméras 🔴 » n'existe qu'en " +
+      "**forme 2** → `NEXT_PUBLIC_OSIRIS_FORM=2` ajouté au build (compose+Dockerfile) : débloque les couches " +
+      "sensibles opt-in (chacune reste gated par consentement + toggle). CSP : `frame-src` ajouté pour l'embed " +
+      "Windy (webcams.windy.com). Dégradation douce partout (source KO → couche vide, jamais un 500). Build+tsc verts.",
+  },
   {
     version: 'V4.098-dev',
     date: '2026-07-15',

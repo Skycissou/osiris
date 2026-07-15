@@ -29,7 +29,9 @@
 //
 //  ── VARIABLES D'ENVIRONNEMENT À RENSEIGNER (« il ne reste qu'à mettre les
 //     clés ») ────────────────────────────────────────────────────────────────
-//    • CCTV_SOURCE_KEY    → couche `cctv`          (LIGNE ROUGE, voir ci-dessus)
+//    • CCTV_SOURCE_KEY    → couche `cctv` source B = clé API Windy Webcams (webcams
+//                           PUBLIQUES consenties). Source A (positions OSM public)
+//                           marche SANS clé. (LIGNE ROUGE : jamais de flux privé/Shodan.)
 //    • GPSJAM_KEY         → couche `gps_jamming`   (brouillage GPS)
 //    • SCANNER_KEY        → couche `scanners`      (scanners radio publics)
 //    • SIGINT_KEY         → couche `sigint`        (mesh / APRS)
@@ -67,6 +69,12 @@ const USER_AGENT = 'Osiris-Cockpit/4.0 (ARPD veille; +https://osiris.cissouhub.c
 const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
 /** Plafond de bases militaires retenues (protège d'une bbox trop large). */
 const MILITARY_MAX = 500;
+/** Plafond de caméras OSM retenues (bbox large = beaucoup de `man_made=surveillance`). */
+const CCTV_OSM_MAX = 600;
+/** Plafond de webcams Windy retenues par requête (source B). */
+const CCTV_WINDY_MAX = 60;
+/** Endpoint Windy Webcams API v3 (source B — webcams PUBLIQUES consenties). */
+const WINDY_WEBCAMS_ENDPOINT = 'https://api.windy.com/webcams/api/v3/webcams';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 /** Emprise géographique [minLng, minLat, maxLng, maxLat] (ordre GeoJSON). */
@@ -175,6 +183,14 @@ interface OverpassElement {
   tags?: Record<string, string>;
 }
 
+/** Sous-ensemble utile d'une webcam Windy (API v3, source B). */
+interface WindyWebcam {
+  webcamId?: number;
+  title?: string;
+  location?: { latitude?: number; longitude?: number; city?: string; country?: string };
+  player?: { day?: { embed?: string }; live?: { embed?: string } };
+}
+
 /**
  * Récupère les bases militaires OSM dans la bbox via Overpass (public, sans clé).
  * Dégradation douce : toute erreur (statut, timeout, JSON, réseau) → []. Ne jette
@@ -245,15 +261,132 @@ async function fetchMilitaryBases(bbox: BBox): Promise<MilitaryBase[]> {
  * ciblage de personne. Sans clé → [] (aucun appel). Avec clé → à câbler sur la
  * source publique choisie, en normalisant vers CctvCam.
  */
-async function fetchCctv(req: NextRequest, _bbox: BBox): Promise<CctvCam[]> {
-  // Clé effective : en-tête user `x-osiris-key-cctv` OU env CCTV_SOURCE_KEY (voir
-  // keyOf). Opt-in strict : sans aucune clé → [] SANS appel réseau.
+async function fetchCctv(req: NextRequest, bbox: BBox): Promise<CctvCam[]> {
+  // Deux sources complémentaires, toutes deux dans le cadre défensif :
+  //   A) OSM `man_made=surveillance` — POSITIONS publiques de caméras (ODbL),
+  //      SANS flux, comme `military_bases` → pas de clé (la couche n'est de toute
+  //      façon interrogée qu'en forme 2 + consentement + toggle actif).
+  //   B) Windy Webcams — vraies WEBCAMS PUBLIQUES consenties (tourisme/trafic,
+  //      JAMAIS de vidéosurveillance) → opt-in par clé (CCTV_SOURCE_KEY = clé Windy).
+  // Ligne rouge inchangée : aucun flux privé/exposé (pas de Shodan), aucun ciblage.
   const key = keyOf(req, 'cctv', 'CCTV_SOURCE_KEY');
-  if (!key) return [];
-  // TODO(forme 2) : brancher ICI la source PUBLIQUE de webcams consenties,
-  // via safeFetch(url, …), puis normaliser → { id, lat, lng, label?, streamUrl? }.
-  // Filtrer sur _bbox. Ne JAMAIS ajouter de flux privé/ciblé (ligne rouge).
-  return [];
+  const [osm, windy] = await Promise.all([
+    fetchCctvOsm(bbox),
+    key ? fetchCctvWindy(key, bbox) : Promise.resolve<CctvCam[]>([]),
+  ]);
+  // Webcams (avec flux) d'abord, puis positions OSM ; plafond global de sûreté.
+  return [...windy, ...osm].slice(0, CCTV_OSM_MAX + CCTV_WINDY_MAX);
+}
+
+/**
+ * A) Caméras OSM (`man_made=surveillance`) via Overpass — PUBLIC, sans clé.
+ * Positions seulement (pas de flux). Dégradation douce : toute erreur → [].
+ * Données OpenStreetMap © contributeurs (ODbL), objets DÉJÀ publics. Veille
+ * situationnelle, aucun ciblage de personne.
+ */
+async function fetchCctvOsm(bbox: BBox): Promise<CctvCam[]> {
+  const [minLng, minLat, maxLng, maxLat] = bbox;
+  const bboxClause = `(${minLat},${minLng},${maxLat},${maxLng})`;
+  const query =
+    `[out:json][timeout:20];` +
+    `(nwr["man_made"="surveillance"]${bboxClause};);` +
+    `out center ${CCTV_OSM_MAX};`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await safeFetch(OVERPASS_ENDPOINT, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': USER_AGENT,
+      },
+      body: `data=${encodeURIComponent(query)}`,
+      maxRedirects: 2,
+    });
+    if (!res.ok) return [];
+    const payload = (await res.json()) as { elements?: OverpassElement[] };
+    const elements = Array.isArray(payload?.elements) ? payload.elements : [];
+    const out: CctvCam[] = [];
+    for (const el of elements) {
+      if (out.length >= CCTV_OSM_MAX) break;
+      const lat = typeof el.lat === 'number' ? el.lat : el.center?.lat;
+      const lng = typeof el.lon === 'number' ? el.lon : el.center?.lon;
+      if (typeof lat !== 'number' || typeof lng !== 'number') continue;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      const t = el.tags ?? {};
+      const stype = t['surveillance:type'] || t['camera:type'];
+      const label = t.name || (stype ? `Caméra (${stype})` : 'Caméra (OSM)');
+      out.push({ id: `${el.type ?? 'osm'}/${el.id ?? `${lat},${lng}`}`, lat, lng, label });
+    }
+    return out;
+  } catch {
+    return []; // dégradation douce
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * B) Webcams publiques Windy (API v3) — opt-in par clé (CCTV_SOURCE_KEY = clé
+ * Windy). L'API attend un point + rayon → on centre la bbox et on borne le rayon.
+ * On normalise vers { id, lat, lng, label, streamUrl } (streamUrl = page d'embed
+ * publique du lecteur Windy → ouverte dans le lecteur in-app via iframe).
+ * Dégradation douce : toute erreur/forme inattendue → []. Aucune donnée perso.
+ */
+async function fetchCctvWindy(key: string, bbox: BBox): Promise<CctvCam[]> {
+  const [minLng, minLat, maxLng, maxLat] = bbox;
+  const clat = (minLat + maxLat) / 2;
+  const clng = (minLng + maxLng) / 2;
+  // Rayon ≈ demi-diagonale en km (1° lat ≈ 111 km), borné [10, 250] km.
+  const dLat = (maxLat - minLat) * 111;
+  const dLng = (maxLng - minLng) * 111 * Math.cos((clat * Math.PI) / 180);
+  const radiusKm = Math.max(10, Math.min(250, Math.round(Math.hypot(dLat, dLng) / 2)));
+  const url =
+    `${WINDY_WEBCAMS_ENDPOINT}?nearby=${clat.toFixed(4)},${clng.toFixed(4)},${radiusKm}` +
+    `&limit=${CCTV_WINDY_MAX}&include=location,player,urls`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await safeFetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { Accept: 'application/json', 'x-windy-api-key': key, 'User-Agent': USER_AGENT },
+      maxRedirects: 2,
+    });
+    if (!res.ok) return []; // clé invalide (401/403) / quota → couche vide, jamais un 500
+    const payload = (await res.json()) as { webcams?: WindyWebcam[] };
+    const cams = Array.isArray(payload?.webcams) ? payload.webcams : [];
+    const out: CctvCam[] = [];
+    for (const w of cams) {
+      if (out.length >= CCTV_WINDY_MAX) break;
+      const lat = w.location?.latitude;
+      const lng = w.location?.longitude;
+      const id = w.webcamId;
+      if (typeof lat !== 'number' || typeof lng !== 'number' || id == null) continue;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      // Embed public du lecteur Windy (page d'embed → iframe côté lecteur in-app).
+      const embed =
+        (typeof w.player?.day?.embed === 'string' && w.player.day.embed) ||
+        `https://webcams.windy.com/webcams/public/embed/player/${id}/day`;
+      const city = w.location?.city;
+      out.push({
+        id: `windy/${id}`,
+        lat,
+        lng,
+        label: w.title || (city ? `Webcam ${city}` : 'Webcam'),
+        streamUrl: embed,
+      });
+    }
+    return out;
+  } catch {
+    return []; // dégradation douce
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /**

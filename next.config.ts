@@ -51,6 +51,9 @@ const nextConfig: NextConfig = {
       // ou NEXT_PUBLIC_API_BASE en https), tuiles + reverse-geocode (https),
       // et localhost/127.0.0.1 pour le dev avec backend séparé en http.
       "connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:*",
+      // frame-src : lecteur de webcams PUBLIQUES Windy (couche cctv forme 2, embed
+      //  iframe du lecteur in-app). Domaines d'embed officiels Windy uniquement.
+      "frame-src 'self' https://webcams.windy.com https://www.windy.com",
       "frame-ancestors 'self'",
     ].join('; ');
 

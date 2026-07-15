@@ -37,6 +37,12 @@ services:
         NEXT_PUBLIC_API_BASE: ""
         # (non défini = mode standby / auth désactivée. Passer "0" au Lot C pour la vraie auth.)
         NEXT_PUBLIC_AUTH_BYPASS: ""
+        # Forme 2 = poste PERSONNEL enquêteur (ARPD) : débloque les couches sensibles
+        #  opt-in (Caméras/CCTV, bases militaires, brouillage GPS…). Chaque couche reste
+        #  gated par le CONSENTEMENT runtime + son toggle. La cctv est peuplée : A) positions
+        #  OSM `man_made=surveillance` (public, sans clé) + B) webcams Windy si CCTV_SOURCE_KEY
+        #  (= clé Windy) dans .env. Repasser "1" pour une instance publique/commerciale.
+        NEXT_PUBLIC_OSIRIS_FORM: "2"
     container_name: osiris-v4
     restart: unless-stopped
     # Clés API + secrets — MÊME .env que le déploiement actuel (/docker/osiris-v4/.env),
