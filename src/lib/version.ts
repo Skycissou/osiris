@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.097-dev';
+export const OSIRIS_VERSION = 'V4.098-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,22 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.098-dev',
+    date: '2026-07-15',
+    resume:
+      "🔎 Boîte OSINT — 3 fix (diag chat Cissou). ① Shodan RÉPARÉ : la route ne tape plus `/shodan/host` " +
+      "(plan gratuit `oss` → 403 « Requires membership ») mais **InternetDB** (`internetdb.shodan.io/{ip}`, gratuit " +
+      "sans clé) → ports / hostnames / CVE / tags / cpes. Enrichissement `/shodan/host` OPTIONNEL si une clé " +
+      "Membership est présente (401/403/timeout ignorés silencieusement). Valide q=IP sinon softError. " +
+      "② BGP RÉPARÉ : `api.bgpview.io` = domaine MORT (NXDOMAIN mondial) → migré sur **RIPEstat** (`stat.ripe.net`, " +
+      "gratuit sans clé) : IP→`network-info` (prefix+asns) puis `as-overview` (holder+RIR) ; ASN→`as-overview` + " +
+      "`announced-prefixes` (borné 25). Format de sortie inchangé (UI intacte). ③ **Pin carte monde au lookup IP** : " +
+      "tout lookup IP géolocalisé (Géo-IP ipwho.is) pose un marqueur LOSANGE cyan (distinct des disques rouges des " +
+      "alertes disparitions), empilable + retirable (× popup / bouton « vider »). Popup = fiche complète " +
+      "(hébergeur/pays + ports/CVE + score AbuseIPDB) + bandeau OBLIGATOIRE « localisation de l'hébergeur, PAS d'une " +
+      "personne ». Dégradation douce partout (jamais de 500). Build + tsc verts.",
+  },
   {
     version: 'V4.097-dev',
     date: '2026-07-13',

@@ -149,6 +149,25 @@ export interface AlertPoint {
   statut: 'active' | 'levee';
 }
 
+/** Pin OSINT « lookup IP » (empilable) — posé au clic « Analyser » sur une IP.
+ *  Localisation = celle de l'HÉBERGEUR (Géo-IP ipwho.is), JAMAIS d'une personne.
+ *  Distinct visuellement des avis de recherche (losange cyan vs disque rouge). */
+export interface OsintIpPin {
+  id: string; // clé de dédup = l'IP
+  ip: string;
+  lat: number;
+  lng: number;
+  country?: string;
+  city?: string;
+  org?: string; // hébergeur / organisation (Géo-IP)
+  isp?: string; // opérateur
+  asn?: string;
+  ports?: (number | string)[]; // InternetDB
+  vulns?: string[]; // CVE (InternetDB)
+  abuseScore?: number; // AbuseIPDB 0-100
+  abuseReports?: number; // AbuseIPDB nombre de signalements
+}
+
 /** Navire (source AIS, clé requise — cf. route fast). */
 export interface ShipPoint {
   id: string;
@@ -212,6 +231,10 @@ interface OsirisMapProps {
   cyber?: CyberPoint[];
   /** Avis de recherche (personnes disparues) — rendus si activeLayers.live_alerts. */
   alerts?: AlertPoint[];
+  /** Pins OSINT « lookup IP » (empilables) — marqueurs HTML persistants, hors toggle. */
+  osintPins?: OsintIpPin[];
+  /** Retrait d'un pin OSINT depuis son popup (bouton ×). */
+  onRemoveOsintPin?: (id: string) => void;
   /** Couches sensibles (forme 2) — rendues si activeLayers.sens_* + consentement. */
   sensitive?: SensitiveData;
   /** Clic sur un avion → ouvre la carte-fiche riche (photo + détails). */
@@ -390,6 +413,64 @@ function escapeHtml(v: unknown): string {
     .replace(/"/g, '&quot;');
 }
 
+// ── PINS OSINT « lookup IP » ────────────────────────────────────────────────
+// Marqueur HTML = LOSANGE cyan à liseré blanc (transform rotate 45°) — forme
+// DÉLIBÉRÉMENT distincte des disques rouges des avis de recherche : on ne doit
+// jamais confondre veille réseau (hébergeur) et alerte disparition (personne).
+function createOsintPinEl(): HTMLDivElement {
+  const el = document.createElement('div');
+  el.setAttribute('data-osint-pin', '1');
+  el.style.cssText =
+    'width:15px;height:15px;background:#22d3ee;border:2px solid #f2fbff;border-radius:3px;' +
+    'transform:rotate(45deg);box-shadow:0 0 9px 2px rgba(34,211,238,.65);cursor:pointer;';
+  el.title = 'Pin OSINT — localisation de l’hébergeur (clic : fiche)';
+  return el;
+}
+
+// Popup = FICHE complète (Géo-IP + exposition + menace) + bandeau garde-fou
+// OBLIGATOIRE + bouton de retrait. Import Type déclaré plus bas (OsintIpPin).
+function buildOsintPinPopupHtml(pin: OsintIpPin): string {
+  const row = (label: string, val: unknown) =>
+    val != null && val !== '' ? `<div>${label} : <span style="color:#e6edf5;">${escapeHtml(val)}</span></div>` : '';
+  const chips = (label: string, items?: (string | number)[]) => {
+    const list = Array.isArray(items) ? items.filter((x) => x != null && x !== '') : [];
+    if (!list.length) return '';
+    const inner = list
+      .slice(0, 24)
+      .map((x) => `<span style="display:inline-block;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.3);color:#a7ecf7;border-radius:4px;padding:0 5px;margin:2px 3px 0 0;font-size:10px;">${escapeHtml(x)}</span>`)
+      .join('');
+    return `<div style="margin-top:5px;"><div style="color:#7f8da1;font-size:10px;">${label}</div><div>${inner}</div></div>`;
+  };
+  const lieu = [pin.city, pin.country].filter(Boolean).map((x) => escapeHtml(x)).join(', ');
+  const abuse =
+    typeof pin.abuseScore === 'number'
+      ? (() => {
+          const c = pin.abuseScore >= 50 ? '#ff6b74' : pin.abuseScore >= 15 ? '#ffb23e' : '#5bc78d';
+          const rep = typeof pin.abuseReports === 'number' ? ` · ${pin.abuseReports} signalement${pin.abuseReports > 1 ? 's' : ''}` : '';
+          return `<div>Menace (AbuseIPDB) : <span style="color:${c};font-weight:600;">${pin.abuseScore}/100</span>${escapeHtml(rep)}</div>`;
+        })()
+      : '';
+  return (
+    `<div style="${POPUP_STYLE}max-width:340px;">` +
+    `<div style="color:#22d3ee;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">◆ Exposition IP</div>` +
+    `<div style="color:#fff;font-size:15px;font-weight:600;margin-bottom:4px;font-family:'IBM Plex Mono',monospace;">${escapeHtml(pin.ip)}</div>` +
+    `<div style="color:#c2cbd8;font-size:12px;line-height:1.7;">` +
+    row('Hébergeur', pin.org) +
+    row('Opérateur', pin.isp) +
+    row('Pays / ville', lieu) +
+    row('ASN', pin.asn) +
+    abuse +
+    `</div>` +
+    chips('Ports ouverts', pin.ports) +
+    chips('Vulnérabilités (CVE)', pin.vulns) +
+    `<div style="margin-top:9px;padding:6px 8px;background:rgba(255,178,62,.1);border:1px solid rgba(255,178,62,.32);border-radius:6px;color:#ffcf7a;font-size:10px;line-height:1.5;">⚠️ Localisation de l’<b>HÉBERGEUR</b>, PAS d’une personne. Donnée réseau publique et approximative.</div>` +
+    `<div style="margin-top:8px;text-align:right;">` +
+    `<button data-osint-remove="1" style="background:rgba(255,107,116,.12);border:1px solid rgba(255,107,116,.35);color:#ff9b9f;border-radius:5px;padding:3px 9px;font-size:11px;font-family:'IBM Plex Mono',monospace;cursor:pointer;">✕ Retirer ce pin</button>` +
+    `</div>` +
+    `</div>`
+  );
+}
+
 function OsirisMap({
   data = {},
   activeLayers,
@@ -402,6 +483,8 @@ function OsirisMap({
   gdelt = [],
   cyber = [],
   alerts = [],
+  osintPins = [],
+  onRemoveOsintPin,
   sensitive = {},
   onAircraftClick,
   selectedAircraftHex = null,
@@ -422,6 +505,15 @@ function OsirisMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
+  // Marqueurs HTML des pins OSINT (peu nombreux, empilables/retirables) —
+  // clé = id du pin. HTML markers (pas geojson) : forme losange distincte + clic simple.
+  const osintMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
+  // Données courantes par id : le handler de clic lit ICI (via ref) → un re-lookup
+  // de la même IP met à jour la fiche sans recréer le marqueur ni re-brancher l'écouteur.
+  const osintPinDataRef = useRef<Map<string, OsintIpPin>>(new Map());
+  // Dernier callback de retrait (les handlers de marqueur le lisent via ref, pas de re-bind).
+  const onRemoveOsintPinRef = useRef<typeof onRemoveOsintPin>(onRemoveOsintPin);
+  onRemoveOsintPinRef.current = onRemoveOsintPin;
   const zoneBlinkRafRef = useRef(0); // clignotement du contour d'alerte
   const [mapReady, setMapReady] = useState(false);
   const prevStyleRef = useRef(mapStyle);
@@ -1179,7 +1271,15 @@ function OsirisMap({
       emitBounds();
     });
 
-    return () => { cancelAnimationFrame(zoneBlinkRafRef.current); map.remove(); mapRef.current = null; };
+    return () => {
+      cancelAnimationFrame(zoneBlinkRafRef.current);
+      // map.remove() détruit aussi les marqueurs : on vide juste nos registres
+      // pour repartir propre à un éventuel remontage (StrictMode dev / navigation).
+      osintMarkersRef.current.clear();
+      osintPinDataRef.current.clear();
+      map.remove();
+      mapRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1207,6 +1307,61 @@ function OsirisMap({
     ids.forEach(id => { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none'); });
   }, []);
   void setVis;
+
+  // ─── PINS OSINT « lookup IP » (empilables, persistants, hors toggle) ──
+  // Marqueurs HTML losange cyan. Ajout/mise à jour/retrait pilotés par `osintPins`
+  // (state parent). Clic → popup fiche complète + garde-fou + bouton ✕.
+  useEffect(() => {
+    if (!mapReady) return;
+    const map = mapRef.current;
+    if (!map) return;
+    const markers = osintMarkersRef.current;
+    const dataById = osintPinDataRef.current;
+    const seen = new Set<string>();
+
+    for (const pin of Array.isArray(osintPins) ? osintPins : []) {
+      if (!pin || typeof pin.lat !== 'number' || typeof pin.lng !== 'number') continue;
+      seen.add(pin.id);
+      dataById.set(pin.id, pin); // le handler de clic lira toujours la version fraîche
+      const existing = markers.get(pin.id);
+      if (existing) {
+        existing.setLngLat([pin.lng, pin.lat]);
+        continue;
+      }
+      const el = createOsintPinEl();
+      el.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const m = mapRef.current;
+        if (!m) return;
+        const fresh = osintPinDataRef.current.get(pin.id);
+        if (!fresh) return;
+        popupRef.current?.remove();
+        const popup = new maplibregl.Popup({ closeButton: true, maxWidth: '360px', offset: 16 })
+          .setLngLat([fresh.lng, fresh.lat])
+          .setHTML(buildOsintPinPopupHtml(fresh))
+          .addTo(m);
+        popupRef.current = popup;
+        // Bouton « ✕ Retirer ce pin » : câblé après rendu du popup.
+        const btn = popup.getElement()?.querySelector('[data-osint-remove]');
+        btn?.addEventListener('click', () => {
+          popup.remove();
+          onRemoveOsintPinRef.current?.(pin.id);
+        });
+      });
+      const marker = new maplibregl.Marker({ element: el }).setLngLat([pin.lng, pin.lat]).addTo(map);
+      markers.set(pin.id, marker);
+    }
+
+    // Retrait des marqueurs dont le pin a disparu du state (× ou « vider »).
+    for (const [id, marker] of markers) {
+      if (!seen.has(id)) {
+        marker.remove();
+        markers.delete(id);
+        dataById.delete(id);
+      }
+    }
+  }, [mapReady, osintPins]);
+  // ─────────────────────────────────────────────────────────────────────
 
   // ─── RENDU DES COUCHES DE RÉSULTATS FR (search-first) ────────────────
   // `data[key]` = points plottés (api.buildMapData) : { lat, lng, card }.

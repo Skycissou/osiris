@@ -100,7 +100,7 @@ export const OSINT_TOOL_HINTS: Record<OsintTool, string> = {
   github: 'Profil public, dépôts et activité d’un pseudo.',
   sanctions: 'Présence sur des listes de sanctions / PPE publiques.',
   phone: 'Pays, indicatif et opérateur d’un numéro de téléphone.',
-  shodan: 'Ports ouverts et services exposés (clé API requise).',
+  shodan: 'Exposition réseau : ports, services et CVE — gratuit via InternetDB, enrichi si clé Membership.',
   leaks: 'Fuites de données connues associées à un e-mail.',
   threats: 'Réputation et signalements de menace d’une IP / domaine.',
 };

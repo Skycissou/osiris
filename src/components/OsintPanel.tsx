@@ -74,6 +74,7 @@ import {
   type TargetDetection,
 } from '@/lib/osintClient';
 import { track } from '@/lib/uiTelemetry';
+import type { OsintIpPin } from '@/components/OsirisMap';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface OsintPanelProps {
@@ -81,6 +82,13 @@ interface OsintPanelProps {
   onClose: () => void;
   /** Layout compact mobile (mêmes règles que les autres panneaux). */
   isMobile?: boolean;
+  /** Cible IP localisée (Géo-IP) → pose/actualise un pin OSINT sur la carte monde.
+   *  Appelé UNIQUEMENT si la cible est une IP ET que ipwho.is renvoie lat/lng. */
+  onIpPin?: (pin: OsintIpPin) => void;
+  /** Nombre de pins IP actuellement sur la carte (pour le bouton « vider »). */
+  ipPinCount?: number;
+  /** Vide tous les pins IP OSINT de la carte. */
+  onClearIpPins?: () => void;
 }
 
 // ── Icône par outil (lucide, charte V3) ───────────────────────────────────────
@@ -321,6 +329,8 @@ function renderData(tool: OsintTool, data: Record<string, unknown>): React.React
           <Ligne label="Système" value={pick(data, 'os')} />
           <Chips label="Ports ouverts" items={pickList(data, 'ports', 'services')} />
           <Chips label="Vulnérabilités" items={pickList(data, 'vulns', 'cves')} />
+          <Chips label="Hostnames" items={pickList(data, 'hostnames')} />
+          <Chips label="Étiquettes" items={pickList(data, 'tags')} />
         </>
       );
 
@@ -479,7 +489,7 @@ function ToolCard({ state }: { state: ToolState }) {
 }
 
 // ── Panneau principal ─────────────────────────────────────────────────────────
-function OsintPanel({ onClose, isMobile }: OsintPanelProps) {
+function OsintPanel({ onClose, isMobile, onIpPin, ipPinCount = 0, onClearIpPins }: OsintPanelProps) {
   const [query, setQuery] = useState('');
   const [detection, setDetection] = useState<TargetDetection | null>(null);
   const [states, setStates] = useState<ToolState[]>([]);
@@ -526,18 +536,54 @@ function OsintPanel({ onClose, isMobile }: OsintPanelProps) {
     const target = det.normalized || q;
 
     // Lancement PARALLÈLE : chaque promesse met à jour SA fiche à sa résolution.
+    // On COLLECTE aussi les résultats pour agréger la fiche « pin carte » (IP).
+    const collected: Partial<Record<OsintTool, OsintLookupResult>> = {};
     await Promise.allSettled(
       tools.map(async (tool) => {
         const result = await runLookup(tool, target, controller.signal);
         if (controller.signal.aborted) return;
+        collected[tool] = result;
         setStates((prev) =>
           prev.map((s) => (s.tool === tool ? { status: 'done', tool, result } : s)),
         );
       }),
     );
 
-    if (!controller.signal.aborted) setRunning(false);
-  }, [query]);
+    if (controller.signal.aborted) return;
+    setRunning(false);
+
+    // ── Pin carte monde : UNIQUEMENT si cible = IP ET Géo-IP a des coordonnées.
+    // Coords absentes → PAS de pin (jamais de faux point, cf. géocodage alertes).
+    if (det.kind === 'ip' && onIpPin) {
+      const ipData = collected.ip?.ok ? collected.ip.data : undefined;
+      const lat = typeof ipData?.lat === 'number' ? ipData.lat : undefined;
+      const lng = typeof ipData?.lng === 'number' ? ipData.lng : undefined;
+      if (ipData && typeof lat === 'number' && typeof lng === 'number') {
+        const shodan = collected.shodan?.ok ? collected.shodan.data : undefined;
+        const threats = collected.threats?.ok ? collected.threats.data : undefined;
+        const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
+        const numArr = (v: unknown) =>
+          Array.isArray(v) ? v.filter((x) => typeof x === 'number' || typeof x === 'string') as (number | string)[] : undefined;
+        const strArr = (v: unknown) =>
+          Array.isArray(v) ? (v.filter((x) => typeof x === 'string' && x) as string[]) : undefined;
+        onIpPin({
+          id: target,
+          ip: str(ipData.ip) ?? target,
+          lat,
+          lng,
+          country: str(ipData.country),
+          city: str(ipData.city),
+          org: str(ipData.org) ?? str(threats?.isp),
+          isp: str(ipData.isp) ?? str(threats?.isp),
+          asn: str(ipData.asn),
+          ports: numArr(shodan?.ports),
+          vulns: strArr(shodan?.vulns),
+          abuseScore: typeof threats?.abuseScore === 'number' ? threats.abuseScore : undefined,
+          abuseReports: typeof threats?.totalReports === 'number' ? threats.totalReports : undefined,
+        });
+      }
+    }
+  }, [query, onIpPin]);
 
   const onSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -635,6 +681,23 @@ function OsintPanel({ onClose, isMobile }: OsintPanelProps) {
           <ToolCard key={s.tool} state={s} />
         ))}
       </div>
+
+      {/* ── Barre pins IP sur la carte (empilables, retirables) ── */}
+      {ipPinCount > 0 && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-t border-[var(--border-primary)]">
+          <span className="flex items-center gap-1.5 text-[10px] font-mono text-[#22d3ee]">
+            <span style={{ display: 'inline-block', width: 9, height: 9, background: '#22d3ee', border: '1.5px solid #f2fbff', borderRadius: 2, transform: 'rotate(45deg)' }} />
+            {ipPinCount} IP sur la carte
+          </span>
+          <button
+            onClick={() => onClearIpPins?.()}
+            className="ml-auto text-[10px] font-mono uppercase tracking-wider text-[#ff9b9f] hover:text-[#ff6b74] border border-[#ff6b74]/30 hover:border-[#ff6b74]/60 rounded px-2 py-0.5 transition-colors"
+            title="Retirer tous les pins IP de la carte"
+          >
+            ✕ Vider les IP
+          </button>
+        </div>
+      )}
 
       {/* ── Pied : rappel du cadre ARPD ── */}
       <div className="px-3 py-2 border-t border-[var(--border-primary)]">

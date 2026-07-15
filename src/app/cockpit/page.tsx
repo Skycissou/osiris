@@ -8,7 +8,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { search, buildMapData, BASE_PATH, type SearchResponse, type PlotPoint } from '@/lib/api';
 import { useDataPolling, useInterpolation, deadReckon } from '@/lib/liveData';
 import { useDataKey } from '@/lib/store';
-import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint, SatellitePoint, ShipPoint, SensitiveData, SensitivePoint, GeoEventPoint, CyberPoint, AlertPoint } from '@/components/OsirisMap';
+import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint, SatellitePoint, ShipPoint, SensitiveData, SensitivePoint, GeoEventPoint, CyberPoint, AlertPoint, OsintIpPin } from '@/components/OsirisMap';
 import { AIRCRAFT_CAT_COLORS, AIRCRAFT_CAT_LABELS, AIRCRAFT_CAT_ORDER } from '@/components/OsirisMap';
 import { OSIRIS_VERSION, OSIRIS_VERSION_LABEL } from '@/lib/version';
 import { useAlertToasts } from '@/lib/alerts';
@@ -397,6 +397,17 @@ export default function Dashboard() {
   //  fixes », demande Cissou 09/07) : ouvrir l'un ferme les autres → plus
   //  d'empilement. `openTool(null)` ferme tout. ──
   const [osintOpen, setOsintOpen] = useState(false);
+  // Pins OSINT « lookup IP » (empilables) : posés au clic Analyser sur une IP
+  // géolocalisée, persistants dans la session, retirés à la main (× / vider).
+  const [osintPins, setOsintPins] = useState<OsintIpPin[]>([]);
+  const addOsintPin = useCallback((pin: OsintIpPin) => {
+    // Dédup par IP : un re-lookup de la même IP actualise la fiche au lieu d'empiler.
+    setOsintPins((prev) => [...prev.filter((p) => p.id !== pin.id), pin]);
+  }, []);
+  const removeOsintPin = useCallback((id: string) => {
+    setOsintPins((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+  const clearOsintPins = useCallback(() => setOsintPins([]), []);
   const [keysOpen, setKeysOpen] = useState(false);
   const [graphOpen, setGraphOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
@@ -688,6 +699,8 @@ export default function Dashboard() {
           gdelt={inReg(fGdelt)}
           cyber={inReg(fCyber)}
           alerts={filteredAlerts}
+          osintPins={osintPins}
+          onRemoveOsintPin={removeOsintPin}
           sensitive={sensitive}
           onAircraftClick={handleAircraftClick}
           selectedAircraftHex={selectedEntity?.hex ?? null}
@@ -801,7 +814,13 @@ export default function Dashboard() {
       {/* ── PANNEAU OSINT (boîte à outils d'investigation) ── */}
       {osintOpen && (
         <ErrorBoundary name="OSINT">
-          <OsintPanel onClose={() => setOsintOpen(false)} isMobile={isMobile} />
+          <OsintPanel
+            onClose={() => setOsintOpen(false)}
+            isMobile={isMobile}
+            onIpPin={addOsintPin}
+            ipPinCount={osintPins.length}
+            onClearIpPins={clearOsintPins}
+          />
         </ErrorBoundary>
       )}
 
