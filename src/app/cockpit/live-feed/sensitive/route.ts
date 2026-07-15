@@ -81,8 +81,9 @@ const OVERPASS_ENDPOINTS = [
 const MILITARY_MAX = 500;
 /** Plafond de caméras OSM retenues (bbox large = beaucoup de `man_made=surveillance`). */
 const CCTV_OSM_MAX = 600;
-/** Plafond de webcams Windy retenues par requête (source B). */
-const CCTV_WINDY_MAX = 60;
+/** Plafond de webcams Windy par requête (source B). ⚠️ l'API Windy v3 CAPPE `limit`
+ *  à 50 → au-delà elle renvoie HTTP 400 (constat 2026-07-15, `limit=60` → 400). */
+const CCTV_WINDY_MAX = 50;
 /** Endpoint Windy Webcams API v3 (source B — webcams PUBLIQUES consenties). */
 const WINDY_WEBCAMS_ENDPOINT = 'https://api.windy.com/webcams/api/v3/webcams';
 

@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.101-dev';
+export const OSIRIS_VERSION = 'V4.102-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,14 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.102-dev',
+    date: '2026-07-15',
+    resume:
+      "🎯 CCTV Windy — LA cause trouvée par le log diag : `[CCTV windy] status=400`. L'API Windy v3 **CAPPE `limit` " +
+      "à 50** ; mon `CCTV_WINDY_MAX=60` → `limit=60` → HTTP 400 (le fetch brut qui marchait utilisait `limit=3`). " +
+      "Fix = `CCTV_WINDY_MAX=50`. Le log diag est conservé un cycle pour confirmer `status=200`, puis retiré. Build+tsc verts.",
+  },
   {
     version: 'V4.101-dev',
     date: '2026-07-15',
