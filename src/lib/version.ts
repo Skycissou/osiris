@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.100-dev';
+export const OSIRIS_VERSION = 'V4.101-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.101-dev',
+    date: '2026-07-15',
+    resume:
+      "🎥 CCTV — dernier écart Windy. Après V4.100 : source A (OSM/Overpass) OK via miroirs, mais Windy (B) " +
+      "renvoyait encore 0 via l'app alors que le fetch brut conteneur = 200 + webcams. Cause probable : ma requête " +
+      "applicative différait du fetch brut qui marche → **User-Agent custom retiré** (le UA `Osiris-Cockpit/…` avec URL " +
+      "= suspect n°1 d'un filtrage WAF/Windy) et **`include` ramené à `location,player`** (retrait de `urls`). Plancher " +
+      "de rayon 10→25 km (webcams même à zoom serré). + **log diagnostic temporaire** (`[CCTV windy] status/cams/out`, " +
+      "non secret) pour que le prochain test tranche définitivement si ça ne suffit pas. Build+tsc verts.",
+  },
   {
     version: 'V4.100-dev',
     date: '2026-07-15',

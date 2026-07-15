@@ -340,28 +340,33 @@ async function fetchCctvWindy(key: string, bbox: BBox): Promise<CctvCam[]> {
   const [minLng, minLat, maxLng, maxLat] = bbox;
   const clat = (minLat + maxLat) / 2;
   const clng = (minLng + maxLng) / 2;
-  // Rayon ≈ demi-diagonale en km (1° lat ≈ 111 km), borné [10, 250] km.
+  // Rayon ≈ demi-diagonale en km (1° lat ≈ 111 km), borné [25, 250] km (plancher
+  // 25 pour capter des webcams même à zoom serré).
   const dLat = (maxLat - minLat) * 111;
   const dLng = (maxLng - minLng) * 111 * Math.cos((clat * Math.PI) / 180);
-  const radiusKm = Math.max(10, Math.min(250, Math.round(Math.hypot(dLat, dLng) / 2)));
+  const radiusKm = Math.max(25, Math.min(250, Math.round(Math.hypot(dLat, dLng) / 2)));
+  // ⚠️ Requête alignée EXACTEMENT sur le fetch brut qui marche depuis le VPS
+  // (2026-07-15) : include=location,player (PAS `urls`), et AUCUN User-Agent custom
+  // (le UA `Osiris-Cockpit/…` avec URL était le suspect n°1 du filtrage Windy/WAF).
   const url =
     `${WINDY_WEBCAMS_ENDPOINT}?nearby=${clat.toFixed(4)},${clng.toFixed(4)},${radiusKm}` +
-    `&limit=${CCTV_WINDY_MAX}&include=location,player,urls`;
+    `&limit=${CCTV_WINDY_MAX}&include=location,player`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    // `fetch` DIRECT (hôte FIXE `api.windy.com` = pas de risque SSRF). On NE passe
-    // PAS par safeFetch : son dns.lookup de contrôle échoue sur ce VPS (constat
-    // 2026-07-15 : fetch brut = 200 + webcams, mais via safeFetch = couche vide).
+    // `fetch` DIRECT (hôte FIXE `api.windy.com` = pas de risque SSRF). PAS de safeFetch
+    // (son dns.lookup de contrôle échoue sur ce VPS). PAS de User-Agent custom.
     const res = await fetch(url, {
       method: 'GET',
       signal: controller.signal,
-      headers: { Accept: 'application/json', 'x-windy-api-key': key, 'User-Agent': USER_AGENT },
+      headers: { Accept: 'application/json', 'x-windy-api-key': key },
     });
-    if (!res.ok) return []; // clé invalide (401/403) / quota → couche vide, jamais un 500
-    const payload = (await res.json()) as { webcams?: WindyWebcam[] };
-    const cams = Array.isArray(payload?.webcams) ? payload.webcams : [];
+    let cams: WindyWebcam[] = [];
+    if (res.ok) {
+      const payload = (await res.json()) as { webcams?: WindyWebcam[] };
+      cams = Array.isArray(payload?.webcams) ? payload.webcams : [];
+    }
     const out: CctvCam[] = [];
     for (const w of cams) {
       if (out.length >= CCTV_WINDY_MAX) break;
@@ -385,8 +390,11 @@ async function fetchCctvWindy(key: string, bbox: BBox): Promise<CctvCam[]> {
         streamUrl: embed,
       });
     }
+    // Diagnostic TEMPORAIRE (non secret — aucune clé) — à retirer une fois validé.
+    console.error(`[CCTV windy] status=${res.status} cams=${cams.length} out=${out.length} r=${radiusKm}km`);
     return out;
-  } catch {
+  } catch (err) {
+    console.error(`[CCTV windy] ERR ${(err as Error)?.name}: ${(err as Error)?.message}`);
     return []; // dégradation douce
   } finally {
     clearTimeout(timeout);
