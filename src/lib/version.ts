@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.102-dev';
+export const OSIRIS_VERSION = 'V4.103-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,19 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.103-dev',
+    date: '2026-07-15',
+    resume:
+      "🗺️ CCTV — la couche suit enfin la carte + voyant de chargement (retours Cissou). ① **Cause du « toujours " +
+      "centré sur la France »** : la couche sensible était appelée avec `denseEndpoints: []` ET son handle ignoré → " +
+      "elle n'envoyait JAMAIS la bbox → le serveur retombait sur sa bbox France par défaut (Windy cherchait au centre " +
+      "France, Overpass interrogeait toute la France → timeout → 0 caméra OSM). Fix : `denseEndpoints: ['fast','slow']` " +
+      "+ handle capté + `setBBox` câblé sur `onBoundsChange` → **les caméras suivent le zoom** (ville → caméras de la " +
+      "ville, OSM ne timeout plus). ② **Voyant de chargement** : nouvelle option `onFetchingChange` du hook `useDataPolling` " +
+      "→ ConnLED sur chaque couche sensible (orange « en cours… » pendant le fetch, vert « à jour » ensuite) → on voit " +
+      "que ça charge, plus de doute « c'est buggé ». ③ Retrait du log debug `[CCTV windy]` (B4 de l'audit). Build+tsc verts.",
+  },
   {
     version: 'V4.102-dev',
     date: '2026-07-15',

@@ -257,8 +257,14 @@ export default function Dashboard() {
   // → les couches denses (avions) restaient figées sur la bbox défaut France,
   // où que soit la carte. La carte pousse maintenant son emprise (onBoundsChange).
   const live = useDataPolling({ enabled: anyLiveOn });
+  // `sensitiveLive` est déclaré plus bas ; on route la bbox vers les deux via une ref
+  //  pour garder handleBoundsChange stable (les couches sensibles suivent la carte).
+  const sensitiveSetBBoxRef = useRef<((b: [number, number, number, number]) => void) | null>(null);
   const handleBoundsChange = useCallback(
-    (bbox: [number, number, number, number]) => live.setBBox(bbox),
+    (bbox: [number, number, number, number]) => {
+      live.setBBox(bbox);
+      sensitiveSetBBoxRef.current?.(bbox);
+    },
     [live],
   );
   const aircraft = useDataKey<AircraftPoint[]>('aircraft');
@@ -365,10 +371,18 @@ export default function Dashboard() {
   // actif UNIQUEMENT en forme 2 ET si une couche sensible est allumée. ──
   const form2 = isForm2Enabled();
   const anySensitiveOn = form2 && SENSITIVE_LAYER_KEYS.some((k) => activeLayers[k]);
-  useDataPolling({
+  // Voyant « chargement » des couches sensibles (une requête /sensitive en vol).
+  const [sensBusy, setSensBusy] = useState(false);
+  // `denseEndpoints: ['fast','slow']` → la requête envoie la bbox de la carte
+  //  (sinon le serveur retombe sur sa bbox France par défaut → caméras figées
+  //  au centre France + Overpass qui timeout). Le handle pilote setBBox.
+  const sensitiveLive = useDataPolling({
     fastUrl: '/live-feed/sensitive', slowUrl: '/live-feed/sensitive', criticalUrl: '/live-feed/sensitive',
-    fastIntervalMs: 120000, slowIntervalMs: 3_600_000, denseEndpoints: [], enabled: anySensitiveOn,
+    fastIntervalMs: 120000, slowIntervalMs: 3_600_000, denseEndpoints: ['fast', 'slow'],
+    enabled: anySensitiveOn, onFetchingChange: setSensBusy,
   });
+  // Relie le pilotage bbox des couches sensibles à handleBoundsChange (déclaré + haut).
+  sensitiveSetBBoxRef.current = sensitiveLive.setBBox;
   const s_cctv = useDataKey<SensitivePoint[]>('cctv');
   const s_military = useDataKey<SensitivePoint[]>('military_bases');
   const s_jamming = useDataKey<SensitivePoint[]>('gps_jamming');
@@ -1105,6 +1119,9 @@ export default function Dashboard() {
                       {activeLayers[o.key] && <span className="w-1.5 h-1.5 bg-[var(--bg)] rounded-[1px]" />}
                     </span>
                     <span className={`text-[11px] font-mono ${activeLayers[o.key] ? 'text-white' : 'text-white/60'}`}>{o.label}</span>
+                    {/* Voyant : orange « en cours… » pendant le fetch, vert « à jour »
+                        une fois chargé (rien si la couche est éteinte). */}
+                    <ConnLED status={activeLayers[o.key] ? (sensBusy ? 'wait' : 'ok') : undefined} />
                   </button>
                 ))}
               </div>

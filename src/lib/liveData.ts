@@ -59,6 +59,12 @@ export interface DataPollingOptions {
   denseEndpoints?: ('fast' | 'slow')[];
   /** Active/désactive tout le polling (défaut true). */
   enabled?: boolean;
+  /**
+   * Notifié à chaque changement d'état « une requête est en vol » (true) →
+   * « plus aucune » (false). Sert à afficher un voyant de chargement côté UI.
+   * Optionnel : sans callback, aucun coût (pas de re-render).
+   */
+  onFetchingChange?: (fetching: boolean) => void;
 }
 
 // IMPORTANT — les routes live vivent SOUS `/live-feed`, PAS sous `/api`.
@@ -126,6 +132,7 @@ export function useDataPolling(opts: DataPollingOptions = {}): DataPollingHandle
     bbox: initialBBox,
     denseEndpoints = DEFAULTS.denseEndpoints,
     enabled = true,
+    onFetchingChange,
   } = opts;
 
   // ── Refs mutables (ne déclenchent PAS de re-render) ──────────────────────
@@ -138,6 +145,10 @@ export function useDataPolling(opts: DataPollingOptions = {}): DataPollingHandle
   //  Options figées dans des refs pour un fetch stable sans re-déclencher l'effet.
   const cfgRef = useRef({ fastUrl, slowUrl, criticalUrl, basePath, denseEndpoints });
   cfgRef.current = { fastUrl, slowUrl, criticalUrl, basePath, denseEndpoints };
+  //  Callback « chargement » toujours frais + compteur de requêtes en vol.
+  const onFetchingRef = useRef(onFetchingChange);
+  onFetchingRef.current = onFetchingChange;
+  const inFlight = useRef(0);
   //  ANTI-COURSE (07/07) : numéro de séquence + AbortController PAR endpoint.
   //  Sans ça, une VIEILLE réponse lente (ancienne emprise) arrivait APRÈS une
   //  récente et écrasait le store → couches qui apparaissent/disparaissent,
@@ -170,6 +181,12 @@ export function useDataPolling(opts: DataPollingOptions = {}): DataPollingHandle
     const controller = new AbortController();
     reqCtrl.current.set(path, controller);
 
+    // Voyant « chargement » : +1 requête en vol → notifie true au 1er.
+    if (onFetchingRef.current) {
+      inFlight.current += 1;
+      if (inFlight.current === 1) onFetchingRef.current(true);
+    }
+
     try {
       const res = await fetch(url, {
         method: 'GET',
@@ -197,6 +214,12 @@ export function useDataPolling(opts: DataPollingOptions = {}): DataPollingHandle
       // Abandon volontaire (nouvelle requête partie) → silence total.
       if (e instanceof Error && e.name === 'AbortError') return;
       console.warn('[OSIRIS live] fetch échoué:', e instanceof Error ? e.message : e);
+    } finally {
+      // Voyant « chargement » : −1 → notifie false quand plus aucune en vol.
+      if (onFetchingRef.current) {
+        inFlight.current = Math.max(0, inFlight.current - 1);
+        if (inFlight.current === 0) onFetchingRef.current(false);
+      }
     }
   }
 

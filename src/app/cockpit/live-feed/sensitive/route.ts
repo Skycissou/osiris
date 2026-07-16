@@ -391,11 +391,8 @@ async function fetchCctvWindy(key: string, bbox: BBox): Promise<CctvCam[]> {
         streamUrl: embed,
       });
     }
-    // Diagnostic TEMPORAIRE (non secret — aucune clé) — à retirer une fois validé.
-    console.error(`[CCTV windy] status=${res.status} cams=${cams.length} out=${out.length} r=${radiusKm}km`);
     return out;
-  } catch (err) {
-    console.error(`[CCTV windy] ERR ${(err as Error)?.name}: ${(err as Error)?.message}`);
+  } catch {
     return []; // dégradation douce
   } finally {
     clearTimeout(timeout);
