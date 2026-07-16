@@ -1,0 +1,38 @@
+name: CI
+
+# Build + typecheck + lint à chaque push et PR sur master (D3 de l'audit dette).
+# Pas d'étape tests pour l'instant : le golden dataset (D2) attend le « GO GDS »
+# explicite de Cissou → le step est prêt, commenté, à décommenter à ce moment-là.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install (npm ci)
+        run: npm ci
+
+      - name: Build (next build)
+        run: npm run build
+
+      - name: Typecheck (tsc --noEmit)
+        run: npx tsc --noEmit
+
+      - name: Lint (eslint)
+        run: npm run lint
+
+      # - name: Tests (golden dataset) — À DÉCOMMENTER au « GO GDS » (D2)
+      #   run: npm test
