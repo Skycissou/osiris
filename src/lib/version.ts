@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.117-dev';
+export const OSIRIS_VERSION = 'V4.118-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.118-dev',
+    date: '2026-07-16',
+    resume:
+      "🧹 Lot C (GO Cissou) — purge des résidus du fork amont : `intel/` (593 fichiers, node_modules commité), `nginx/`, " +
+      "`docker-compose.yml` racine, `DOCKER.md` (596 fichiers supprimés). Le déploiement V4 (`docker-compose.v4.yml`) " +
+      "ne les référençait pas ; `docker compose up` sans `-f` ne peut plus booter la stack fork. Build V4 vert après " +
+      "purge. Session dette Lots 0→E complète.",
+  },
   {
     version: 'V4.117-dev',
     date: '2026-07-16',

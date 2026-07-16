@@ -22,7 +22,7 @@
 | A | B4 logs debug CCTV · B3 URL photo absolue · B6 header frontline | ~20 min | ✅ V4.117 (B4 déjà fait V4.102) |
 | E | Retours revue V4.115 : E1 collision picker · E2 DRY opacité · E3 recolor no-op | ~15 min | ✅ V4.116 |
 | B | B2 photos sondées · B1 re-géocodage ville (LE morceau) | ~1 h | ✅ V4.117 |
-| C | D4 purge fork amont (`intel/`, `nginx/`, compose racine) — **checkpoint GO Cissou avant `git rm`** | ~20 min | ⏳ en attente GO Cissou |
+| C | D4 purge fork amont (`intel/`, `nginx/`, compose racine) | ~20 min | ✅ V4.118 (596 fichiers supprimés, GO Cissou) |
 | D | D3 CI GitHub Actions (build + tsc + lint) | ~15 min | ✅ V4.117 |
 
 ## 🐞 Détail des points
@@ -40,7 +40,7 @@
 | E3 | 🟢 | `src/components/OsirisMap.tsx` | Recolor no-op (objet déjà à la couleur courante) re-rend toutes les étiquettes → garde `f.color !== drawColorRef.current` |
 | D2 | 🟠 | `tests/` (absent) | Zéro test rejouable commité (runners « sandbox » only, `tests/golden/` 404). ⏸️ attend « **GO GDS** » explicite de Cissou |
 | D3 | 🟠 | `.github/workflows/` (absent) | Pas de CI → Lot D. Si scope `workflow` manquant sur les creds → déléguer le fichier à Hermès (`gh`) |
-| D4 | 🟠 | `intel/` · `nginx/` · `docker-compose.yml` · `DOCKER.md` | Résidus du fork amont : `docker compose up` sans `-f` boote la stack FORK (ports hors Traefik) + `intel/node_modules` commité gonfle le build → purge (Lot C, GO avant `git rm`) |
+| D4 | ✅ | ~~`intel/` · `nginx/` · `docker-compose.yml` · `DOCKER.md`~~ | **PURGÉ V4.118** (Lot C, GO Cissou) : 596 fichiers du fork amont supprimés. `docker compose up` sans `-f` ne peut plus booter la stack fork. |
 
 ## 🚫 Lignes rouges permanentes (toute session dans ce repo)
 
