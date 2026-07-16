@@ -582,6 +582,7 @@ function OsirisMap({
   // Cible d'édition en cours de glissement (mode 'edit') + garde clic-vs-drag.
   const dragTargetRef = useRef<{ did: string; part: 'vertex' | 'center' | 'radius' | 'marker'; idx: number } | null>(null);
   const dragMovedRef = useRef(false);
+  const downPxRef = useRef<{ x: number; y: number } | null>(null); // pixel de mousedown (seuil clic vs glisser)
   const renderDrawRef = useRef<(() => void) | null>(null);  // rendu appelable depuis les autres effets
   const zoneBlinkRafRef = useRef(0); // clignotement du contour d'alerte
   const [mapReady, setMapReady] = useState(false);
@@ -1874,8 +1875,12 @@ function OsirisMap({
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     const map = mapRef.current;
-    if (map.getSource('draw-line')) return; // déjà posé (remontage StrictMode)
 
+    // Sources + calques posés UNE seule fois. Les handlers et renderDraw, eux, sont
+    // (ré)attachés à CHAQUE exécution de l'effet : un remontage (StrictMode dev,
+    // navigation) doit repartir avec des écouteurs frais, pas rester muet — sinon
+    // l'outil se retrouve sans interactions (revue de code 16/07).
+    if (!map.getSource('draw-line')) {
     map.addSource('draw-fill', { type: 'geojson', data: EMPTY_FC });
     map.addSource('draw-line', { type: 'geojson', data: EMPTY_FC });
     map.addSource('draw-vertex', { type: 'geojson', data: EMPTY_FC });
@@ -1913,6 +1918,7 @@ function OsirisMap({
         'circle-color': colorExpr, 'circle-stroke-color': '#0d121b', 'circle-stroke-width': 2,
       },
     });
+    } // fin création sources/calques (une seule fois)
 
     // Rendu : (re)construit les FeatureCollections + les étiquettes HTML.
     const renderDraw = () => {
@@ -2048,6 +2054,7 @@ function OsirisMap({
       if (!p?.did || !p.part) return;
       dragTargetRef.current = { did: p.did, part: p.part as 'vertex' | 'center' | 'radius' | 'marker', idx: p.idx ?? 0 };
       dragMovedRef.current = false;
+      downPxRef.current = { x: e.point.x, y: e.point.y };
       map.dragPan.disable();       // le glissement déplace la poignée, pas la carte
       e.preventDefault();
     };
@@ -2064,6 +2071,12 @@ function OsirisMap({
     const onMove = (e: maplibregl.MapMouseEvent) => {
       // Glissement d'une poignée en cours (mode édition).
       if (dragTargetRef.current) {
+        // Seuil anti-jitter : sous ~4 px, on considère que c'est encore un clic
+        // (sinon un micro-tremblement de trackpad bloque renommer / rayon exact).
+        if (!dragMovedRef.current && downPxRef.current) {
+          const dx = e.point.x - downPxRef.current.x, dy = e.point.y - downPxRef.current.y;
+          if (dx * dx + dy * dy < 16) return;
+        }
         dragMovedRef.current = true;
         applyDrag([e.lngLat.lng, e.lngLat.lat]);
         renderDraw();
@@ -2155,6 +2168,7 @@ function OsirisMap({
     drawFeaturesRef.current = [];
     drawDraftRef.current = null;
     drawCursorRef.current = null;
+    drawMarkerNumRef.current = 0; // la numérotation des repères repart à R1
     renderDrawRef.current?.();
   }, [drawClearTs]);
 

@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.113-dev';
+export const OSIRIS_VERSION = 'V4.114-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.114-dev',
+    date: '2026-07-16',
+    resume:
+      "🔎 Revue de code de la boîte MESURE → 3 correctifs de robustesse : ① l'effet de setup ne retourne plus tôt " +
+      "avant d'attacher les écouteurs (un remontage laissait l'outil muet — sources posées 1×, handlers réattachés " +
+      "à chaque exécution) ; ② seuil anti-jitter ~4 px pour distinguer clic vs glisser en édition (un micro-tremblement " +
+      "de trackpad ne bloque plus renommer / rayon exact) ; ③ la numérotation des repères repart à R1 après « Vider ». " +
+      "Build+tsc verts.",
+  },
   {
     version: 'V4.113-dev',
     date: '2026-07-16',
