@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.114-dev';
+export const OSIRIS_VERSION = 'V4.115-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.115-dev',
+    date: '2026-07-16',
+    resume:
+      "🎨 Mesure (retour Cissou) : ① **recolorer un objet existant** — en mode Éditer, clic sur le corps d'un tracé " +
+      "ou d'un cercle (contour OU disque) → il prend la couleur choisie dans la palette (les poignées gardent leurs " +
+      "actions glisser/renommer/rayon). ② **Gomme & clic atteignent tout le disque même fond OFF** : le calque de fond " +
+      "reste présent en opacité 0 (au lieu de `visibility:none`) → toujours cliquable. NB : les repères gardent leur " +
+      "couleur de création (recolor repère = suite possible). Build+tsc verts.",
+  },
   {
     version: 'V4.114-dev',
     date: '2026-07-16',

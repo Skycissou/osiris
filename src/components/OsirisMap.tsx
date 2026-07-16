@@ -2041,8 +2041,20 @@ function OsirisMap({
         const hit = map.queryRenderedFeatures(e.point, { layers: DRAW_LAYERS.filter(l => map.getLayer(l)) })[0];
         const did = hit?.properties?.did;
         if (did) { drawFeaturesRef.current = drawFeaturesRef.current.filter(f => f.id !== did); renderDraw(); }
+        return;
       }
-      // mode 'edit' : rien au clic simple — géré par mousedown/up (glisser + renommer).
+      if (mode === 'edit') {
+        // Clic sur une POIGNÉE (repère / centre / rayon / sommet) → déjà traité par
+        //  le glisser + mouseup (déplacer · renommer · rayon exact). On ne recolore pas.
+        const onHandle = map.queryRenderedFeatures(e.point, { layers: ['draw-marker', 'draw-vertex'].filter(l => map.getLayer(l)) })[0];
+        if (onHandle) return;
+        // Clic sur le CORPS d'un objet (trait de tracé, contour OU disque de cercle) →
+        //  recolorer avec la couleur courante de la palette (fond transparent = cliquable).
+        const body = map.queryRenderedFeatures(e.point, { layers: ['draw-line', 'draw-fill'].filter(l => map.getLayer(l)) })[0];
+        const did = body?.properties?.did;
+        if (did) { const f = drawFeaturesRef.current.find(x => x.id === did); if (f) { f.color = drawColorRef.current; renderDraw(); } }
+        return;
+      }
     };
 
     // ── ÉDITION (mode 'edit') : saisir une poignée → glisser, ou cliquer → agir ──
@@ -2172,11 +2184,15 @@ function OsirisMap({
     renderDrawRef.current?.();
   }, [drawClearTs]);
 
-  // Fond des cercles ON/OFF (contour seul) — bascule la visibilité du calque de remplissage.
+  // Fond des cercles ON/OFF (contour seul) — on garde le calque VISIBLE mais on met
+  // son opacité à 0 quand OFF (pas `visibility:none`) : un calque transparent reste
+  // cliquable (queryRenderedFeatures), donc la gomme et le clic-recolorer atteignent
+  // tout le disque même sans fond visible. Un calque masqué, lui, ne serait plus testable.
   useEffect(() => {
     const map = mapRef.current;
     if (!mapReady || !map || !map.getLayer('draw-fill')) return;
-    map.setLayoutProperty('draw-fill', 'visibility', drawCircleFill ? 'visible' : 'none');
+    const onExpr = ['case', ['to-boolean', ['get', 'draft']], 0.08, 0.13] as unknown as maplibregl.ExpressionSpecification;
+    map.setPaintProperty('draw-fill', 'fill-opacity', drawCircleFill ? onExpr : 0);
   }, [mapReady, drawCircleFill]);
 
   // ── Fonds raster modernes (satellite ArcGIS + Plan IGN + SCAN25 + Ortho IGN) ──

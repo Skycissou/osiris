@@ -1332,7 +1332,7 @@ export default function Dashboard() {
             {drawMode === 'trace' && 'Clique les points ; double-clic pour finir, Échap pour annuler.'}
             {drawMode === 'circle' && 'Clique le centre, puis le bord. Le rayon s’affiche.'}
             {drawMode === 'marker' && 'Clique pour poser un repère.'}
-            {drawMode === 'edit' && 'Glisse un point/centre/bord pour ajuster. Clic sur un repère = étiqueter · clic sur un centre = rayon exact.'}
+            {drawMode === 'edit' && 'Glisse un point/centre/bord pour ajuster. Clic sur un tracé/cercle = le recolorer (couleur choisie). Clic sur un repère = étiqueter · clic sur un centre = rayon exact.'}
             {drawMode === 'erase' && 'Clique un objet dessiné pour le retirer.'}
             {drawMode === 'off' && 'Choisis un outil. Tout est hors-ligne et éphémère.'}
           </div>
