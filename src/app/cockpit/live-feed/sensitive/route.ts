@@ -222,6 +222,7 @@ interface WindyWebcam {
  * [] (dégradation douce). NE PASSE PAS par `safeFetch` — son `dns.lookup` de
  * contrôle échoue sur ce VPS pour certains hôtes (constat 2026-07-15).
  */
+// DETTE B5 — bypass safeFetch assumé (hosts constants). NE PAS rendre le host paramétrable sans rétablir safeFetch. Vraie correction = réparer dns.lookup côté VPS (chantier Hermès).
 async function fetchOverpass(query: string): Promise<OverpassElement[]> {
   for (const endpoint of OVERPASS_ENDPOINTS) {
     const controller = new AbortController();
@@ -341,6 +342,7 @@ async function fetchCctvOsm(bbox: BBox): Promise<CctvCam[]> {
  * publique du lecteur Windy → ouverte dans le lecteur in-app via iframe).
  * Dégradation douce : toute erreur/forme inattendue → []. Aucune donnée perso.
  */
+// DETTE B5 — bypass safeFetch assumé (hosts constants). NE PAS rendre le host paramétrable sans rétablir safeFetch. Vraie correction = réparer dns.lookup côté VPS (chantier Hermès).
 async function fetchCctvWindy(key: string, bbox: BBox): Promise<CctvCam[]> {
   const [minLng, minLat, maxLng, maxLat] = bbox;
   const clat = (minLat + maxLat) / 2;
