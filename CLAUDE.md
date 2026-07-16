@@ -25,7 +25,7 @@
 ## 🚀 Déploiement V4 — HOST ÉMANCIPÉ (détail : DEPLOY.md) — compose autonome
 > ⚠️ **La bascule Émancipation EST FAITE (13/07).** `osiris-v4.cissouhub.cloud` est servi ENTIÈREMENT par le conteneur **`osiris-v4`** (compose autonome `docker-compose.v4.yml`, label Traefik `Host(osiris-v4.cissouhub.cloud)` **priorité 200**). L'ancienne procédure « combiné-staging » (`osiris-v4-cockpit`) est **PÉRIMÉE** : Traefik ne route PLUS vers elle → la rebuilder ne change RIEN (leçon 13/07).
 
-> 🔴 **DETTE D1 (16/07)** : tant que le brain (STATE.md) n'indique pas « D1 réconcilié sur master », l'étape 1 (`git reset --hard`) **EFFACE l'allowlist IP locale d'Hermès** (jamais poussée) → V4 redevient PUBLIC (auth en bypass). **ZÉRO deploy** hors GO Cissou explicite ; si deploy inévitable → **stash/pull/pop du compose** (procédure V4.109). Détail : `DETTE.md`.
+> ✅ **DETTE D1 réconciliée (16/07, Hermès)** : `docker-compose.v4.yml` référence `osiris-v4-ipallow@file` sur `master`. L'IP maison reste hors Git dans la configuration dynamique Traefik du VPS. Après deploy, une IP non autorisée doit obtenir `403` sur `/`; les routes ingest restent token-protected et doivent répondre `401` sans token. Détail : `DETTE.md`.
 
 1. `[VPS]` `cd /docker/osiris-v4 && git fetch origin && git reset --hard origin/master && git log --oneline -1` ← sinon rebuild de VIEUX code
 2. `[VPS]` `docker compose -f docker-compose.v4.yml build --no-cache` ← **`--build` seul NE force PAS le rebuild** (layers `CACHED` = vieux code)

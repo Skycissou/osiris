@@ -28,11 +28,12 @@ Topologie : build context `.` = `/docker/osiris-v4` · service `osiris-v4` · `c
 ## ✅ Vérification (preuve, pas « c'est fait »)
 
 ```bash
-curl -s -o /dev/null -w "racine:%{http_code}\n"  https://osiris-v4.cissouhub.cloud/            # 200 accueil V4
-curl -s -o /dev/null -w "cockpit:%{http_code}\n" https://osiris-v4.cissouhub.cloud/cockpit     # 200
-curl -s https://osiris-v4.cissouhub.cloud/cockpit/version                                       # version attendue
-curl -s -o /dev/null -w "diag:%{http_code}\n"    https://osiris-v4.cissouhub.cloud/cockpit/live-feed/diag  # 200
-curl -s -o /dev/null -w "V3:%{http_code}\n"      https://osiris.cissouhub.cloud/                # V3 prod INCHANGÉE
+curl -s -o /dev/null -w "racine non autorisée:%{http_code}\n"  https://osiris-v4.cissouhub.cloud/  # 403 depuis une IP hors allowlist
+curl -s -o /dev/null -w "ingest sans token:%{http_code}\n" -X POST https://osiris-v4.cissouhub.cloud/cockpit/alerts/ingest  # 401, route n8n intacte
+curl -s -o /dev/null -w "V3:%{http_code}\n"      https://osiris.cissouhub.cloud/                  # V3 prod INCHANGÉE
+
+# Depuis une IP autorisée ou via tunnel/SSH local côté VPS : vérifier accueil/cockpit/version/diag.
+# Ne pas retirer le filtre IP juste pour vérifier visuellement.
 ```
 Navigateur (Ctrl+Shift+R) : le header affiche la **version attendue**. Si elle ne change pas → l'étape 1 (git reset) ou 2 (`--no-cache`) n'a pas été faite.
 

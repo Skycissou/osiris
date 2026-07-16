@@ -81,7 +81,14 @@ services:
       - "traefik.http.routers.osiris-v4.priority=200"
       - "traefik.http.routers.osiris-v4.entrypoints=websecure"
       - "traefik.http.routers.osiris-v4.tls.certresolver=myresolver"
-      - "traefik.http.routers.osiris-v4.middlewares=osiris-v4-rl"
+      - "traefik.http.routers.osiris-v4.middlewares=osiris-v4-rl,osiris-v4-ipallow@file"
+      # Router ingest exempté du filtre IP maison : protégé par token applicatif + rate-limit.
+      - "traefik.http.routers.osiris-v4-ingest.rule=Host(`osiris-v4.cissouhub.cloud`) && (PathPrefix(`/cockpit/alerts/ingest`) || PathPrefix(`/cockpit/arpd/sync`))"
+      - "traefik.http.routers.osiris-v4-ingest.priority=300"
+      - "traefik.http.routers.osiris-v4-ingest.entrypoints=websecure"
+      - "traefik.http.routers.osiris-v4-ingest.tls.certresolver=myresolver"
+      - "traefik.http.routers.osiris-v4-ingest.middlewares=osiris-v4-rl"
+      - "traefik.http.routers.osiris-v4-ingest.service=osiris-v4"
       - "traefik.http.services.osiris-v4.loadbalancer.server.port=3000"
       # Rate-limit défensif (mêmes valeurs que la route existante).
       - "traefik.http.middlewares.osiris-v4-rl.ratelimit.average=30"

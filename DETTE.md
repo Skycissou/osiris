@@ -7,13 +7,12 @@
 >
 > Créé 2026-07-16 (Claude chat, GO Cissou) — audit dette sur `5b49c4f` (V4.102) + revue code/sécu V4.115 (`53df908`, validée Cissou, 0 🔴).
 
-## 🔴 D1 — BLOCKER À CHECKER AVANT TOUT DEPLOY
+## ✅ D1 — RÉCONCILIÉ SUR MASTER (16/07, Hermès)
 
-- L'**allowlist IP Traefik** (commit local VPS `34535ec`, filtre d'Hermès) n'a **JAMAIS été poussée sur master** → le `git reset --hard origin/master` de la procédure de deploy **l'efface** → V4 redevient **PUBLIC** (auth encore en bypass `AUTH_ENFORCE`).
-- Règle tant que le brain (STATE.md) n'indique pas « **D1 réconcilié sur master** » :
-  1. **ZÉRO deploy** dans les sessions de dette/features.
-  2. Si un deploy est inévitable (GO Cissou) → **stash/pull/pop du compose** pour préserver le filtre (procédure utilisée pour V4.109).
-- Réconciliation = **Hermès** (relais envoyé le 16/07 : reporter le diff sur master, SANS l'IP en clair).
+- L'**allowlist IP Traefik** est désormais câblée dans `docker-compose.v4.yml` via le middleware `osiris-v4-ipallow@file`.
+- L'IP maison reste **hors Git** dans la configuration dynamique Traefik du VPS (`@file`) : aucune IP en clair n'est committée.
+- Les routes ingest (`/cockpit/alerts/ingest`, `/cockpit/arpd/sync`) restent exemptées du filtre IP et protégées par token applicatif + rate-limit, pour ne pas casser n8n.
+- Conséquence : un `git reset --hard origin/master` ne supprime plus le branchement du filtre. La vérification post-deploy doit attendre 403 depuis une IP non autorisée sur `/` et 401 sans token sur l'ingest.
 
 ## 📋 Les lots (exécution : Claude Code local / Hermès)
 
