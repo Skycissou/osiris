@@ -19,11 +19,11 @@
 
 | Lot | Contenu | Effort | Statut |
 |---|---|---|---|
-| A | B4 logs debug CCTV · B3 URL photo absolue · B6 header frontline | ~20 min | ☐ |
-| E | Retours revue V4.115 : E1 collision picker · E2 DRY opacité · E3 recolor no-op | ~15 min | ☐ |
-| B | B2 photos sondées · B1 re-géocodage ville (LE morceau) | ~1 h | ☐ |
-| C | D4 purge fork amont (`intel/`, `nginx/`, compose racine) — **checkpoint GO Cissou avant `git rm`** | ~20 min | ☐ |
-| D | D3 CI GitHub Actions (build + tsc + lint) | ~15 min | ☐ |
+| A | B4 logs debug CCTV · B3 URL photo absolue · B6 header frontline | ~20 min | ✅ V4.117 (B4 déjà fait V4.102) |
+| E | Retours revue V4.115 : E1 collision picker · E2 DRY opacité · E3 recolor no-op | ~15 min | ✅ V4.116 |
+| B | B2 photos sondées · B1 re-géocodage ville (LE morceau) | ~1 h | ✅ V4.117 |
+| C | D4 purge fork amont (`intel/`, `nginx/`, compose racine) — **checkpoint GO Cissou avant `git rm`** | ~20 min | ⏳ en attente GO Cissou |
+| D | D3 CI GitHub Actions (build + tsc + lint) | ~15 min | ✅ V4.117 |
 
 ## 🐞 Détail des points
 

@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.116-dev';
+export const OSIRIS_VERSION = 'V4.117-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,18 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.117-dev',
+    date: '2026-07-16',
+    resume:
+      "🧰 Session DETTE (GO Cissou) — Lots 0/A/B/D + B5 sentinelle. **Lot 0** : `DETTE.md` embarqué à la racine + " +
+      "garde-fou 🔴 D1 dans `CLAUDE.md`. **Lot A** : B3 (parser ARPD ne re-préfixe plus une URL photo absolue) · B6 " +
+      "(`fetchFrontline` lit la clé via `keyOf`, parité 7 couches) — B4 déjà fait V4.102. **Lot B** (le gros) : B1 " +
+      "(champ `geoPrecision` sur l'Alert → avis figés au centroïde département RÉELLEMENT re-géocodés vers leur ville " +
+      "aux syncs suivants ; commentaire mensonger corrigé) · B2 (`photo_detail_probed` → page détail sondée une seule " +
+      "fois, budget photo/run préservé). **Lot D** : CI GitHub Actions (build+tsc+lint). **B5** : sentinelle safeFetch. " +
+      "Lot C (purge fork) = en attente GO Cissou. Build+tsc verts. ⚠️ ZÉRO deploy avant réconciliation D1.",
+  },
   {
     version: 'V4.116-dev',
     date: '2026-07-16',
