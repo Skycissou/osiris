@@ -286,23 +286,25 @@ interface OsirisMapProps {
   drawMode?: DrawMode;
   /** Signal d'effacement total : passer une nouvelle valeur (ex. Date.now()) vide tous les tracés. */
   drawClearTs?: number;
+  /** Couleur appliquée aux NOUVEAUX objets dessinés (les objets existants gardent la leur). */
+  drawColor?: string;
   /** Remonte au parent le compteur d'objets + un libellé de mesure lisible, à chaque changement. */
   onDrawStats?: (s: { count: number; readout: string }) => void;
 }
 
-/** Modes de la boîte à outils tracé/mesure (P1). */
-export type DrawMode = 'off' | 'trace' | 'circle' | 'marker' | 'erase';
+/** Modes de la boîte à outils tracé/mesure (P1 + édition P1.5). */
+export type DrawMode = 'off' | 'trace' | 'circle' | 'marker' | 'erase' | 'edit';
 
-/** Objet dessiné (éphémère, en RAM). */
+/** Objet dessiné (éphémère, en RAM). Chaque objet porte SA couleur. */
 type DrawFeature =
-  | { id: string; kind: 'trace'; pts: LngLat[] }
-  | { id: string; kind: 'circle'; center: LngLat; radiusM: number }
-  | { id: string; kind: 'marker'; pt: LngLat; label: string };
+  | { id: string; kind: 'trace'; pts: LngLat[]; color: string }
+  | { id: string; kind: 'circle'; center: LngLat; radiusM: number; color: string }
+  | { id: string; kind: 'marker'; pt: LngLat; label: string; color: string };
 
-// Palette de l'outil mesure — AMBRE, volontairement distincte des autres pins
-// (rouge = alertes/OSM · cyan = OSINT · vert = webcams) → pas de confusion visuelle.
+// Couleur par défaut de l'outil mesure — AMBRE, volontairement distincte des
+// autres pins (rouge = alertes/OSM · cyan = OSINT · vert = webcams). L'utilisateur
+// peut choisir une autre couleur de base par objet (cf. DRAW_PALETTE côté page).
 const DRAW_COLOR = '#ffb347';
-const DRAW_COLOR_MARKER = '#ffd27f';
 
 // Terminateur solaire jour/nuit (couche optionnelle) — géométrie polygonale.
 function computeSolarTerminator(): [number, number][] {
@@ -541,6 +543,7 @@ function OsirisMap({
   overlays = {},
   drawMode = 'off',
   drawClearTs,
+  drawColor = DRAW_COLOR,
   onDrawStats,
 }: OsirisMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -571,6 +574,11 @@ function OsirisMap({
   const drawLabelMarkersRef = useRef<maplibregl.Marker[]>([]); // étiquettes HTML (distances/rayons/noms)
   const drawIdRef = useRef(0);                              // compteur d'identifiants stables
   const drawMarkerNumRef = useRef(0);                      // numérotation des repères (R1, R2…)
+  const drawColorRef = useRef<string>(drawColor);          // couleur courante (nouveaux objets)
+  drawColorRef.current = drawColor;
+  // Cible d'édition en cours de glissement (mode 'edit') + garde clic-vs-drag.
+  const dragTargetRef = useRef<{ did: string; part: 'vertex' | 'center' | 'radius' | 'marker'; idx: number } | null>(null);
+  const dragMovedRef = useRef(false);
   const renderDrawRef = useRef<(() => void) | null>(null);  // rendu appelable depuis les autres effets
   const zoneBlinkRafRef = useRef(0); // clignotement du contour d'alerte
   const [mapReady, setMapReady] = useState(false);
@@ -1869,15 +1877,16 @@ function OsirisMap({
     map.addSource('draw-line', { type: 'geojson', data: EMPTY_FC });
     map.addSource('draw-vertex', { type: 'geojson', data: EMPTY_FC });
     map.addSource('draw-marker', { type: 'geojson', data: EMPTY_FC });
+    const colorExpr = ['coalesce', ['get', 'color'], DRAW_COLOR] as unknown as maplibregl.ExpressionSpecification;
     map.addLayer({
       id: 'draw-fill', type: 'fill', source: 'draw-fill',
-      paint: { 'fill-color': DRAW_COLOR, 'fill-opacity': ['case', ['to-boolean', ['get', 'draft']], 0.08, 0.13] },
+      paint: { 'fill-color': colorExpr, 'fill-opacity': ['case', ['to-boolean', ['get', 'draft']], 0.08, 0.13] },
     });
     map.addLayer({
       id: 'draw-line', type: 'line', source: 'draw-line',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': DRAW_COLOR,
+        'line-color': colorExpr,
         'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.8, 12, 2.6],
         'line-opacity': ['case', ['to-boolean', ['get', 'draft']], 0.65, 1],
       },
@@ -1885,15 +1894,18 @@ function OsirisMap({
     map.addLayer({
       id: 'draw-vertex', type: 'circle', source: 'draw-vertex',
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 12, 5],
-        'circle-color': '#0d121b', 'circle-stroke-color': DRAW_COLOR, 'circle-stroke-width': 2,
+        // Poignées d'édition (centre/rayon) un peu plus grosses pour se saisir facilement.
+        'circle-radius': ['case', ['to-boolean', ['get', 'handle']],
+          ['interpolate', ['linear'], ['zoom'], 4, 4, 12, 6],
+          ['interpolate', ['linear'], ['zoom'], 4, 3, 12, 5]],
+        'circle-color': '#0d121b', 'circle-stroke-color': colorExpr, 'circle-stroke-width': 2,
       },
     });
     map.addLayer({
       id: 'draw-marker', type: 'circle', source: 'draw-marker',
       paint: {
         'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 5, 12, 8],
-        'circle-color': DRAW_COLOR_MARKER, 'circle-stroke-color': '#0d121b', 'circle-stroke-width': 2,
+        'circle-color': colorExpr, 'circle-stroke-color': '#0d121b', 'circle-stroke-width': 2,
       },
     });
 
@@ -1904,44 +1916,51 @@ function OsirisMap({
       const feats = drawFeaturesRef.current;
       const draft = drawDraftRef.current;
       const cursor = drawCursorRef.current;
+      const editing = drawModeRef.current === 'edit';
       const lineFeats: any[] = [], fillFeats: any[] = [], vertexFeats: any[] = [], markerFeats: any[] = [];
-      const labels: { lngLat: LngLat; text: string; strong?: boolean }[] = [];
+      const labels: { lngLat: LngLat; text: string; strong?: boolean; color: string }[] = [];
 
       for (const f of feats) {
+        const color = f.color;
         if (f.kind === 'trace') {
-          lineFeats.push({ type: 'Feature', properties: { did: f.id }, geometry: { type: 'LineString', coordinates: f.pts } });
-          f.pts.forEach(p => vertexFeats.push({ type: 'Feature', properties: { did: f.id }, geometry: { type: 'Point', coordinates: p } }));
+          lineFeats.push({ type: 'Feature', properties: { did: f.id, color }, geometry: { type: 'LineString', coordinates: f.pts } });
+          // Sommets : cliquables/attrapables seulement en mode édition (poignées).
+          if (editing) f.pts.forEach((p, idx) => vertexFeats.push({ type: 'Feature', properties: { did: f.id, color, part: 'vertex', idx, handle: true }, geometry: { type: 'Point', coordinates: p } }));
+          else f.pts.forEach(p => vertexFeats.push({ type: 'Feature', properties: { did: f.id, color }, geometry: { type: 'Point', coordinates: p } }));
           let cum = 0;
-          for (let i = 1; i < f.pts.length; i++) { const seg = distanceM(f.pts[i - 1], f.pts[i]); cum += seg; labels.push({ lngLat: midpoint(f.pts[i - 1], f.pts[i]), text: fmtDistance(seg) }); }
-          if (f.pts.length >= 2) labels.push({ lngLat: f.pts[f.pts.length - 1], text: `Σ ${fmtDistance(cum)}`, strong: true });
+          for (let i = 1; i < f.pts.length; i++) { const seg = distanceM(f.pts[i - 1], f.pts[i]); cum += seg; labels.push({ lngLat: midpoint(f.pts[i - 1], f.pts[i]), text: fmtDistance(seg), color }); }
+          if (f.pts.length >= 2) labels.push({ lngLat: f.pts[f.pts.length - 1], text: `Σ ${fmtDistance(cum)}`, strong: true, color });
         } else if (f.kind === 'circle') {
           const ring = circleRing(f.center, f.radiusM);
-          lineFeats.push({ type: 'Feature', properties: { did: f.id }, geometry: { type: 'LineString', coordinates: ring } });
-          fillFeats.push({ type: 'Feature', properties: { did: f.id }, geometry: { type: 'Polygon', coordinates: [ring] } });
-          vertexFeats.push({ type: 'Feature', properties: { did: f.id }, geometry: { type: 'Point', coordinates: f.center } });
-          labels.push({ lngLat: destination(f.center, f.radiusM, 90), text: `r ${fmtDistance(f.radiusM)}`, strong: true });
+          lineFeats.push({ type: 'Feature', properties: { did: f.id, color }, geometry: { type: 'LineString', coordinates: ring } });
+          fillFeats.push({ type: 'Feature', properties: { did: f.id, color }, geometry: { type: 'Polygon', coordinates: [ring] } });
+          vertexFeats.push({ type: 'Feature', properties: { did: f.id, color, part: 'center', idx: 0, handle: editing }, geometry: { type: 'Point', coordinates: f.center } });
+          // Poignée de rayon (côté est) — visible/saisissable en édition pour redimensionner.
+          if (editing) vertexFeats.push({ type: 'Feature', properties: { did: f.id, color, part: 'radius', idx: 0, handle: true }, geometry: { type: 'Point', coordinates: destination(f.center, f.radiusM, 90) } });
+          labels.push({ lngLat: destination(f.center, f.radiusM, 90), text: `r ${fmtDistance(f.radiusM)}`, strong: true, color });
         } else {
-          markerFeats.push({ type: 'Feature', properties: { did: f.id }, geometry: { type: 'Point', coordinates: f.pt } });
-          labels.push({ lngLat: f.pt, text: f.label });
+          markerFeats.push({ type: 'Feature', properties: { did: f.id, color, part: 'marker', idx: 0 }, geometry: { type: 'Point', coordinates: f.pt } });
+          labels.push({ lngLat: f.pt, text: f.label, color });
         }
       }
 
       let readout = '';
+      const dc = drawColorRef.current;
       if (draft && draft.kind === 'trace') {
         const chain = cursor ? [...draft.pts, cursor] : draft.pts;
-        if (chain.length >= 2) lineFeats.push({ type: 'Feature', properties: { draft: true }, geometry: { type: 'LineString', coordinates: chain } });
-        draft.pts.forEach(p => vertexFeats.push({ type: 'Feature', properties: { draft: true }, geometry: { type: 'Point', coordinates: p } }));
-        if (chain.length >= 2) { const total = pathLengthM(chain); labels.push({ lngLat: chain[chain.length - 1], text: `Σ ${fmtDistance(total)}`, strong: true }); readout = `Tracé en cours — ${fmtDistance(total)} · ${draft.pts.length} pt (double-clic pour finir)`; }
+        if (chain.length >= 2) lineFeats.push({ type: 'Feature', properties: { draft: true, color: dc }, geometry: { type: 'LineString', coordinates: chain } });
+        draft.pts.forEach(p => vertexFeats.push({ type: 'Feature', properties: { draft: true, color: dc }, geometry: { type: 'Point', coordinates: p } }));
+        if (chain.length >= 2) { const total = pathLengthM(chain); labels.push({ lngLat: chain[chain.length - 1], text: `Σ ${fmtDistance(total)}`, strong: true, color: dc }); readout = `Tracé en cours — ${fmtDistance(total)} · ${draft.pts.length} pt (double-clic pour finir)`; }
         else readout = 'Tracé — clique le point suivant';
       } else if (draft && draft.kind === 'circle') {
         const center = draft.pts[0];
-        vertexFeats.push({ type: 'Feature', properties: { draft: true }, geometry: { type: 'Point', coordinates: center } });
+        vertexFeats.push({ type: 'Feature', properties: { draft: true, color: dc }, geometry: { type: 'Point', coordinates: center } });
         if (cursor) {
           const r = distanceM(center, cursor);
           const ring = circleRing(center, r);
-          lineFeats.push({ type: 'Feature', properties: { draft: true }, geometry: { type: 'LineString', coordinates: ring } });
-          fillFeats.push({ type: 'Feature', properties: { draft: true }, geometry: { type: 'Polygon', coordinates: [ring] } });
-          labels.push({ lngLat: destination(center, r, 90), text: `r ${fmtDistance(r)}`, strong: true });
+          lineFeats.push({ type: 'Feature', properties: { draft: true, color: dc }, geometry: { type: 'LineString', coordinates: ring } });
+          fillFeats.push({ type: 'Feature', properties: { draft: true, color: dc }, geometry: { type: 'Polygon', coordinates: [ring] } });
+          labels.push({ lngLat: destination(center, r, 90), text: `r ${fmtDistance(r)}`, strong: true, color: dc });
           readout = `Cercle — rayon ${fmtDistance(r)} (clique pour figer)`;
         } else readout = 'Cercle — déplace puis clique le bord';
       }
@@ -1957,8 +1976,8 @@ function OsirisMap({
         el.textContent = l.text;
         el.style.cssText =
           `pointer-events:none;white-space:nowrap;font-family:'IBM Plex Mono',monospace;font-size:11px;` +
-          `font-weight:${l.strong ? 700 : 500};color:${l.strong ? '#0d121b' : '#ffe4b3'};` +
-          `background:${l.strong ? DRAW_COLOR : 'rgba(13,18,27,0.85)'};border:1px solid ${DRAW_COLOR};` +
+          `font-weight:${l.strong ? 700 : 500};color:${l.strong ? '#0d121b' : '#f2f5f9'};` +
+          `background:${l.strong ? l.color : 'rgba(13,18,27,0.85)'};border:1px solid ${l.color};` +
           `border-radius:6px;padding:1px 6px;transform:translateY(-4px);box-shadow:0 1px 4px rgba(0,0,0,0.4);`;
         return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat(l.lngLat).addTo(m);
       });
@@ -1980,7 +1999,7 @@ function OsirisMap({
       // Retire les doublons de fin (les 2 clics d'un double-clic tombent au même endroit).
       const pts = d.pts.slice();
       while (pts.length >= 2 && distanceM(pts[pts.length - 1], pts[pts.length - 2]) < 3) pts.pop();
-      if (pts.length >= 2) drawFeaturesRef.current.push({ id: `d${drawIdRef.current++}`, kind: 'trace', pts });
+      if (pts.length >= 2) drawFeaturesRef.current.push({ id: `d${drawIdRef.current++}`, kind: 'trace', pts, color: drawColorRef.current });
       drawDraftRef.current = null; drawCursorRef.current = null; renderDraw();
     };
 
@@ -1989,7 +2008,7 @@ function OsirisMap({
       if (mode === 'off') return;
       const pt: LngLat = [e.lngLat.lng, e.lngLat.lat];
       if (mode === 'marker') {
-        drawFeaturesRef.current.push({ id: `d${drawIdRef.current++}`, kind: 'marker', pt, label: `R${++drawMarkerNumRef.current}` });
+        drawFeaturesRef.current.push({ id: `d${drawIdRef.current++}`, kind: 'marker', pt, label: `R${++drawMarkerNumRef.current}`, color: drawColorRef.current });
         renderDraw(); return;
       }
       if (mode === 'trace') {
@@ -2002,7 +2021,7 @@ function OsirisMap({
         else {
           const center = drawDraftRef.current.pts[0];
           const r = distanceM(center, pt);
-          if (r > 0) drawFeaturesRef.current.push({ id: `d${drawIdRef.current++}`, kind: 'circle', center, radiusM: r });
+          if (r > 0) drawFeaturesRef.current.push({ id: `d${drawIdRef.current++}`, kind: 'circle', center, radiusM: r, color: drawColorRef.current });
           drawDraftRef.current = null; drawCursorRef.current = null; renderDraw();
         }
         return;
@@ -2012,15 +2031,65 @@ function OsirisMap({
         const did = hit?.properties?.did;
         if (did) { drawFeaturesRef.current = drawFeaturesRef.current.filter(f => f.id !== did); renderDraw(); }
       }
+      // mode 'edit' : rien au clic simple — géré par mousedown/up (glisser + renommer).
+    };
+
+    // ── ÉDITION (mode 'edit') : saisir une poignée → glisser, ou cliquer → agir ──
+    const HANDLE_LAYERS = ['draw-marker', 'draw-vertex'];
+    const onDown = (e: maplibregl.MapMouseEvent) => {
+      if (drawModeRef.current !== 'edit') return;
+      const hit = map.queryRenderedFeatures(e.point, { layers: HANDLE_LAYERS.filter(l => map.getLayer(l)) })[0];
+      const p = hit?.properties as { did?: string; part?: string; idx?: number } | undefined;
+      if (!p?.did || !p.part) return;
+      dragTargetRef.current = { did: p.did, part: p.part as 'vertex' | 'center' | 'radius' | 'marker', idx: p.idx ?? 0 };
+      dragMovedRef.current = false;
+      map.dragPan.disable();       // le glissement déplace la poignée, pas la carte
+      e.preventDefault();
+    };
+    const applyDrag = (cur: LngLat) => {
+      const t = dragTargetRef.current; if (!t) return;
+      const f = drawFeaturesRef.current.find(x => x.id === t.did); if (!f) return;
+      if (f.kind === 'trace' && t.part === 'vertex') f.pts[t.idx] = cur;
+      else if (f.kind === 'circle' && t.part === 'center') f.center = cur;
+      else if (f.kind === 'circle' && t.part === 'radius') { const r = distanceM(f.center, cur); if (r > 0) f.radiusM = r; }
+      else if (f.kind === 'marker' && t.part === 'marker') f.pt = cur;
     };
 
     let lastDrawMove = 0;
     const onMove = (e: maplibregl.MapMouseEvent) => {
+      // Glissement d'une poignée en cours (mode édition).
+      if (dragTargetRef.current) {
+        dragMovedRef.current = true;
+        applyDrag([e.lngLat.lng, e.lngLat.lat]);
+        renderDraw();
+        return;
+      }
+      // Sinon : prévisualisation élastique d'un brouillon (trace/cercle).
       if (!drawDraftRef.current) return;
       const now = Date.now();
       if (now - lastDrawMove < 50) return;
       lastDrawMove = now;
       drawCursorRef.current = [e.lngLat.lng, e.lngLat.lat];
+      renderDraw();
+    };
+    const endDrag = () => {
+      const t = dragTargetRef.current;
+      if (!t) return;
+      map.dragPan.enable();
+      // Pas bougé = clic « action » sur la poignée.
+      if (!dragMovedRef.current) {
+        const f = drawFeaturesRef.current.find(x => x.id === t.did);
+        if (f && f.kind === 'marker' && t.part === 'marker') {
+          const v = window.prompt('Étiquette du repère (note ou titre) :', f.label);
+          if (v !== null) { f.label = v.trim() || f.label; }
+        } else if (f && f.kind === 'circle' && t.part === 'center') {
+          const cur = f.radiusM >= 1000 ? (f.radiusM / 1000).toString() : (f.radiusM.toString());
+          const unit = f.radiusM >= 1000 ? 'km' : 'm';
+          const v = window.prompt(`Rayon exact (en ${unit}) :`, cur);
+          if (v !== null) { const n = parseFloat(v.replace(',', '.')); if (isFinite(n) && n > 0) f.radiusM = unit === 'km' ? n * 1000 : n; }
+        }
+      }
+      dragTargetRef.current = null;
       renderDraw();
     };
     const onDbl = (e: maplibregl.MapMouseEvent) => {
@@ -2033,14 +2102,20 @@ function OsirisMap({
     };
 
     map.on('click', onClick);
+    map.on('mousedown', onDown);
     map.on('mousemove', onMove);
+    map.on('mouseup', endDrag);
     map.on('dblclick', onDbl);
+    window.addEventListener('mouseup', endDrag); // filet : relâché hors carte
     window.addEventListener('keydown', onKey);
 
     return () => {
       map.off('click', onClick);
+      map.off('mousedown', onDown);
       map.off('mousemove', onMove);
+      map.off('mouseup', endDrag);
       map.off('dblclick', onDbl);
+      window.removeEventListener('mouseup', endDrag);
       window.removeEventListener('keydown', onKey);
       for (const mk of drawLabelMarkersRef.current) mk.remove();
       drawLabelMarkersRef.current = [];
@@ -2054,12 +2129,17 @@ function OsirisMap({
     drawModeRef.current = drawMode;
     drawDraftRef.current = null;
     drawCursorRef.current = null;
+    // Sécurité : on annule un glissement d'édition en cours au changement de mode.
+    if (dragTargetRef.current) { mapRef.current?.dragPan.enable(); dragTargetRef.current = null; }
     const map = mapRef.current;
     if (map) {
       if (drawMode === 'off') map.doubleClickZoom.enable();
       else map.doubleClickZoom.disable();
       const canvas = map.getCanvas();
-      canvas.style.cursor = drawMode === 'off' ? '' : (drawMode === 'erase' ? 'not-allowed' : 'crosshair');
+      canvas.style.cursor = drawMode === 'off' ? ''
+        : drawMode === 'erase' ? 'not-allowed'
+        : drawMode === 'edit' ? 'pointer'
+        : 'crosshair';
     }
     renderDrawRef.current?.();
   }, [drawMode]);

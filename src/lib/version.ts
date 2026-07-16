@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.110-dev';
+export const OSIRIS_VERSION = 'V4.111-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,16 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.111-dev',
+    date: '2026-07-16',
+    resume:
+      "✏️ Mesure P1.5 (retour Cissou) : **édition + étiquettes + couleurs**. Mode **Éditer** — glisser un point de " +
+      "tracé / le centre / le bord d'un cercle recalcule distance & rayon en direct ; **clic sur un repère** = saisir " +
+      "une étiquette (note/titre) ; **clic sur un centre** = rayon EXACT au clavier (m/km). **Palette de couleurs de " +
+      "base** (6 teintes) appliquée aux nouveaux objets, portée par objet (calques data-driven `['coalesce',['get'," +
+      "'color'],…]`, étiquettes HTML à la couleur de l'objet). Poignées d'édition agrandies. Build+tsc verts.",
+  },
   {
     version: 'V4.110-dev',
     date: '2026-07-16',

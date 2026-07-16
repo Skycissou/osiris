@@ -382,10 +382,11 @@ export default function Dashboard() {
   const loadedDeptCodes = useMemo(() => Object.keys(deptData), [deptData]);
   const clearDepts = useCallback(() => setDeptData({}), []);
 
-  // ── Boîte à outils TRACÉ & MESURE (P1, éphémère) ──
+  // ── Boîte à outils TRACÉ & MESURE (P1 + édition/couleurs P1.5, éphémère) ──
   const [measureOpen, setMeasureOpen] = useState(false);
   const [drawMode, setDrawMode] = useState<DrawMode>('off');
   const [drawClearTs, setDrawClearTs] = useState<number | undefined>(undefined);
+  const [drawColor, setDrawColor] = useState<string>('#ffb347');
   const [drawStats, setDrawStats] = useState<{ count: number; readout: string }>({ count: 0, readout: '' });
   const clearDraw = useCallback(() => setDrawClearTs(Date.now()), []);
   // Fermer la boîte = repasser en interactions normales (pas de mode dessin résiduel).
@@ -765,6 +766,7 @@ export default function Dashboard() {
           spotlight={spotlight}
           drawMode={drawMode}
           drawClearTs={drawClearTs}
+          drawColor={drawColor}
           onDrawStats={setDrawStats}
         />
       </ErrorBoundary>
@@ -1285,27 +1287,42 @@ export default function Dashboard() {
             <span className="text-[10px] font-mono tracking-widest text-[var(--accent)]">📐 MESURE</span>
             <button onClick={toggleMeasure} className="text-[var(--faint)] hover:text-[var(--accent)] text-[13px] leading-none" title="Fermer">✕</button>
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
             {([
               { m: 'trace' as DrawMode, icon: '📏', label: 'Tracer' },
               { m: 'circle' as DrawMode, icon: '⭕', label: 'Cercle' },
               { m: 'marker' as DrawMode, icon: '📍', label: 'Repère' },
+              { m: 'edit' as DrawMode, icon: '✏️', label: 'Éditer' },
               { m: 'erase' as DrawMode, icon: '🩹', label: 'Gomme' },
             ]).map(({ m, icon, label }) => (
               <button
                 key={m}
                 onClick={() => setDrawMode((cur) => (cur === m ? 'off' : m))}
-                className={`rounded-[10px] px-2 py-1.5 text-[9px] font-mono tracking-widest border transition-colors ${drawMode === m ? 'text-[#0d121b] bg-[#ffb347] border-[#ffb347]' : 'text-[var(--accent-bright)] border-[var(--line)] hover:border-[var(--accent)]/40'}`}
+                className={`rounded-[10px] px-1.5 py-1.5 text-[9px] font-mono tracking-widest border transition-colors ${drawMode === m ? 'text-[#0d121b] bg-[#ffb347] border-[#ffb347]' : 'text-[var(--accent-bright)] border-[var(--line)] hover:border-[var(--accent)]/40'}`}
               >
                 {icon} {label.toUpperCase()}
               </button>
+            ))}
+          </div>
+          {/* Palette de couleurs (base) — appliquée aux NOUVEAUX objets */}
+          <div className="mt-2 flex items-center gap-1.5">
+            <span className="text-[8px] font-mono tracking-widest text-[var(--faint)] mr-0.5">COULEUR</span>
+            {['#ffb347', '#ff5a5a', '#54bdde', '#4ade80', '#b98cff', '#f2f5f9'].map((c) => (
+              <button
+                key={c}
+                onClick={() => setDrawColor(c)}
+                title={`Couleur ${c}`}
+                className={`w-4 h-4 rounded-full border transition-transform ${drawColor === c ? 'scale-125 border-white' : 'border-[var(--line)] hover:scale-110'}`}
+                style={{ backgroundColor: c }}
+              />
             ))}
           </div>
           {/* Aide contextuelle selon le mode */}
           <div className="mt-2 text-[8px] leading-snug font-mono text-[var(--muted)]">
             {drawMode === 'trace' && 'Clique les points ; double-clic pour finir, Échap pour annuler.'}
             {drawMode === 'circle' && 'Clique le centre, puis le bord. Le rayon s’affiche.'}
-            {drawMode === 'marker' && 'Clique pour poser un repère numéroté.'}
+            {drawMode === 'marker' && 'Clique pour poser un repère.'}
+            {drawMode === 'edit' && 'Glisse un point/centre/bord pour ajuster. Clic sur un repère = étiqueter · clic sur un centre = rayon exact.'}
             {drawMode === 'erase' && 'Clique un objet dessiné pour le retirer.'}
             {drawMode === 'off' && 'Choisis un outil. Tout est hors-ligne et éphémère.'}
           </div>
