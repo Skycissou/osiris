@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.107-dev';
+export const OSIRIS_VERSION = 'V4.108-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,14 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.108-dev',
+    date: '2026-07-16',
+    resume:
+      "🩹 Fix erreur MapLibre introduite en V4.107 : `circle-radius` du calque `sens-cctv-dots` avait DEUX " +
+      "interpolations-zoom dans un `case` → MapLibre en interdit plus d'une → le calque plantait. Corrigé : une seule " +
+      "interpolation-zoom + `+2.5` additif pour les webcams vidéo. Distinction vert/rouge conservée. Build+tsc verts.",
+  },
   {
     version: 'V4.107-dev',
     date: '2026-07-15',
