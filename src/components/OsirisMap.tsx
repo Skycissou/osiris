@@ -288,6 +288,8 @@ interface OsirisMapProps {
   drawClearTs?: number;
   /** Couleur appliquée aux NOUVEAUX objets dessinés (les objets existants gardent la leur). */
   drawColor?: string;
+  /** Remplissage translucide des cercles (true = disque ambré · false = contour seul). */
+  drawCircleFill?: boolean;
   /** Remonte au parent le compteur d'objets + un libellé de mesure lisible, à chaque changement. */
   onDrawStats?: (s: { count: number; readout: string }) => void;
 }
@@ -544,6 +546,7 @@ function OsirisMap({
   drawMode = 'off',
   drawClearTs,
   drawColor = DRAW_COLOR,
+  drawCircleFill = true,
   onDrawStats,
 }: OsirisMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -2152,6 +2155,13 @@ function OsirisMap({
     drawCursorRef.current = null;
     renderDrawRef.current?.();
   }, [drawClearTs]);
+
+  // Fond des cercles ON/OFF (contour seul) — bascule la visibilité du calque de remplissage.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map || !map.getLayer('draw-fill')) return;
+    map.setLayoutProperty('draw-fill', 'visibility', drawCircleFill ? 'visible' : 'none');
+  }, [mapReady, drawCircleFill]);
 
   // ── Fonds raster modernes (satellite ArcGIS + Plan IGN + SCAN25 + Ortho IGN) ──
   // Config déplacée en module scope (RASTER_BASES). Chaque fond = un calque raster

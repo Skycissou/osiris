@@ -387,6 +387,7 @@ export default function Dashboard() {
   const [drawMode, setDrawMode] = useState<DrawMode>('off');
   const [drawClearTs, setDrawClearTs] = useState<number | undefined>(undefined);
   const [drawColor, setDrawColor] = useState<string>('#ffb347');
+  const [drawCircleFill, setDrawCircleFill] = useState(true);
   const [drawStats, setDrawStats] = useState<{ count: number; readout: string }>({ count: 0, readout: '' });
   const clearDraw = useCallback(() => setDrawClearTs(Date.now()), []);
   // Fermer la boîte = repasser en interactions normales (pas de mode dessin résiduel).
@@ -767,6 +768,7 @@ export default function Dashboard() {
           drawMode={drawMode}
           drawClearTs={drawClearTs}
           drawColor={drawColor}
+          drawCircleFill={drawCircleFill}
           onDrawStats={setDrawStats}
         />
       </ErrorBoundary>
@@ -1317,6 +1319,14 @@ export default function Dashboard() {
               />
             ))}
           </div>
+          {/* Fond des cercles ON/OFF (contour seul si OFF) */}
+          <button
+            onClick={() => setDrawCircleFill((v) => !v)}
+            className={`mt-2 w-full rounded-[10px] px-2 py-1.5 text-[8px] font-mono tracking-widest border transition-colors ${drawCircleFill ? 'text-[#0d121b] bg-[#ffb347] border-[#ffb347]' : 'text-[var(--accent-bright)] border-[var(--line)] hover:border-[var(--accent)]/40'}`}
+            title="Afficher ou non le disque translucide à l'intérieur des cercles"
+          >
+            {drawCircleFill ? '⬤ FOND DES CERCLES : ON' : '◯ FOND DES CERCLES : OFF'}
+          </button>
           {/* Aide contextuelle selon le mode */}
           <div className="mt-2 text-[8px] leading-snug font-mono text-[var(--muted)]">
             {drawMode === 'trace' && 'Clique les points ; double-clic pour finir, Échap pour annuler.'}
