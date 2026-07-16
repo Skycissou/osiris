@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.112-dev';
+export const OSIRIS_VERSION = 'V4.113-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,14 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.113-dev',
+    date: '2026-07-16',
+    resume:
+      "🩹 Fix MapLibre `circle-radius` du calque `draw-vertex` (même piège qu'en V4.107/108, réintroduit en V4.111) : " +
+      "le `case` sur `handle` contenait DEUX interpolations-zoom → interdit. Corrigé : UNE interpolation-zoom au " +
+      "top-level, le `case` dans chaque sortie de palier. Poignées d'édition à nouveau rendues. Build+tsc verts.",
+  },
   {
     version: 'V4.112-dev',
     date: '2026-07-16',

@@ -1897,10 +1897,12 @@ function OsirisMap({
     map.addLayer({
       id: 'draw-vertex', type: 'circle', source: 'draw-vertex',
       paint: {
-        // Poignées d'édition (centre/rayon) un peu plus grosses pour se saisir facilement.
-        'circle-radius': ['case', ['to-boolean', ['get', 'handle']],
-          ['interpolate', ['linear'], ['zoom'], 4, 4, 12, 6],
-          ['interpolate', ['linear'], ['zoom'], 4, 3, 12, 5]],
+        // Poignées d'édition (handle=true) un peu plus grosses pour se saisir facilement.
+        // ⚠️ MapLibre : UNE SEULE interpolation-zoom, au TOP-LEVEL → le `case` sur
+        //  `handle` va DANS chaque sortie de palier (jamais l'inverse).
+        'circle-radius': ['interpolate', ['linear'], ['zoom'],
+          4, ['case', ['to-boolean', ['get', 'handle']], 4, 3],
+          12, ['case', ['to-boolean', ['get', 'handle']], 6, 5]],
         'circle-color': '#0d121b', 'circle-stroke-color': colorExpr, 'circle-stroke-width': 2,
       },
     });
