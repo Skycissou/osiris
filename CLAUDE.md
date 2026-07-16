@@ -25,6 +25,8 @@
 ## 🚀 Déploiement V4 — HOST ÉMANCIPÉ (détail : DEPLOY.md) — compose autonome
 > ⚠️ **La bascule Émancipation EST FAITE (13/07).** `osiris-v4.cissouhub.cloud` est servi ENTIÈREMENT par le conteneur **`osiris-v4`** (compose autonome `docker-compose.v4.yml`, label Traefik `Host(osiris-v4.cissouhub.cloud)` **priorité 200**). L'ancienne procédure « combiné-staging » (`osiris-v4-cockpit`) est **PÉRIMÉE** : Traefik ne route PLUS vers elle → la rebuilder ne change RIEN (leçon 13/07).
 
+> 🔴 **DETTE D1 (16/07)** : tant que le brain (STATE.md) n'indique pas « D1 réconcilié sur master », l'étape 1 (`git reset --hard`) **EFFACE l'allowlist IP locale d'Hermès** (jamais poussée) → V4 redevient PUBLIC (auth en bypass). **ZÉRO deploy** hors GO Cissou explicite ; si deploy inévitable → **stash/pull/pop du compose** (procédure V4.109). Détail : `DETTE.md`.
+
 1. `[VPS]` `cd /docker/osiris-v4 && git fetch origin && git reset --hard origin/master && git log --oneline -1` ← sinon rebuild de VIEUX code
 2. `[VPS]` `docker compose -f docker-compose.v4.yml build --no-cache` ← **`--build` seul NE force PAS le rebuild** (layers `CACHED` = vieux code)
 3. `[VPS]` `docker compose -f docker-compose.v4.yml up -d --force-recreate` ← **« Started » ≠ « Recreated »** : sans `--force-recreate` le conteneur garde la vieille image
@@ -39,6 +41,11 @@
 - 1 tâche = 1 session. Ça boucle 2× sur la même erreur → STOP : écrire l'état dans un fichier, `/clear`, repartir.
 - Fichier pointé non lu → le dire. Info incertaine → le dire. Jamais broder.
 - État prod/staging : source canonique = brain `notes/infra/deployments-registry.md` (règle 21 du brain).
+
+## 🧹 Dette technique — lire avant de coder
+
+- **`DETTE.md`** (racine) = photo de la dette embarquée. Source de vérité = brain `board/osiris-dette-technique.md` + brief `notes/veille/2026-07-16-osiris-dette-fixes-brief.md` (Lots A→E). On coche dans le brain, on rafraîchit la photo ici au même commit.
+- Ligne rouge **B5** : ne jamais rendre le host paramétrable sur les fetchers qui bypassent `safeFetch`.
 
 ## 🔢 Versioning
 - Source unique : `src/lib/version.ts` (`OSIRIS_VERSION`). +1 palier à CHAQUE chantier livré (build vert + push). Détail : `VERSION.md`.
