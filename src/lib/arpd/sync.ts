@@ -22,9 +22,11 @@ const MAX_PAGES = 10;               // garde-fou (≈100 avis/page → 1000 avis
 const SANITY_RATIO = 0.7;           // total < 70 % du dernier connu → ABORT
 const PAGE_DELAY_MS = 1100;         // courtoisie ARPD : 1 req/s ENTRE LES PAGES (pas le géocodage)
 // Cap de géocodage VILLE par run : au-delà, l'avis prend le centroïde département
-//  (pin immédiat « approx. ») et sera affiné à un prochain sync. Évite un run qui
-//  traîne (geocodeLocality s'auto-throttle déjà → PAS de délai en plus ici, c'était
-//  le bug du 1er run : ~400 × 1,1 s = plusieurs minutes).
+//  (pin immédiat « approx. », `geoPrecision: 'departement'`). B1 (dette) : un avis
+//  figé au centroïde est RÉELLEMENT re-tenté aux syncs suivants (dans ce budget) tant
+//  qu'il n'est pas passé en `geoPrecision: 'ville'` — avant, la condition de réutilisation
+//  sur `lat !== undefined` le figeait à vie. geocodeLocality s'auto-throttle → PAS de
+//  délai en plus ici (c'était le bug du 1er run : ~400 × 1,1 s = plusieurs minutes).
 const MAX_VILLE_GEOCODE_PER_RUN = 150;
 // Repli PHOTO via page détail : certains avis « legacy » ont le champ image du
 // listing VIDE, mais portent leur photo sous /uploaded/<slug>.jpg sur leur page
@@ -113,7 +115,7 @@ function categorieFor(source: string): string {
 
 /** Mappe un avis ARPD (déjà géocodé) vers l'Alert du store existant.
  *  `photoUrl` : photo résolue (listing OU repli page détail) — peut être null. */
-function toAlert(a: ArpdAvisParsed, coords: { lat: number; lon: number } | null, geoPrecision: 'ville' | 'departement' | null, photoUrl: string | null): Alert {
+function toAlert(a: ArpdAvisParsed, coords: { lat: number; lon: number } | null, geoPrecision: 'ville' | 'departement' | null, photoUrl: string | null, photoProbed: boolean): Alert {
   const lieu = [a.ville, a.deptNom].filter(Boolean).join(' · ') || null;
   const details: { label: string; value: string }[] = [];
   if (a.source) details.push({ label: "Source d'origine", value: String(a.source) });
@@ -134,7 +136,9 @@ function toAlert(a: ArpdAvisParsed, coords: { lat: number; lon: number } | null,
     lieu_texte: lieu ?? undefined,
     lat: coords?.lat,
     lon: coords?.lon,
+    geoPrecision: geoPrecision ?? undefined, // B1 : sert la re-tentative ville au sync suivant
     photo_url: photoUrl ?? undefined,        // hotlink arpd.fr, jamais de copie (RGPD)
+    photo_detail_probed: photoProbed || undefined, // B2 : page détail déjà sondée
     details,
     statut: 'active',
     fetched_at: Date.now(),
@@ -172,12 +176,27 @@ export async function runArpdSync(): Promise<SyncResult> {
     // Réutilise coords des avis DÉJÀ vus (géocode = NOUVEAUX seulement).
     if (known?.alert && (known.alert.lat !== undefined || known.alert.lon !== undefined)) {
       let al: Alert = { ...known.alert, fetched_at: Date.now(), statut: 'active' };
-      // Enrichissement tardif : avis connu SANS photo → tenter la page détail
-      // (avis legacy /uploaded/). Borné/run → converge en quelques syncs, throttlé.
-      if (!al.photo_url && detailFetched < MAX_DETAIL_PHOTO_PER_RUN) {
+
+      // B1 — RE-GÉOCODAGE VILLE : un avis figé au centroïde département (ou legacy
+      //  sans `geoPrecision` mais déjà positionné → traité comme 'departement') est
+      //  re-tenté vers sa ville dès qu'elle est dispo, dans le budget du run. Passe
+      //  en 'ville' au succès → plus jamais re-tenté ensuite.
+      const precision = al.geoPrecision ?? 'departement';
+      if (precision === 'departement' && a.ville && villeGeocoded < MAX_VILLE_GEOCODE_PER_RUN) {
+        villeGeocoded += 1;
+        const c = await geocodeLocality([a.ville, a.deptCode || a.deptNom].filter(Boolean).join(' '));
+        if (c) { al = { ...al, lat: c.lat, lon: c.lon, geoPrecision: 'ville' }; ville++; }
+        // échec → on garde le centroïde, nouvelle tentative au prochain sync.
+      }
+
+      // B2 — PHOTO page détail : sondée UNE seule fois (résultat vide inclus). Le
+      //  flag `photo_detail_probed` évite de re-fetcher en boucle à chaque sync et
+      //  préserve le budget MAX_DETAIL_PHOTO_PER_RUN pour les avis pas encore sondés.
+      if (!al.photo_url && !al.photo_detail_probed && detailFetched < MAX_DETAIL_PHOTO_PER_RUN) {
         detailFetched += 1;
         const p = await fetchDetailPhoto(a.url);
         await new Promise((r) => setTimeout(r, PAGE_DELAY_MS)); // courtoisie 1 req/s
+        al = { ...al, photo_detail_probed: true };
         if (p) { al = { ...al, photo_url: p }; detailPhotos++; }
       }
       present.push(al);
@@ -200,13 +219,15 @@ export async function runArpdSync(): Promise<SyncResult> {
     if (precision === 'ville') ville++; else if (precision === 'departement') dept++; else sansPos++;
     // Photo : listing d'abord ; sinon repli page détail (avis legacy), throttlé/borné.
     let photoUrl = a.photoUrl;
+    let photoProbed = false;
     if (!photoUrl && detailFetched < MAX_DETAIL_PHOTO_PER_RUN) {
       detailFetched += 1;
       photoUrl = await fetchDetailPhoto(a.url);
       await new Promise((r) => setTimeout(r, PAGE_DELAY_MS)); // courtoisie 1 req/s
+      photoProbed = true; // sondée (résultat vide inclus) → B2 : pas de re-fetch au prochain sync
       if (photoUrl) detailPhotos++;
     }
-    present.push(toAlert(a, coords, precision, photoUrl));
+    present.push(toAlert(a, coords, precision, photoUrl, photoProbed));
   }
 
   const { incoming, newState } = computeDiff(present, total, state, Date.now());

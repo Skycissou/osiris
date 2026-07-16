@@ -61,7 +61,14 @@ export interface Alert {
   lieu_texte?: string;
   lat?: number;
   lon?: number;
+  // Précision de la position (ARPD B1) : 'ville' = géocodée à la localité ·
+  // 'departement' = repli centroïde (à re-géocoder à un prochain sync si la ville
+  // devient disponible). Absent = source sans notion de précision.
+  geoPrecision?: 'ville' | 'departement';
   photo_url?: string; // HOTLINK source uniquement, jamais de copie locale
+  // Bookkeeping ARPD (B2) : page détail DÉJÀ sondée pour une photo /uploaded/
+  // (résultat vide inclus) → ne jamais re-sonder → budget photo/run préservé.
+  photo_detail_probed?: boolean;
   // Détails libres pour la FICHE (identique toutes sources) : paires label→valeur
   // affichées telles quelles (ex. Interpol : « Signes distinctifs », « Taille »,
   // « Yeux », « Événement le »). Source-agnostique → une seule mise en page.
