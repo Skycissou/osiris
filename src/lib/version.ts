@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.106-dev';
+export const OSIRIS_VERSION = 'V4.107-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.107-dev',
+    date: '2026-07-15',
+    resume:
+      "🟢 CCTV — distinguer les VIDÉOS des positions (retour Cissou « pas de vidéos »). Les centaines de points = " +
+      "positions caméras **OSM** (pas de flux, c'est tout ce qu'OSM fournit) ; les **webcams Windy** (vidéo) étaient " +
+      "noyées dedans (même look). Fix : webcams-vidéo Windy (avec `streamUrl`) → **points VERTS + plus gros** " +
+      "(cliquables → flux) ; positions OSM → rouge/base. Popup d'une position OSM clarifié (« pas de flux vidéo, les " +
+      "vertes sont les webcams »). Build+tsc verts. Note produit : Cissou veut étendre la logique de sélection par " +
+      "zone/département aux AUTRES filtres (direction UX à creuser).",
+  },
   {
     version: 'V4.106-dev',
     date: '2026-07-15',

@@ -977,8 +977,16 @@ function OsirisMap({
           type: 'circle',
           source: src,
           paint: {
-            'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3.5, 12, 7],
-            'circle-color': color,
+            // cctv : webcam Windy AVEC flux (streamUrl) → vert vif + plus gros
+            //  (= vidéo cliquable), sinon position OSM → couleur de base (pas de flux).
+            'circle-radius': stream
+              ? ['case', ['to-boolean', ['get', 'streamUrl']],
+                  ['interpolate', ['linear'], ['zoom'], 4, 5, 12, 9],
+                  ['interpolate', ['linear'], ['zoom'], 4, 3.5, 12, 7]]
+              : ['interpolate', ['linear'], ['zoom'], 4, 3.5, 12, 7],
+            'circle-color': stream
+              ? ['case', ['to-boolean', ['get', 'streamUrl']], '#4ade80', color]
+              : color,
             'circle-opacity': 0.85,
             'circle-stroke-width': 1.5,
             'circle-stroke-color': '#070a0f',
@@ -995,10 +1003,15 @@ function OsirisMap({
             onStreamClickRef.current?.({ label: String(p.label || p.name || 'Caméra'), streamUrl: String(p.streamUrl), lat: coords[1], lng: coords[0] });
             return;
           }
+          // cctv sans flux = position OSM → on l'explique clairement (pas une panne).
+          const cctvNote = dataKey === 'cctv'
+            ? `<div style="color:#ffb23e;font-size:10px;margin-top:6px;line-height:1.5;">📍 Position de caméra (OpenStreetMap) — <b>pas de flux vidéo</b>.<br>Les webcams avec vidéo sont les points <b style="color:#4ade80;">verts</b>.</div>`
+            : '';
           const html =
             `<div style="${POPUP_STYLE}">` +
             `<div style="color:${color};font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">${escapeHtml(String(dataKey).replace('_', ' '))} · forme 2</div>` +
             `<div style="color:#fff;font-size:13px;font-weight:600;">${escapeHtml(p.label || p.name || p.id || '—')}</div>` +
+            cctvNote +
             `<div style="color:#586475;font-size:10px;margin-top:8px;">données publiques · usage veille (ARPD)</div>` +
             `</div>`;
           popupRef.current?.remove();
