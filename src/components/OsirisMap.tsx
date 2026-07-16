@@ -307,6 +307,11 @@ type DrawFeature =
 // autres pins (rouge = alertes/OSM · cyan = OSINT · vert = webcams). L'utilisateur
 // peut choisir une autre couleur de base par objet (cf. DRAW_PALETTE côté page).
 const DRAW_COLOR = '#ffb347';
+// Opacité du disque des cercles quand le fond est ON (0.08 en brouillon, 0.13 figé).
+// ⚠️ Source UNIQUE (revue chat E2) : utilisée à la création du calque `draw-fill` ET
+//  dans le toggle « fond ON/OFF ». Doit rester un `case` PLAT (aucune interpolation-zoom
+//  imbriquée — leçon 16/07).
+const DRAW_FILL_OPACITY_ON = ['case', ['to-boolean', ['get', 'draft']], 0.08, 0.13] as unknown as maplibregl.ExpressionSpecification;
 
 // Terminateur solaire jour/nuit (couche optionnelle) — géométrie polygonale.
 function computeSolarTerminator(): [number, number][] {
@@ -1256,6 +1261,10 @@ function OsirisMap({
         layout: { visibility: 'none', 'line-join': 'round' },
       });
       map.on('click', 'dept-picker-fill', (e) => {
+        // PRIORITÉ à l'outil MESURE : s'il est armé (mode ≠ off), ce clic lui appartient
+        //  (tracer/éditer/gomme) → on ne charge SURTOUT pas un département en douce.
+        //  La grille redevient cliquable dès que l'outil repasse sur `off` (revue chat E1).
+        if (drawModeRef.current !== 'off') return;
         // PRIORITÉ aux points de données : si un avis / une caméra / un point live
         // est sous le clic, on NE traite PAS le clic comme un choix de département
         // (sinon la grille, qui couvre toute la France, volerait le clic → bug).
@@ -1888,7 +1897,7 @@ function OsirisMap({
     const colorExpr = ['coalesce', ['get', 'color'], DRAW_COLOR] as unknown as maplibregl.ExpressionSpecification;
     map.addLayer({
       id: 'draw-fill', type: 'fill', source: 'draw-fill',
-      paint: { 'fill-color': colorExpr, 'fill-opacity': ['case', ['to-boolean', ['get', 'draft']], 0.08, 0.13] },
+      paint: { 'fill-color': colorExpr, 'fill-opacity': DRAW_FILL_OPACITY_ON },
     });
     map.addLayer({
       id: 'draw-line', type: 'line', source: 'draw-line',
@@ -2052,7 +2061,11 @@ function OsirisMap({
         //  recolorer avec la couleur courante de la palette (fond transparent = cliquable).
         const body = map.queryRenderedFeatures(e.point, { layers: ['draw-line', 'draw-fill'].filter(l => map.getLayer(l)) })[0];
         const did = body?.properties?.did;
-        if (did) { const f = drawFeaturesRef.current.find(x => x.id === did); if (f) { f.color = drawColorRef.current; renderDraw(); } }
+        if (did) {
+          const f = drawFeaturesRef.current.find(x => x.id === did);
+          // Garde no-op (revue chat E3) : ne re-rend pas si la couleur est déjà la bonne.
+          if (f && f.color !== drawColorRef.current) { f.color = drawColorRef.current; renderDraw(); }
+        }
         return;
       }
     };
@@ -2191,8 +2204,7 @@ function OsirisMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!mapReady || !map || !map.getLayer('draw-fill')) return;
-    const onExpr = ['case', ['to-boolean', ['get', 'draft']], 0.08, 0.13] as unknown as maplibregl.ExpressionSpecification;
-    map.setPaintProperty('draw-fill', 'fill-opacity', drawCircleFill ? onExpr : 0);
+    map.setPaintProperty('draw-fill', 'fill-opacity', drawCircleFill ? DRAW_FILL_OPACITY_ON : 0);
   }, [mapReady, drawCircleFill]);
 
   // ── Fonds raster modernes (satellite ArcGIS + Plan IGN + SCAN25 + Ortho IGN) ──

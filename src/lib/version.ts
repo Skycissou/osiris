@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.115-dev';
+export const OSIRIS_VERSION = 'V4.116-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.116-dev',
+    date: '2026-07-16',
+    resume:
+      "🧹 Lot E — retours revue de code de Claude chat sur la boîte MESURE (0 🔴). **E1** (🟠) : quand la grille " +
+      "« départements/Caméras » est affichée ET l'outil mesure armé, le clic du picker (`dept-picker-fill`) chargeait " +
+      "un département EN PLUS de l'action mesure → garde `if (drawModeRef.current !== 'off') return;` en tête du " +
+      "handler (l'outil a priorité ; picker inchangé sur `off`). **E2** : opacité du fond des cercles factorisée en " +
+      "1 const `DRAW_FILL_OPACITY_ON` (était dupliquée création+toggle). **E3** : recolor no-op ne re-rend plus les " +
+      "étiquettes si la couleur est déjà la bonne. Build+tsc verts.",
+  },
   {
     version: 'V4.115-dev',
     date: '2026-07-16',
