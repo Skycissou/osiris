@@ -1185,6 +1185,15 @@ function OsirisMap({
         layout: { visibility: 'none', 'line-join': 'round' },
       });
       map.on('click', 'dept-picker-fill', (e) => {
+        // PRIORITÉ aux points de données : si un avis / une caméra / un point live
+        // est sous le clic, on NE traite PAS le clic comme un choix de département
+        // (sinon la grille, qui couvre toute la France, volerait le clic → bug).
+        const blockers = map.queryRenderedFeatures(e.point).filter((h) => {
+          const id = h.layer?.id || '';
+          return id !== 'dept-picker-fill' && id !== 'dept-picker-line' &&
+            (id.endsWith('-dots') || id.endsWith('-symbols') || id.includes('alerts'));
+        });
+        if (blockers.length) return;
         const f = e.features?.[0]; if (!f) return;
         const code = String(f.properties?.code ?? '');
         const nom = String(f.properties?.nom ?? '');

@@ -368,8 +368,11 @@ export default function Dashboard() {
   //  département charge SES caméras (Windy + OSM) + bases militaires, qui
   //  s'ACCUMULENT en mémoire de session (plusieurs départements empilables).
   const form2 = isForm2Enabled();
-  // Picker visible dès que Caméras OU Bases militaires est actif (le fetch charge les deux).
-  const deptPickerActive = form2 && (!!activeLayers.sens_cctv || !!activeLayers.sens_military_bases);
+  // Grille des départements affichée (masquable une fois les départements choisis).
+  const [deptGridVisible, setDeptGridVisible] = useState(true);
+  // Picker actif = forme 2 + (Caméras OU Bases militaires) + grille non masquée.
+  const sensPickerOn = form2 && (!!activeLayers.sens_cctv || !!activeLayers.sens_military_bases);
+  const deptPickerActive = sensPickerOn && deptGridVisible;
   // Données chargées par département (clé = code INSEE) → accumulation.
   const [deptData, setDeptData] = useState<Record<string, { nom: string; cctv: SensitivePoint[]; military: SensitivePoint[] }>>({});
   const deptDataRef = useRef(deptData);
@@ -1148,11 +1151,21 @@ export default function Dashboard() {
                 })}
               </div>
               {/* Zone clic-département : quand Caméras/Bases militaires est actif. */}
-              {deptPickerActive && (
+              {sensPickerOn && (
                 <div className="mt-2 px-2 flex flex-col gap-1.5">
-                  <div className="text-[10px] font-mono text-[#67e8f9] leading-snug">
-                    👉 Clique un <b>département</b> sur la carte pour charger ses caméras
-                  </div>
+                  {/* Bouton afficher/masquer la GRILLE des départements (déclutter). */}
+                  <button
+                    onClick={() => setDeptGridVisible((v) => !v)}
+                    className={`self-start text-[9px] font-mono uppercase tracking-wider rounded px-2 py-0.5 border transition-colors ${deptGridVisible ? 'text-[#67e8f9] border-[#22d3ee]/40 hover:border-[#22d3ee]/70' : 'text-white/50 border-white/20 hover:border-white/40'}`}
+                    title="Afficher ou masquer la grille cliquable des départements"
+                  >
+                    {deptGridVisible ? '◈ Grille départements : ON' : '◇ Grille départements : OFF'}
+                  </button>
+                  {deptGridVisible && (
+                    <div className="text-[10px] font-mono text-[#67e8f9] leading-snug">
+                      👉 Clique un <b>département</b> sur la carte pour charger ses caméras
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 text-[9px] font-mono text-white/60">
                     {loadingDept ? (
                       <span className="text-[#ffb23e] animate-pulse">● chargement du département {loadingDept}…</span>

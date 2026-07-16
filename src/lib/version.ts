@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.105-dev';
+export const OSIRIS_VERSION = 'V4.106-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.106-dev',
+    date: '2026-07-15',
+    resume:
+      "🖱️ CCTV clic-département — 2 retours Cissou. ① **BUG corrigé** : cliquer un avis de recherche (ou une caméra) " +
+      "effaçait les caméras chargées → la grille des départements (qui couvre toute la France) **volait le clic** → " +
+      "re-toggle du département. Fix : `queryRenderedFeatures` — si un **point de données** (avis, caméra, point live) " +
+      "est sous le clic, la grille **ne traite pas** le clic (priorité au point). ② **Grille masquable** : bouton " +
+      "« ◈ Grille départements ON/OFF » → une fois les départements choisis, tu masques la grille bleue (carte propre, " +
+      "caméras conservées) et tu la ré-affiches pour en ajouter. Build+tsc verts.",
+  },
   {
     version: 'V4.105-dev',
     date: '2026-07-15',
