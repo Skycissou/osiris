@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.103-dev';
+export const OSIRIS_VERSION = 'V4.104-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.104-dev',
+    date: '2026-07-15',
+    resume:
+      "🎯 CCTV — fin du clignotement « par vagues » (retour Cissou). À vue large, la couche se re-fetchait à chaque " +
+      "micro-mouvement et l'API Windy (webcams les + proches du CENTRE) renvoyait un lot différent à chaque fois → " +
+      "caméras qui apparaissent/disparaissent (Bretagne, etc.). Fix : **gate par largeur de vue** — les couches sensibles " +
+      "ne se fetchent QUE si la vue est resserrée (span < ~5° lng / 4° lat ≈ région/ville), sinon `enabled=false` (zéro " +
+      "fetch → zéro clignotement) + message **« 🔍 Zoome sur une zone pour afficher les caméras »**. À zoom ville : lot " +
+      "stable et pertinent (Windy nearby couvre la vue, Overpass ne timeout pas). Build+tsc verts.",
+  },
   {
     version: 'V4.103-dev',
     date: '2026-07-15',

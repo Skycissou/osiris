@@ -260,10 +260,19 @@ export default function Dashboard() {
   // `sensitiveLive` est déclaré plus bas ; on route la bbox vers les deux via une ref
   //  pour garder handleBoundsChange stable (les couches sensibles suivent la carte).
   const sensitiveSetBBoxRef = useRef<((b: [number, number, number, number]) => void) | null>(null);
+  // Vue TROP LARGE pour les caméras : à l'échelle pays/continent, l'API Windy
+  //  (webcams les + proches du CENTRE) renvoie un lot différent à chaque fetch →
+  //  clignotement, et Overpass timeout. On ne fetch les couches sensibles QUE si la
+  //  vue est resserrée (≈ région/ville) → stable + pertinent. Défaut = trop large.
+  const [sensTooWide, setSensTooWide] = useState(true);
   const handleBoundsChange = useCallback(
     (bbox: [number, number, number, number]) => {
       live.setBBox(bbox);
-      sensitiveSetBBoxRef.current?.(bbox);
+      const lngSpan = Math.abs(bbox[2] - bbox[0]);
+      const latSpan = Math.abs(bbox[3] - bbox[1]);
+      const tooWide = lngSpan > 5 || latSpan > 4; // ~> 400 km → trop large
+      setSensTooWide(tooWide);
+      if (!tooWide) sensitiveSetBBoxRef.current?.(bbox);
     },
     [live],
   );
@@ -379,7 +388,7 @@ export default function Dashboard() {
   const sensitiveLive = useDataPolling({
     fastUrl: '/live-feed/sensitive', slowUrl: '/live-feed/sensitive', criticalUrl: '/live-feed/sensitive',
     fastIntervalMs: 120000, slowIntervalMs: 3_600_000, denseEndpoints: ['fast', 'slow'],
-    enabled: anySensitiveOn, onFetchingChange: setSensBusy,
+    enabled: anySensitiveOn && !sensTooWide, onFetchingChange: setSensBusy,
   });
   // Relie le pilotage bbox des couches sensibles à handleBoundsChange (déclaré + haut).
   sensitiveSetBBoxRef.current = sensitiveLive.setBBox;
@@ -1125,6 +1134,12 @@ export default function Dashboard() {
                   </button>
                 ))}
               </div>
+              {/* Vue trop large → les caméras seraient instables : on invite à zoomer. */}
+              {anySensitiveOn && sensTooWide && (
+                <div className="mt-2 text-[10px] font-mono text-[var(--accent-bright)]/80 leading-snug px-2">
+                  🔍 Zoome sur une zone (ville / région) pour afficher les caméras
+                </div>
+              )}
             </div>
           )}
         </motion.div>
