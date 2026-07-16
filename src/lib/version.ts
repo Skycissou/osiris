@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.104-dev';
+export const OSIRIS_VERSION = 'V4.105-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,19 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.105-dev',
+    date: '2026-07-15',
+    resume:
+      "🗺️ CCTV — modèle CLIC-DÉPARTEMENT (idée UX Cissou, France d'abord). Fini l'auto-poll par zoom (clignotement). " +
+      "Activer « Caméras » (ou « Bases militaires ») → les 96 départements FR s'affichent en contours **cliquables** ; " +
+      "cliquer un département charge SES caméras (Windy + OSM) + bases militaires, qui **s'accumulent** en mémoire de " +
+      "session (empilables) + surbrillance du département chargé + compteur + bouton « vider » (re-clic = retirer). " +
+      "Réutilise le GeoJSON départements déjà embarqué + calcul d'emprise exacte au clic. **Overpass fiabilisé** " +
+      "(5 miroirs, basculement 9 s → caméras OSM + bases militaires enfin stables). Couches sans source (GPS/scanners/" +
+      "SIGINT/Telegram) **grisées « à venir »**. Faux vert supprimé (voyant → « chargement du département N… »). " +
+      "Reste du monde = 2ᵉ temps. Build+tsc verts. ⚠️ UI non testable en sandbox → validation navigateur Cissou.",
+  },
   {
     version: 'V4.104-dev',
     date: '2026-07-15',

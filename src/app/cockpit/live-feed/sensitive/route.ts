@@ -73,10 +73,14 @@ const USER_AGENT = 'Osiris-Cockpit/4.0 (ARPD veille; +https://osiris.cissouhub.c
  * bascule sur un miroir si l'un refuse/échoue.
  */
 const OVERPASS_ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.osm.ch/api/interpreter',
+  'https://overpass-api.de/api/interpreter', // principal en dernier (refuse le VPS, ECONNREFUSED)
 ];
+/** Timeout PAR miroir (ms) — court pour basculer vite sur le suivant si l'un traîne. */
+const OVERPASS_PER_MIRROR_MS = 9_000;
 /** Plafond de bases militaires retenues (protège d'une bbox trop large). */
 const MILITARY_MAX = 500;
 /** Plafond de caméras OSM retenues (bbox large = beaucoup de `man_made=surveillance`). */
@@ -221,7 +225,7 @@ interface WindyWebcam {
 async function fetchOverpass(query: string): Promise<OverpassElement[]> {
   for (const endpoint of OVERPASS_ENDPOINTS) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), OVERPASS_PER_MIRROR_MS);
     try {
       const res = await fetch(endpoint, {
         method: 'POST',

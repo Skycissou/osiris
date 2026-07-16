@@ -94,7 +94,6 @@ const DEFAULT_LAYERS: Record<string, boolean> = {
 // Clés des couches temps réel « publiques » (forme 1) — gating du polling fast/slow.
 const LIVE_LAYER_KEYS = ['live_aircraft', 'live_earthquakes', 'live_wildfires', 'live_volcanoes', 'live_satellites', 'live_ships', 'live_gdelt', 'live_cyber'];
 // Clés des couches sensibles (forme 2) — gating du polling /live-feed/sensitive.
-const SENSITIVE_LAYER_KEYS = ['sens_military_bases', 'sens_cctv', 'sens_gps_jamming', 'sens_scanners', 'sens_sigint', 'sens_telegram_osint'];
 
 // ── Options du menu de couches (labels lisibles, ordre d'affichage) ──
 const BASEMAP_OPTS: { key: 'dark' | 'ign' | 'scan25' | 'ortho' | 'satellite'; label: string }[] = [
@@ -180,6 +179,8 @@ const SENSITIVE_OPTS: { key: string; label: string; title: string }[] = [
   { key: 'sens_sigint', label: 'SIGINT (mesh/APRS)', title: 'Radio mesh / APRS — nécessite une clé' },
   { key: 'sens_telegram_osint', label: 'Telegram OSINT', title: 'Signaux Telegram géolocalisés — nécessite une clé' },
 ];
+// Couches sensibles encore SANS source branchée (coquilles vides) → grisées « à venir ».
+const SENSITIVE_COMING_SOON = new Set(['sens_gps_jamming', 'sens_scanners', 'sens_sigint', 'sens_telegram_osint']);
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
@@ -257,23 +258,8 @@ export default function Dashboard() {
   // → les couches denses (avions) restaient figées sur la bbox défaut France,
   // où que soit la carte. La carte pousse maintenant son emprise (onBoundsChange).
   const live = useDataPolling({ enabled: anyLiveOn });
-  // `sensitiveLive` est déclaré plus bas ; on route la bbox vers les deux via une ref
-  //  pour garder handleBoundsChange stable (les couches sensibles suivent la carte).
-  const sensitiveSetBBoxRef = useRef<((b: [number, number, number, number]) => void) | null>(null);
-  // Vue TROP LARGE pour les caméras : à l'échelle pays/continent, l'API Windy
-  //  (webcams les + proches du CENTRE) renvoie un lot différent à chaque fetch →
-  //  clignotement, et Overpass timeout. On ne fetch les couches sensibles QUE si la
-  //  vue est resserrée (≈ région/ville) → stable + pertinent. Défaut = trop large.
-  const [sensTooWide, setSensTooWide] = useState(true);
   const handleBoundsChange = useCallback(
-    (bbox: [number, number, number, number]) => {
-      live.setBBox(bbox);
-      const lngSpan = Math.abs(bbox[2] - bbox[0]);
-      const latSpan = Math.abs(bbox[3] - bbox[1]);
-      const tooWide = lngSpan > 5 || latSpan > 4; // ~> 400 km → trop large
-      setSensTooWide(tooWide);
-      if (!tooWide) sensitiveSetBBoxRef.current?.(bbox);
-    },
+    (bbox: [number, number, number, number]) => live.setBBox(bbox),
     [live],
   );
   const aircraft = useDataKey<AircraftPoint[]>('aircraft');
@@ -376,32 +362,54 @@ export default function Dashboard() {
     !alertHiddenSrc.includes(a.source),
   ), [missingAlerts, alertHiddenCat, alertHiddenSrc]);
 
-  // ── Couches sensibles (forme 2) — polling séparé /live-feed/sensitive,
-  // actif UNIQUEMENT en forme 2 ET si une couche sensible est allumée. ──
+  // ── Couches sensibles (forme 2) — modèle CLIC-DÉPARTEMENT + accumulation ──
+  //  Cissou 15/07 : plus d'auto-poll par zoom (ça clignotait / centrait sur la France).
+  //  La couche « Caméras » dessine les départements FR cliquables ; cliquer un
+  //  département charge SES caméras (Windy + OSM) + bases militaires, qui
+  //  s'ACCUMULENT en mémoire de session (plusieurs départements empilables).
   const form2 = isForm2Enabled();
-  const anySensitiveOn = form2 && SENSITIVE_LAYER_KEYS.some((k) => activeLayers[k]);
-  // Voyant « chargement » des couches sensibles (une requête /sensitive en vol).
-  const [sensBusy, setSensBusy] = useState(false);
-  // `denseEndpoints: ['fast','slow']` → la requête envoie la bbox de la carte
-  //  (sinon le serveur retombe sur sa bbox France par défaut → caméras figées
-  //  au centre France + Overpass qui timeout). Le handle pilote setBBox.
-  const sensitiveLive = useDataPolling({
-    fastUrl: '/live-feed/sensitive', slowUrl: '/live-feed/sensitive', criticalUrl: '/live-feed/sensitive',
-    fastIntervalMs: 120000, slowIntervalMs: 3_600_000, denseEndpoints: ['fast', 'slow'],
-    enabled: anySensitiveOn && !sensTooWide, onFetchingChange: setSensBusy,
-  });
-  // Relie le pilotage bbox des couches sensibles à handleBoundsChange (déclaré + haut).
-  sensitiveSetBBoxRef.current = sensitiveLive.setBBox;
-  const s_cctv = useDataKey<SensitivePoint[]>('cctv');
-  const s_military = useDataKey<SensitivePoint[]>('military_bases');
-  const s_jamming = useDataKey<SensitivePoint[]>('gps_jamming');
-  const s_scanners = useDataKey<SensitivePoint[]>('scanners');
-  const s_sigint = useDataKey<SensitivePoint[]>('sigint');
-  const s_telegram = useDataKey<SensitivePoint[]>('telegram_osint');
-  const sensitive: SensitiveData = useMemo(() => ({
-    cctv: s_cctv, military_bases: s_military, gps_jamming: s_jamming,
-    scanners: s_scanners, sigint: s_sigint, telegram_osint: s_telegram,
-  }), [s_cctv, s_military, s_jamming, s_scanners, s_sigint, s_telegram]);
+  // Picker visible dès que Caméras OU Bases militaires est actif (le fetch charge les deux).
+  const deptPickerActive = form2 && (!!activeLayers.sens_cctv || !!activeLayers.sens_military_bases);
+  // Données chargées par département (clé = code INSEE) → accumulation.
+  const [deptData, setDeptData] = useState<Record<string, { nom: string; cctv: SensitivePoint[]; military: SensitivePoint[] }>>({});
+  const deptDataRef = useRef(deptData);
+  deptDataRef.current = deptData;
+  // Département en cours de chargement (feedback voyant).
+  const [loadingDept, setLoadingDept] = useState<string | null>(null);
+  const loadedDeptCodes = useMemo(() => Object.keys(deptData), [deptData]);
+  const clearDepts = useCallback(() => setDeptData({}), []);
+  const onDeptPick = useCallback((code: string, nom: string, bbox: [number, number, number, number]) => {
+    // Déjà chargé → clic = retirer (toggle off).
+    if (deptDataRef.current[code]) {
+      setDeptData((prev) => { const next = { ...prev }; delete next[code]; return next; });
+      return;
+    }
+    // Sinon → charger les caméras + bases militaires de ce département.
+    setLoadingDept(code);
+    const base = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '');
+    const bboxParam = bbox.map((n) => Number(n.toFixed(5))).join(',');
+    fetch(`${base}/live-feed/sensitive?bbox=${encodeURIComponent(bboxParam)}`, {
+      credentials: 'include', cache: 'no-store', headers: { Accept: 'application/json' },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body) => {
+        const cctv = (Array.isArray(body?.cctv) ? body.cctv : []) as SensitivePoint[];
+        const military = (Array.isArray(body?.military_bases) ? body.military_bases : []) as SensitivePoint[];
+        setDeptData((prev) => ({ ...prev, [code]: { nom, cctv, military } }));
+      })
+      .catch(() => { /* dégradation douce : département non chargé */ })
+      .finally(() => setLoadingDept((c) => (c === code ? null : c)));
+  }, []);
+  // Sensible = union accumulée (dédup par id) de tous les départements chargés.
+  const sensitive: SensitiveData = useMemo(() => {
+    const cctvMap = new Map<string, SensitivePoint>();
+    const milMap = new Map<string, SensitivePoint>();
+    for (const d of Object.values(deptData)) {
+      for (const c of d.cctv) cctvMap.set(String(c.id), c);
+      for (const m of d.military) milMap.set(String(m.id), m);
+    }
+    return { cctv: [...cctvMap.values()], military_bases: [...milMap.values()] };
+  }, [deptData]);
 
   // ── Carte-fiche entité (clic avion) : affichage immédiat puis photo ──
   const [selectedEntity, setSelectedEntity] = useState<AircraftEnriched | null>(null);
@@ -724,6 +732,9 @@ export default function Dashboard() {
           alerts={filteredAlerts}
           osintPins={osintPins}
           onRemoveOsintPin={removeOsintPin}
+          deptPickerActive={deptPickerActive}
+          loadedDeptCodes={loadedDeptCodes}
+          onDeptPick={onDeptPick}
           sensitive={sensitive}
           onAircraftClick={handleAircraftClick}
           selectedAircraftHex={selectedEntity?.hex ?? null}
@@ -1117,27 +1128,47 @@ export default function Dashboard() {
             <div className="mt-4">
               <div className="text-[9px] font-mono tracking-widest text-[var(--red)] uppercase mb-2 pb-1 border-b border-[var(--red)]/25">Sensibles · forme 2</div>
               <div className="flex flex-col gap-1">
-                {SENSITIVE_OPTS.map((o) => (
-                  <button
-                    key={o.key}
-                    onClick={() => toggleSensitive(o.key)}
-                    className={`osiris-row flex items-center gap-2.5 px-2 py-1.5 text-left ${activeLayers[o.key] ? 'osiris-row-active' : ''}`}
-                    title={o.title}
-                  >
-                    <span className={`w-3 h-3 rounded-sm flex-shrink-0 border flex items-center justify-center ${activeLayers[o.key] ? 'bg-[var(--red)] border-[var(--red)]' : 'border-white/30'}`}>
-                      {activeLayers[o.key] && <span className="w-1.5 h-1.5 bg-[var(--bg)] rounded-[1px]" />}
-                    </span>
-                    <span className={`text-[11px] font-mono ${activeLayers[o.key] ? 'text-white' : 'text-white/60'}`}>{o.label}</span>
-                    {/* Voyant : orange « en cours… » pendant le fetch, vert « à jour »
-                        une fois chargé (rien si la couche est éteinte). */}
-                    <ConnLED status={activeLayers[o.key] ? (sensBusy ? 'wait' : 'ok') : undefined} />
-                  </button>
-                ))}
+                {SENSITIVE_OPTS.map((o) => {
+                  const soon = SENSITIVE_COMING_SOON.has(o.key);
+                  return (
+                    <button
+                      key={o.key}
+                      onClick={() => { if (!soon) toggleSensitive(o.key); }}
+                      disabled={soon}
+                      className={`osiris-row flex items-center gap-2.5 px-2 py-1.5 text-left ${activeLayers[o.key] ? 'osiris-row-active' : ''} ${soon ? 'opacity-40 cursor-not-allowed' : ''}`}
+                      title={soon ? `${o.title} — pas encore branché` : o.title}
+                    >
+                      <span className={`w-3 h-3 rounded-sm flex-shrink-0 border flex items-center justify-center ${activeLayers[o.key] ? 'bg-[var(--red)] border-[var(--red)]' : 'border-white/30'}`}>
+                        {activeLayers[o.key] && <span className="w-1.5 h-1.5 bg-[var(--bg)] rounded-[1px]" />}
+                      </span>
+                      <span className={`text-[11px] font-mono ${activeLayers[o.key] ? 'text-white' : 'text-white/60'}`}>{o.label}</span>
+                      {soon && <span className="ml-auto text-[8px] font-mono uppercase tracking-wider text-white/35">à venir</span>}
+                    </button>
+                  );
+                })}
               </div>
-              {/* Vue trop large → les caméras seraient instables : on invite à zoomer. */}
-              {anySensitiveOn && sensTooWide && (
-                <div className="mt-2 text-[10px] font-mono text-[var(--accent-bright)]/80 leading-snug px-2">
-                  🔍 Zoome sur une zone (ville / région) pour afficher les caméras
+              {/* Zone clic-département : quand Caméras/Bases militaires est actif. */}
+              {deptPickerActive && (
+                <div className="mt-2 px-2 flex flex-col gap-1.5">
+                  <div className="text-[10px] font-mono text-[#67e8f9] leading-snug">
+                    👉 Clique un <b>département</b> sur la carte pour charger ses caméras
+                  </div>
+                  <div className="flex items-center gap-2 text-[9px] font-mono text-white/60">
+                    {loadingDept ? (
+                      <span className="text-[#ffb23e] animate-pulse">● chargement du département {loadingDept}…</span>
+                    ) : (
+                      <span>{loadedDeptCodes.length} département{loadedDeptCodes.length > 1 ? 's' : ''} chargé{loadedDeptCodes.length > 1 ? 's' : ''}</span>
+                    )}
+                    {loadedDeptCodes.length > 0 && (
+                      <button
+                        onClick={clearDepts}
+                        className="ml-auto text-[9px] font-mono uppercase tracking-wider text-[#ff9b9f] hover:text-[#ff6b74] border border-[#ff6b74]/30 hover:border-[#ff6b74]/60 rounded px-2 py-0.5 transition-colors"
+                        title="Retirer tous les départements chargés"
+                      >
+                        ✕ Vider
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

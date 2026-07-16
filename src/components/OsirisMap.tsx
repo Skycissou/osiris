@@ -235,6 +235,13 @@ interface OsirisMapProps {
   osintPins?: OsintIpPin[];
   /** Retrait d'un pin OSINT depuis son popup (bouton ×). */
   onRemoveOsintPin?: (id: string) => void;
+  /** Picker « départements cliquables » (couche Caméras forme 2) : dessine les
+   *  contours des départements FR, cliquables → charge les caméras du département. */
+  deptPickerActive?: boolean;
+  /** Codes des départements déjà chargés (surbrillance). */
+  loadedDeptCodes?: string[];
+  /** Clic sur un département du picker → (code, nom, emprise [minLng,minLat,maxLng,maxLat]). */
+  onDeptPick?: (code: string, nom: string, bbox: [number, number, number, number]) => void;
   /** Couches sensibles (forme 2) — rendues si activeLayers.sens_* + consentement. */
   sensitive?: SensitiveData;
   /** Clic sur un avion → ouvre la carte-fiche riche (photo + détails). */
@@ -485,6 +492,9 @@ function OsirisMap({
   alerts = [],
   osintPins = [],
   onRemoveOsintPin,
+  deptPickerActive = false,
+  loadedDeptCodes = [],
+  onDeptPick,
   sensitive = {},
   onAircraftClick,
   selectedAircraftHex = null,
@@ -514,6 +524,12 @@ function OsirisMap({
   // Dernier callback de retrait (les handlers de marqueur le lisent via ref, pas de re-bind).
   const onRemoveOsintPinRef = useRef<typeof onRemoveOsintPin>(onRemoveOsintPin);
   onRemoveOsintPinRef.current = onRemoveOsintPin;
+  // Callback clic-département toujours frais (le handler du picker le lit via ref).
+  const onDeptPickRef = useRef<typeof onDeptPick>(onDeptPick);
+  onDeptPickRef.current = onDeptPick;
+  // GeoJSON départements chargé (pour calculer l'emprise EXACTE au clic, pas la
+  // géométrie clippée par la tuile). Rempli à la 1ʳᵉ activation du picker.
+  const deptFCRef = useRef<{ features: Array<{ properties?: { code?: string; nom?: string }; geometry?: { type?: string; coordinates?: unknown } }> } | null>(null);
   const zoneBlinkRafRef = useRef(0); // clignotement du contour d'alerte
   const [mapReady, setMapReady] = useState(false);
   const prevStyleRef = useRef(mapStyle);
@@ -1144,6 +1160,58 @@ function OsirisMap({
       };
       zoneBlinkRafRef.current = requestAnimationFrame(blink);
 
+      // ── PICKER DÉPARTEMENTS (couche Caméras forme 2) — contours cliquables ──
+      map.addSource('dept-picker', { type: 'geojson', data: EMPTY_FC });
+      map.addLayer({
+        id: 'dept-picker-fill',
+        type: 'fill',
+        source: 'dept-picker',
+        paint: {
+          // Chargé → teinte cyan visible ; non chargé → quasi transparent (mais cliquable).
+          'fill-color': '#22d3ee',
+          'fill-opacity': ['case', ['==', ['get', 'loaded'], true], 0.18, 0.04],
+        },
+        layout: { visibility: 'none' },
+      });
+      map.addLayer({
+        id: 'dept-picker-line',
+        type: 'line',
+        source: 'dept-picker',
+        paint: {
+          'line-color': ['case', ['==', ['get', 'loaded'], true], '#67e8f9', '#22d3ee'],
+          'line-width': ['case', ['==', ['get', 'loaded'], true], 2, 0.8],
+          'line-opacity': ['case', ['==', ['get', 'loaded'], true], 0.9, 0.5],
+        },
+        layout: { visibility: 'none', 'line-join': 'round' },
+      });
+      map.on('click', 'dept-picker-fill', (e) => {
+        const f = e.features?.[0]; if (!f) return;
+        const code = String(f.properties?.code ?? '');
+        const nom = String(f.properties?.nom ?? '');
+        if (!code) return;
+        // Emprise EXACTE depuis le GeoJSON d'origine (pas la géométrie clippée par la tuile).
+        const src = deptFCRef.current?.features.find((d) => d.properties?.code === code);
+        const geom = src?.geometry ?? (f.geometry as { type?: string; coordinates?: unknown });
+        let minLng = 180, minLat = 90, maxLng = -180, maxLat = -90;
+        const scan = (coords: unknown): void => {
+          if (!Array.isArray(coords)) return;
+          if (typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+            const lng = coords[0] as number, lat = coords[1] as number;
+            if (lng < minLng) minLng = lng;
+            if (lng > maxLng) maxLng = lng;
+            if (lat < minLat) minLat = lat;
+            if (lat > maxLat) maxLat = lat;
+            return;
+          }
+          for (const c of coords) scan(c);
+        };
+        scan(geom?.coordinates);
+        if (minLng > maxLng) return; // géométrie vide
+        onDeptPickRef.current?.(code, nom, [minLng, minLat, maxLng, maxLat]);
+      });
+      map.on('mouseenter', 'dept-picker-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'dept-picker-fill', () => { map.getCanvas().style.cursor = ''; });
+
       map.addSource('live-alerts', { type: 'geojson', data: EMPTY_FC });
       map.addLayer({
         id: 'live-alerts-halo',
@@ -1361,6 +1429,32 @@ function OsirisMap({
       }
     }
   }, [mapReady, osintPins]);
+  // ─────────────────────────────────────────────────────────────────────
+
+  // ─── PICKER DÉPARTEMENTS (couche Caméras) : contours cliquables + surbrillance ──
+  useEffect(() => {
+    if (!mapReady) return;
+    if (!deptPickerActive) {
+      setVis(['dept-picker-fill', 'dept-picker-line'], false);
+      return;
+    }
+    const loaded = new Set(loadedDeptCodes);
+    let cancelled = false;
+    void loadDepartements()
+      .then((fc) => {
+        if (cancelled || !mapRef.current) return;
+        deptFCRef.current = fc as unknown as typeof deptFCRef.current;
+        const feats = (fc.features || []).map((f) => ({
+          type: 'Feature' as const,
+          geometry: f.geometry,
+          properties: { code: f.properties?.code ?? '', nom: f.properties?.nom ?? '', loaded: loaded.has(f.properties?.code ?? '') },
+        }));
+        setGeo('dept-picker', feats);
+        setVis(['dept-picker-fill', 'dept-picker-line'], true);
+      })
+      .catch(() => { /* GeoJSON indispo → pas de picker, dégradation douce */ });
+    return () => { cancelled = true; };
+  }, [mapReady, deptPickerActive, loadedDeptCodes, setGeo, setVis]);
   // ─────────────────────────────────────────────────────────────────────
 
   // ─── RENDU DES COUCHES DE RÉSULTATS FR (search-first) ────────────────
