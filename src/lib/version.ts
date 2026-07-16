@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.109-dev';
+export const OSIRIS_VERSION = 'V4.110-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,17 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.110-dev',
+    date: '2026-07-16',
+    resume:
+      "📐 Boîte à outils TRACÉ & MESURE sur la carte (P1, éphémère, 100 % navigateur, zéro clé/réseau). Bouton " +
+      "« MESURE » → 4 outils : **Tracer** (polyligne, distance par segment + total live, double-clic pour finir), " +
+      "**Cercle** (clic centre puis bord, rayon affiché + aire), **Repère** (points numérotés R1, R2…), **Gomme** " +
+      "(clic pour retirer un objet) + **Vider**. Géo-calculs purs `src/lib/mapMeasure.ts` (haversine + destination + " +
+      "cercle géodésique, testables). Étiquettes = marqueurs HTML (pas de dépendance aux glyphes). Couleur AMBRE " +
+      "distincte des pins existants (rouge/cyan/vert). Build+tsc verts.",
+  },
   {
     version: 'V4.109-dev',
     date: '2026-07-16',

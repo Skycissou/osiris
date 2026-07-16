@@ -12,6 +12,10 @@ import { recordPositions, buildTrails } from '@/lib/trails';
 // Couleur des avions par catégorie — logique PURE et testée dans aircraftCategory.ts.
 import { AIRCRAFT_CAT_COLORS, aircraftCatKey } from '@/lib/aircraftCategory';
 import { trackMapMove } from '@/lib/uiTelemetry';
+import {
+  type LngLat, distanceM, pathLengthM, circleRing, midpoint, destination,
+  fmtDistance, fmtArea,
+} from '@/lib/mapMeasure';
 // Ré-export pour la légende (page.tsx).
 export { AIRCRAFT_CAT_COLORS, AIRCRAFT_CAT_LABELS, AIRCRAFT_CAT_ORDER } from '@/lib/aircraftCategory';
 
@@ -274,7 +278,31 @@ interface OsirisMapProps {
   orthoYear?: number;
   /** Surcouches thématiques IGN cochables (plusieurs simultanées) — clé → actif. */
   overlays?: Record<string, boolean>;
+  /** Boîte à outils MESURE (P1) — mode de dessin actif sur la carte.
+   *  'off' = interactions normales · 'trace' = polyligne + distance live
+   *  (double-clic/Entrée pour finir, Échap pour annuler) · 'circle' = cercle
+   *  rayon (clic centre puis clic bord) · 'marker' = point repère nommé ·
+   *  'erase' = clic sur un objet dessiné pour le retirer. Tout est ÉPHÉMÈRE (RAM). */
+  drawMode?: DrawMode;
+  /** Signal d'effacement total : passer une nouvelle valeur (ex. Date.now()) vide tous les tracés. */
+  drawClearTs?: number;
+  /** Remonte au parent le compteur d'objets + un libellé de mesure lisible, à chaque changement. */
+  onDrawStats?: (s: { count: number; readout: string }) => void;
 }
+
+/** Modes de la boîte à outils tracé/mesure (P1). */
+export type DrawMode = 'off' | 'trace' | 'circle' | 'marker' | 'erase';
+
+/** Objet dessiné (éphémère, en RAM). */
+type DrawFeature =
+  | { id: string; kind: 'trace'; pts: LngLat[] }
+  | { id: string; kind: 'circle'; center: LngLat; radiusM: number }
+  | { id: string; kind: 'marker'; pt: LngLat; label: string };
+
+// Palette de l'outil mesure — AMBRE, volontairement distincte des autres pins
+// (rouge = alertes/OSM · cyan = OSINT · vert = webcams) → pas de confusion visuelle.
+const DRAW_COLOR = '#ffb347';
+const DRAW_COLOR_MARKER = '#ffd27f';
 
 // Terminateur solaire jour/nuit (couche optionnelle) — géométrie polygonale.
 function computeSolarTerminator(): [number, number][] {
@@ -511,6 +539,9 @@ function OsirisMap({
   timeLayer = 'none',
   orthoYear = 2021,
   overlays = {},
+  drawMode = 'off',
+  drawClearTs,
+  onDrawStats,
 }: OsirisMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -530,6 +561,17 @@ function OsirisMap({
   // GeoJSON départements chargé (pour calculer l'emprise EXACTE au clic, pas la
   // géométrie clippée par la tuile). Rempli à la 1ʳᵉ activation du picker.
   const deptFCRef = useRef<{ features: Array<{ properties?: { code?: string; nom?: string }; geometry?: { type?: string; coordinates?: unknown } }> } | null>(null);
+  // ── Boîte à outils tracé/mesure (P1) — état ÉPHÉMÈRE en RAM ──
+  const drawModeRef = useRef<DrawMode>(drawMode);
+  const onDrawStatsRef = useRef(onDrawStats);
+  onDrawStatsRef.current = onDrawStats;
+  const drawFeaturesRef = useRef<DrawFeature[]>([]);        // objets validés
+  const drawDraftRef = useRef<{ kind: 'trace' | 'circle'; pts: LngLat[] } | null>(null); // en cours
+  const drawCursorRef = useRef<LngLat | null>(null);        // curseur (prévisualisation élastique)
+  const drawLabelMarkersRef = useRef<maplibregl.Marker[]>([]); // étiquettes HTML (distances/rayons/noms)
+  const drawIdRef = useRef(0);                              // compteur d'identifiants stables
+  const drawMarkerNumRef = useRef(0);                      // numérotation des repères (R1, R2…)
+  const renderDrawRef = useRef<(() => void) | null>(null);  // rendu appelable depuis les autres effets
   const zoneBlinkRafRef = useRef(0); // clignotement du contour d'alerte
   const [mapReady, setMapReady] = useState(false);
   const prevStyleRef = useRef(mapStyle);
@@ -1811,6 +1853,225 @@ function OsirisMap({
       console.warn('[OSIRIS] Projection switch failed:', e);
     }
   }, [mapReady, projection]);
+
+  // ── Boîte à outils TRACÉ & MESURE (P1) — sources/calques + interactions ──
+  //  Tout est 100 % navigateur (géo-calculs purs `mapMeasure`), ÉPHÉMÈRE (RAM).
+  //  Les étiquettes de distance/rayon sont des marqueurs HTML (pas de calque
+  //  symbole → aucune dépendance aux glyphes de fond). Posé UNE fois à mapReady ;
+  //  aucun `setStyle` dans ce composant → les calques survivent aux changements
+  //  de fond. Le mode courant est lu via ref (handlers posés une seule fois).
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+    const map = mapRef.current;
+    if (map.getSource('draw-line')) return; // déjà posé (remontage StrictMode)
+
+    map.addSource('draw-fill', { type: 'geojson', data: EMPTY_FC });
+    map.addSource('draw-line', { type: 'geojson', data: EMPTY_FC });
+    map.addSource('draw-vertex', { type: 'geojson', data: EMPTY_FC });
+    map.addSource('draw-marker', { type: 'geojson', data: EMPTY_FC });
+    map.addLayer({
+      id: 'draw-fill', type: 'fill', source: 'draw-fill',
+      paint: { 'fill-color': DRAW_COLOR, 'fill-opacity': ['case', ['to-boolean', ['get', 'draft']], 0.08, 0.13] },
+    });
+    map.addLayer({
+      id: 'draw-line', type: 'line', source: 'draw-line',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': DRAW_COLOR,
+        'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.8, 12, 2.6],
+        'line-opacity': ['case', ['to-boolean', ['get', 'draft']], 0.65, 1],
+      },
+    });
+    map.addLayer({
+      id: 'draw-vertex', type: 'circle', source: 'draw-vertex',
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 12, 5],
+        'circle-color': '#0d121b', 'circle-stroke-color': DRAW_COLOR, 'circle-stroke-width': 2,
+      },
+    });
+    map.addLayer({
+      id: 'draw-marker', type: 'circle', source: 'draw-marker',
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 5, 12, 8],
+        'circle-color': DRAW_COLOR_MARKER, 'circle-stroke-color': '#0d121b', 'circle-stroke-width': 2,
+      },
+    });
+
+    // Rendu : (re)construit les FeatureCollections + les étiquettes HTML.
+    const renderDraw = () => {
+      const m = mapRef.current;
+      if (!m || !m.getSource('draw-line')) return;
+      const feats = drawFeaturesRef.current;
+      const draft = drawDraftRef.current;
+      const cursor = drawCursorRef.current;
+      const lineFeats: any[] = [], fillFeats: any[] = [], vertexFeats: any[] = [], markerFeats: any[] = [];
+      const labels: { lngLat: LngLat; text: string; strong?: boolean }[] = [];
+
+      for (const f of feats) {
+        if (f.kind === 'trace') {
+          lineFeats.push({ type: 'Feature', properties: { did: f.id }, geometry: { type: 'LineString', coordinates: f.pts } });
+          f.pts.forEach(p => vertexFeats.push({ type: 'Feature', properties: { did: f.id }, geometry: { type: 'Point', coordinates: p } }));
+          let cum = 0;
+          for (let i = 1; i < f.pts.length; i++) { const seg = distanceM(f.pts[i - 1], f.pts[i]); cum += seg; labels.push({ lngLat: midpoint(f.pts[i - 1], f.pts[i]), text: fmtDistance(seg) }); }
+          if (f.pts.length >= 2) labels.push({ lngLat: f.pts[f.pts.length - 1], text: `Σ ${fmtDistance(cum)}`, strong: true });
+        } else if (f.kind === 'circle') {
+          const ring = circleRing(f.center, f.radiusM);
+          lineFeats.push({ type: 'Feature', properties: { did: f.id }, geometry: { type: 'LineString', coordinates: ring } });
+          fillFeats.push({ type: 'Feature', properties: { did: f.id }, geometry: { type: 'Polygon', coordinates: [ring] } });
+          vertexFeats.push({ type: 'Feature', properties: { did: f.id }, geometry: { type: 'Point', coordinates: f.center } });
+          labels.push({ lngLat: destination(f.center, f.radiusM, 90), text: `r ${fmtDistance(f.radiusM)}`, strong: true });
+        } else {
+          markerFeats.push({ type: 'Feature', properties: { did: f.id }, geometry: { type: 'Point', coordinates: f.pt } });
+          labels.push({ lngLat: f.pt, text: f.label });
+        }
+      }
+
+      let readout = '';
+      if (draft && draft.kind === 'trace') {
+        const chain = cursor ? [...draft.pts, cursor] : draft.pts;
+        if (chain.length >= 2) lineFeats.push({ type: 'Feature', properties: { draft: true }, geometry: { type: 'LineString', coordinates: chain } });
+        draft.pts.forEach(p => vertexFeats.push({ type: 'Feature', properties: { draft: true }, geometry: { type: 'Point', coordinates: p } }));
+        if (chain.length >= 2) { const total = pathLengthM(chain); labels.push({ lngLat: chain[chain.length - 1], text: `Σ ${fmtDistance(total)}`, strong: true }); readout = `Tracé en cours — ${fmtDistance(total)} · ${draft.pts.length} pt (double-clic pour finir)`; }
+        else readout = 'Tracé — clique le point suivant';
+      } else if (draft && draft.kind === 'circle') {
+        const center = draft.pts[0];
+        vertexFeats.push({ type: 'Feature', properties: { draft: true }, geometry: { type: 'Point', coordinates: center } });
+        if (cursor) {
+          const r = distanceM(center, cursor);
+          const ring = circleRing(center, r);
+          lineFeats.push({ type: 'Feature', properties: { draft: true }, geometry: { type: 'LineString', coordinates: ring } });
+          fillFeats.push({ type: 'Feature', properties: { draft: true }, geometry: { type: 'Polygon', coordinates: [ring] } });
+          labels.push({ lngLat: destination(center, r, 90), text: `r ${fmtDistance(r)}`, strong: true });
+          readout = `Cercle — rayon ${fmtDistance(r)} (clique pour figer)`;
+        } else readout = 'Cercle — déplace puis clique le bord';
+      }
+
+      (m.getSource('draw-line') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: lineFeats });
+      (m.getSource('draw-fill') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: fillFeats });
+      (m.getSource('draw-vertex') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: vertexFeats });
+      (m.getSource('draw-marker') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: markerFeats });
+
+      for (const mk of drawLabelMarkersRef.current) mk.remove();
+      drawLabelMarkersRef.current = labels.map(l => {
+        const el = document.createElement('div');
+        el.textContent = l.text;
+        el.style.cssText =
+          `pointer-events:none;white-space:nowrap;font-family:'IBM Plex Mono',monospace;font-size:11px;` +
+          `font-weight:${l.strong ? 700 : 500};color:${l.strong ? '#0d121b' : '#ffe4b3'};` +
+          `background:${l.strong ? DRAW_COLOR : 'rgba(13,18,27,0.85)'};border:1px solid ${DRAW_COLOR};` +
+          `border-radius:6px;padding:1px 6px;transform:translateY(-4px);box-shadow:0 1px 4px rgba(0,0,0,0.4);`;
+        return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat(l.lngLat).addTo(m);
+      });
+
+      if (!readout && feats.length) {
+        const last = feats[feats.length - 1];
+        if (last.kind === 'trace') readout = `Dernier tracé — ${fmtDistance(pathLengthM(last.pts))}`;
+        else if (last.kind === 'circle') readout = `Dernier cercle — rayon ${fmtDistance(last.radiusM)} · aire ${fmtArea(Math.PI * last.radiusM * last.radiusM)}`;
+        else readout = `Repère ${last.label}`;
+      }
+      onDrawStatsRef.current?.({ count: feats.length, readout });
+    };
+    renderDrawRef.current = renderDraw;
+
+    const DRAW_LAYERS = ['draw-marker', 'draw-vertex', 'draw-line', 'draw-fill'];
+    const commitTrace = () => {
+      const d = drawDraftRef.current;
+      if (!d || d.kind !== 'trace') return;
+      // Retire les doublons de fin (les 2 clics d'un double-clic tombent au même endroit).
+      const pts = d.pts.slice();
+      while (pts.length >= 2 && distanceM(pts[pts.length - 1], pts[pts.length - 2]) < 3) pts.pop();
+      if (pts.length >= 2) drawFeaturesRef.current.push({ id: `d${drawIdRef.current++}`, kind: 'trace', pts });
+      drawDraftRef.current = null; drawCursorRef.current = null; renderDraw();
+    };
+
+    const onClick = (e: maplibregl.MapMouseEvent) => {
+      const mode = drawModeRef.current;
+      if (mode === 'off') return;
+      const pt: LngLat = [e.lngLat.lng, e.lngLat.lat];
+      if (mode === 'marker') {
+        drawFeaturesRef.current.push({ id: `d${drawIdRef.current++}`, kind: 'marker', pt, label: `R${++drawMarkerNumRef.current}` });
+        renderDraw(); return;
+      }
+      if (mode === 'trace') {
+        if (!drawDraftRef.current || drawDraftRef.current.kind !== 'trace') drawDraftRef.current = { kind: 'trace', pts: [pt] };
+        else drawDraftRef.current.pts.push(pt);
+        renderDraw(); return;
+      }
+      if (mode === 'circle') {
+        if (!drawDraftRef.current || drawDraftRef.current.kind !== 'circle') { drawDraftRef.current = { kind: 'circle', pts: [pt] }; renderDraw(); }
+        else {
+          const center = drawDraftRef.current.pts[0];
+          const r = distanceM(center, pt);
+          if (r > 0) drawFeaturesRef.current.push({ id: `d${drawIdRef.current++}`, kind: 'circle', center, radiusM: r });
+          drawDraftRef.current = null; drawCursorRef.current = null; renderDraw();
+        }
+        return;
+      }
+      if (mode === 'erase') {
+        const hit = map.queryRenderedFeatures(e.point, { layers: DRAW_LAYERS.filter(l => map.getLayer(l)) })[0];
+        const did = hit?.properties?.did;
+        if (did) { drawFeaturesRef.current = drawFeaturesRef.current.filter(f => f.id !== did); renderDraw(); }
+      }
+    };
+
+    let lastDrawMove = 0;
+    const onMove = (e: maplibregl.MapMouseEvent) => {
+      if (!drawDraftRef.current) return;
+      const now = Date.now();
+      if (now - lastDrawMove < 50) return;
+      lastDrawMove = now;
+      drawCursorRef.current = [e.lngLat.lng, e.lngLat.lat];
+      renderDraw();
+    };
+    const onDbl = (e: maplibregl.MapMouseEvent) => {
+      if (drawModeRef.current === 'trace' && drawDraftRef.current) { e.preventDefault(); commitTrace(); }
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      if (drawModeRef.current === 'off') return;
+      if (ev.key === 'Escape') { drawDraftRef.current = null; drawCursorRef.current = null; renderDraw(); }
+      else if (ev.key === 'Enter' && drawModeRef.current === 'trace') commitTrace();
+    };
+
+    map.on('click', onClick);
+    map.on('mousemove', onMove);
+    map.on('dblclick', onDbl);
+    window.addEventListener('keydown', onKey);
+
+    return () => {
+      map.off('click', onClick);
+      map.off('mousemove', onMove);
+      map.off('dblclick', onDbl);
+      window.removeEventListener('keydown', onKey);
+      for (const mk of drawLabelMarkersRef.current) mk.remove();
+      drawLabelMarkersRef.current = [];
+      renderDrawRef.current = null;
+    };
+  }, [mapReady]);
+
+  // Synchro du mode courant : maj de la ref, annulation du brouillon en cours,
+  // et bascule du double-clic-zoom (sinon finir un tracé zoomerait la carte).
+  useEffect(() => {
+    drawModeRef.current = drawMode;
+    drawDraftRef.current = null;
+    drawCursorRef.current = null;
+    const map = mapRef.current;
+    if (map) {
+      if (drawMode === 'off') map.doubleClickZoom.enable();
+      else map.doubleClickZoom.disable();
+      const canvas = map.getCanvas();
+      canvas.style.cursor = drawMode === 'off' ? '' : (drawMode === 'erase' ? 'not-allowed' : 'crosshair');
+    }
+    renderDrawRef.current?.();
+  }, [drawMode]);
+
+  // Signal « tout vider » : le parent incrémente drawClearTs → purge RAM + rendu.
+  useEffect(() => {
+    if (drawClearTs === undefined) return;
+    drawFeaturesRef.current = [];
+    drawDraftRef.current = null;
+    drawCursorRef.current = null;
+    renderDrawRef.current?.();
+  }, [drawClearTs]);
 
   // ── Fonds raster modernes (satellite ArcGIS + Plan IGN + SCAN25 + Ortho IGN) ──
   // Config déplacée en module scope (RASTER_BASES). Chaque fond = un calque raster

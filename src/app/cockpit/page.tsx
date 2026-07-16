@@ -8,7 +8,7 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import { search, buildMapData, BASE_PATH, type SearchResponse, type PlotPoint } from '@/lib/api';
 import { useDataPolling, useInterpolation, deadReckon } from '@/lib/liveData';
 import { useDataKey } from '@/lib/store';
-import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint, SatellitePoint, ShipPoint, SensitiveData, SensitivePoint, GeoEventPoint, CyberPoint, AlertPoint, OsintIpPin } from '@/components/OsirisMap';
+import type { AircraftPoint, QuakePoint, FirePoint, VolcanoPoint, SatellitePoint, ShipPoint, SensitiveData, SensitivePoint, GeoEventPoint, CyberPoint, AlertPoint, OsintIpPin, DrawMode } from '@/components/OsirisMap';
 import { AIRCRAFT_CAT_COLORS, AIRCRAFT_CAT_LABELS, AIRCRAFT_CAT_ORDER } from '@/components/OsirisMap';
 import { OSIRIS_VERSION, OSIRIS_VERSION_LABEL } from '@/lib/version';
 import { useAlertToasts } from '@/lib/alerts';
@@ -381,6 +381,17 @@ export default function Dashboard() {
   const [loadingDept, setLoadingDept] = useState<string | null>(null);
   const loadedDeptCodes = useMemo(() => Object.keys(deptData), [deptData]);
   const clearDepts = useCallback(() => setDeptData({}), []);
+
+  // ── Boîte à outils TRACÉ & MESURE (P1, éphémère) ──
+  const [measureOpen, setMeasureOpen] = useState(false);
+  const [drawMode, setDrawMode] = useState<DrawMode>('off');
+  const [drawClearTs, setDrawClearTs] = useState<number | undefined>(undefined);
+  const [drawStats, setDrawStats] = useState<{ count: number; readout: string }>({ count: 0, readout: '' });
+  const clearDraw = useCallback(() => setDrawClearTs(Date.now()), []);
+  // Fermer la boîte = repasser en interactions normales (pas de mode dessin résiduel).
+  const toggleMeasure = useCallback(() => {
+    setMeasureOpen((v) => { const open = !v; if (!open) setDrawMode('off'); return open; });
+  }, []);
   const onDeptPick = useCallback((code: string, nom: string, bbox: [number, number, number, number]) => {
     // Déjà chargé → clic = retirer (toggle off).
     if (deptDataRef.current[code]) {
@@ -752,6 +763,9 @@ export default function Dashboard() {
           onBoundsChange={handleBoundsChange}
           flyToLocation={flyToLocation}
           spotlight={spotlight}
+          drawMode={drawMode}
+          drawClearTs={drawClearTs}
+          onDrawStats={setDrawStats}
         />
       </ErrorBoundary>
 
@@ -1248,9 +1262,69 @@ export default function Dashboard() {
         >
           🎚️ FILTRES
         </button>
+        {/* Boîte à outils MESURE (tracer, distances, cercles rayon — 100 % hors-ligne) */}
+        <button
+          onClick={toggleMeasure}
+          className={`glass-panel hover-lift rounded-[12px] px-3.5 py-2 pointer-events-auto hover:border-[var(--accent)]/40 transition-colors text-[9px] font-mono tracking-widest ${measureOpen || drawMode !== 'off' ? 'text-[var(--accent)] border-[var(--accent)]/50 bg-[var(--accent-soft)]' : 'text-[var(--accent-bright)]'}`}
+          title="Mesure : tracer et lire les distances, cercles de rayon, repères (100 % hors-ligne, éphémère)"
+        >
+          📐 MESURE
+        </button>
         {/* Confort : Vues prédéfinies · Partager le lien · Aide raccourcis */}
         <ComfortBar onSelectPreset={handleSelectPreset} onShare={() => { void handleShare(); }} isMobile={isMobile} />
       </motion.div>
+
+      {/* ── PANNEAU BOÎTE À OUTILS MESURE (P1) ── */}
+      {measureOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="absolute bottom-[130px] md:bottom-[160px] right-4 z-[220] pointer-events-auto glass-panel rounded-[14px] p-3 w-[236px]"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-mono tracking-widest text-[var(--accent)]">📐 MESURE</span>
+            <button onClick={toggleMeasure} className="text-[var(--faint)] hover:text-[var(--accent)] text-[13px] leading-none" title="Fermer">✕</button>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {([
+              { m: 'trace' as DrawMode, icon: '📏', label: 'Tracer' },
+              { m: 'circle' as DrawMode, icon: '⭕', label: 'Cercle' },
+              { m: 'marker' as DrawMode, icon: '📍', label: 'Repère' },
+              { m: 'erase' as DrawMode, icon: '🩹', label: 'Gomme' },
+            ]).map(({ m, icon, label }) => (
+              <button
+                key={m}
+                onClick={() => setDrawMode((cur) => (cur === m ? 'off' : m))}
+                className={`rounded-[10px] px-2 py-1.5 text-[9px] font-mono tracking-widest border transition-colors ${drawMode === m ? 'text-[#0d121b] bg-[#ffb347] border-[#ffb347]' : 'text-[var(--accent-bright)] border-[var(--line)] hover:border-[var(--accent)]/40'}`}
+              >
+                {icon} {label.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          {/* Aide contextuelle selon le mode */}
+          <div className="mt-2 text-[8px] leading-snug font-mono text-[var(--muted)]">
+            {drawMode === 'trace' && 'Clique les points ; double-clic pour finir, Échap pour annuler.'}
+            {drawMode === 'circle' && 'Clique le centre, puis le bord. Le rayon s’affiche.'}
+            {drawMode === 'marker' && 'Clique pour poser un repère numéroté.'}
+            {drawMode === 'erase' && 'Clique un objet dessiné pour le retirer.'}
+            {drawMode === 'off' && 'Choisis un outil. Tout est hors-ligne et éphémère.'}
+          </div>
+          {/* Lecture de mesure + compteur */}
+          {drawStats.readout && (
+            <div className="mt-2 text-[9px] font-mono text-[#ffd27f] tabular-nums border-t border-[var(--line)] pt-2">{drawStats.readout}</div>
+          )}
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-[8px] font-mono tracking-widest text-[var(--faint)]">{drawStats.count} objet{drawStats.count > 1 ? 's' : ''}</span>
+            <button
+              onClick={clearDraw}
+              disabled={drawStats.count === 0}
+              className="rounded-[10px] px-2.5 py-1 text-[8px] font-mono tracking-widest border border-[var(--line)] text-[var(--accent-bright)] hover:border-[#db6f78]/50 hover:text-[#db6f78] transition-colors disabled:opacity-40 disabled:pointer-events-none"
+            >
+              🗑 VIDER
+            </button>
+          </div>
+        </motion.div>
+      )}
 
       {/* ── TOAST « LIEN COPIÉ » (retour visuel du bouton Partager) ── */}
       {shareToast && (
