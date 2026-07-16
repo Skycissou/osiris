@@ -22,7 +22,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Version courante affichée dans l'UI et tracée dans le brain. */
-export const OSIRIS_VERSION = 'V4.108-dev';
+export const OSIRIS_VERSION = 'V4.109-dev';
 
 /** Libellé produit (sous-titre du header). */
 export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
@@ -32,6 +32,15 @@ export const OSIRIS_VERSION_LABEL = 'Cockpit OSINT';
  * embarqué ; le détail vit dans VERSION.md. Date au format AAAA-MM-JJ.
  */
 export const OSIRIS_VERSION_HISTORY: { version: string; date: string; resume: string }[] = [
+  {
+    version: 'V4.109-dev',
+    date: '2026-07-16',
+    resume:
+      "🩹 Vrai fix de l'erreur MapLibre `circle-radius` de `sens-cctv-dots` (le fix V4.108 était encore faux : " +
+      "`['+', interpolate-zoom, case]` imbrique l'interpolation-zoom, or MapLibre l'exige au TOP-LEVEL). Corrigé : " +
+      "UN SEUL `interpolate` sur `['zoom']`, taille rendue data-driven par un `case` sur `streamUrl` DANS chaque " +
+      "sortie de palier (webcam vidéo plus grosse, position OSM taille de base). Distinction vert/rouge conservée. Build+tsc verts.",
+  },
   {
     version: 'V4.108-dev',
     date: '2026-07-16',

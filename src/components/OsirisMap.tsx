@@ -979,11 +979,14 @@ function OsirisMap({
           paint: {
             // cctv : webcam Windy AVEC flux (streamUrl) → vert vif + plus gros
             //  (= vidéo cliquable), sinon position OSM → couleur de base (pas de flux).
-            // UNE seule interpolation-zoom autorisée par expression → on ajoute
-            //  +2.5 au rayon si webcam vidéo (case additif, pas un 2ᵉ interpolate).
+            // MapLibre : l'interpolation-zoom DOIT être au TOP-LEVEL (jamais imbriquée
+            //  dans '+' ni 'case'). On garde donc UN SEUL interpolate et on rend la
+            //  taille data-driven via un `case` sur streamUrl DANS chaque sortie de
+            //  palier (vidéo = plus gros, position OSM = taille de base).
             'circle-radius': stream
-              ? ['+', ['interpolate', ['linear'], ['zoom'], 4, 3.5, 12, 7],
-                  ['case', ['to-boolean', ['get', 'streamUrl']], 2.5, 0]]
+              ? ['interpolate', ['linear'], ['zoom'],
+                  4, ['case', ['to-boolean', ['get', 'streamUrl']], 6, 3.5],
+                  12, ['case', ['to-boolean', ['get', 'streamUrl']], 9.5, 7]]
               : ['interpolate', ['linear'], ['zoom'], 4, 3.5, 12, 7],
             'circle-color': stream
               ? ['case', ['to-boolean', ['get', 'streamUrl']], '#4ade80', color]
