@@ -137,7 +137,9 @@ export function parseListing(html: string): ArpdAvisParsed[] {
     // Photo (optionnelle) — cherchée UNIQUEMENT dans le bloc image, avant la région.
     const imgZone = chunk.split('views-field-field-region')[0];
     const imgM = imgZone.match(/views-field-field-imagealaune3[\s\S]*?<img[^>]+src="([^"]+)"/);
-    const photoUrl = imgM ? ARPD_BASE + imgM[1] : null;
+    // B3 (dette) : si le listing sert une URL ABSOLUE, ne pas re-préfixer ARPD_BASE
+    //  (sinon `https://www.arpd.frhttps://…`). Relatif → préfixe comme avant.
+    const photoUrl = imgM ? (/^https?:\/\//i.test(imgM[1]) ? imgM[1] : ARPD_BASE + imgM[1]) : null;
 
     out.push({
       id, url, titreBrut,

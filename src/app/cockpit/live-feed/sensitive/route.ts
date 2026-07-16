@@ -451,8 +451,10 @@ async function fetchSigint(req: NextRequest, _bbox: BBox): Promise<Sigint[]> {
  * [] (aucun appel). Avec clé → renvoyer un/des segment(s) { id, geojson } (le
  * geojson est opaque : LineString/MultiLineString consommé tel quel par la carte).
  */
-async function fetchFrontline(_bbox: BBox): Promise<Frontline[]> {
-  const key = process.env.FRONTLINE_KEY;
+async function fetchFrontline(req: NextRequest, _bbox: BBox): Promise<Frontline[]> {
+  // Clé effective : en-tête user `x-osiris-key-frontline` OU env FRONTLINE_KEY
+  // (voir keyOf) — parité avec les 6 autres couches (B6 de l'audit dette).
+  const key = keyOf(req, 'frontline', 'FRONTLINE_KEY');
   if (!key) return [];
   // TODO(forme 2) : brancher la source de tracé (GeoJSON), renvoyer { id, geojson }.
   return [];
@@ -523,7 +525,7 @@ export async function GET(request: NextRequest) {
       fetchScanners(request, bbox),
       fetchSigint(request, bbox),
       fetchMilitaryBases(bbox),
-      fetchFrontline(bbox),
+      fetchFrontline(request, bbox),
       fetchTelegramOsint(request, bbox),
     ]);
 
